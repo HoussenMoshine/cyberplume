@@ -1,0 +1,18 @@
+# Environnements virtuels Python
+venv/
+.venv/
+env/
+ENV/
+
+# Fichiers d'environnement
+.env
+.env.*
+!.env.example
+
+# Fichiers spécifiques aux IDE (optionnel, mais souvent utile)
+.vscode/
+.idea/
+
+# Fichiers de logs temporaires ou de tests à la racine
+*.log
+test_temp.db

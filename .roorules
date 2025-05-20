@@ -1,0 +1,3 @@
+- Si vous n'êtes pas sur la documentation, vous pouvez utiliser context7 pour avoir la documentation la plus récente.
+- Quand vous générez du code, évitez d'abuser des commentaires HTML, mettez uniquement les commentaires nécessaires
+- Quand vous lancez des commandes dans le terminal pour le backend, toujours s'assurer que l'environnement virtuel python est activé et qu'on est dans le bon répertoire
