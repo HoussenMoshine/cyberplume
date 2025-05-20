@@ -40,7 +40,7 @@ CyberPlume offre une suite d'outils intégrés pour accompagner les écrivains �
 
 ## Soutenir CyberPlume
 
-Si vous appréciez CyberPlume et souhaitez soutenir son développement continu, vous pouvez le faire via Patreon. Votre soutien est grandement apprécié !
+Si vous appréciez CyberPlume ou que vous me suivez sur ma chaine Youtube dédiée à l'IA et que vous souhaitez me soutenir, vous pouvez le faire via Patreon. Votre soutien est grandement apprécié !
 
 [![Soutenir sur Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/houssenmoshine)
 
