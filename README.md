@@ -4,6 +4,15 @@
 
 CyberPlume est une application d'aide à l'écriture conçue pour fonctionner localement sur votre machine. Elle vise à fournir aux écrivains une interface moderne et des outils d'assistance basés sur l'IA pour faciliter le processus de création, d'organisation et de révision de leurs œuvres.
 
+## Table des Matières
+
+- [Fonctionnalités Clés](#fonctionnalités-clés)
+- [Technologies Utilisées](#technologies-utilisées)
+- [Prérequis](#prérequis)
+- [Installation](#installation)
+- [Lancement de l'Application](#lancement-de-lapplication)
+- [Dépannage (Troubleshooting)](#dépannage-troubleshooting)
+- [Structure du Projet (Aperçu)](#structure-du-projet-aperçu)
 ## Fonctionnalités Clés
 
 CyberPlume offre une suite d'outils intégrés pour accompagner les écrivains à chaque étape de leur processus créatif :
@@ -27,6 +36,15 @@ CyberPlume offre une suite d'outils intégrés pour accompagner les écrivains �
     *   **Formats Multiples :** Exportez votre travail aux formats DOCX, PDF, TXT, EPUB, ODT, et Markdown.
     *   **Niveaux d'Export :** Exportez un chapitre spécifique ou l'intégralité d'un projet.
 
+---
+
+## Soutenir CyberPlume
+
+Si vous appréciez CyberPlume et souhaitez soutenir son développement continu, vous pouvez le faire via Patreon. Votre soutien est grandement apprécié !
+
+[![Soutenir sur Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/houssenmoshine)
+
+---
 ## Technologies Utilisées
 
 *   **Backend :**
