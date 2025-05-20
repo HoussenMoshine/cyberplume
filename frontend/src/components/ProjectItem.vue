@@ -54,7 +54,7 @@
             <v-divider class="my-1"></v-divider>
             <v-list-subheader>Exporter Projet</v-list-subheader>
             <v-list-item
-              @click="$emit('handle-export', project.id, 'docx')"
+              @click="$emit('handle-export', { projectId: project.id, format: 'docx' })"
               :disabled="!!exportingProjectId"
               title="Exporter Projet en DOCX"
             >
@@ -67,7 +67,7 @@
               </template>
             </v-list-item>
              <v-list-item
-              @click="$emit('handle-export', project.id, 'pdf')"
+              @click="$emit('handle-export', { projectId: project.id, format: 'pdf' })"
               :disabled="!!exportingProjectId"
               title="Exporter Projet en PDF"
             >
@@ -80,7 +80,7 @@
                </template>
              </v-list-item>
              <v-list-item
-              @click="$emit('handle-export', project.id, 'txt')"
+              @click="$emit('handle-export', { projectId: project.id, format: 'txt' })"
               :disabled="!!exportingProjectId"
               title="Exporter Projet en TXT"
             >
@@ -93,7 +93,7 @@
                </template>
              </v-list-item>
              <v-list-item
-              @click="$emit('handle-export', project.id, 'epub')"
+              @click="$emit('handle-export', { projectId: project.id, format: 'epub' })"
               :disabled="!!exportingProjectId"
               title="Exporter Projet en EPUB"
             >

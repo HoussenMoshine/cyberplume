@@ -493,11 +493,12 @@ const handleProjectExport = async ({ projectId, format }) => {
 };
 
 const handleChapterExport = async ({ chapterId, format }) => {
-  const chapter = findChapterById(chapterId);
-  if (chapter) {
-    await exportChapter(chapter.project_id, chapterId, format);
+  // La fonction exportChapter dans useChapters attend chapterId et format.
+  // project_id n'est pas nécessaire pour l'appel API d'export de chapitre.
+  if (chapterId && format) {
+    await exportChapter(chapterId, format);
   } else {
-    showSnackbar(`Chapitre avec ID ${chapterId} non trouvé pour l'export.`, 'error');
+    showSnackbar(`Informations manquantes pour l'export du chapitre (ID: ${chapterId}, Format: ${format}).`, 'error');
   }
 };
 

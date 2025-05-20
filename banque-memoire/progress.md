@@ -1,4 +1,4 @@
-# Progression - CyberPlume (Mise à jour : 20/05/2025 - 09:41)
+# Progression - CyberPlume (Mise à jour : 20/05/2025 - 14:17)
 
 ## Ce qui Fonctionne (État Actuel)
 
@@ -7,10 +7,10 @@
 *   Réordonnancement : API pour réorganiser les chapitres (`/reorder`) opérationnelle.
 *   API IA Générale (`/generate/text`) : Améliorée pour gérer les styles et le contexte des personnages.
 *   API Génération Personnage (`/api/characters/generate`) : Améliorée.
-*   API Export : Export de chapitres et projets complets fonctionnel pour DOCX, PDF, TXT, EPUB.
+*   **API Export : Export de chapitres et projets complets fonctionnel pour DOCX, PDF, TXT, EPUB (Bugs corrigés le 20/05 - Fin d'après-midi).**
 *   API Analyse Cohérence (`/api/analyze/consistency`) : Fonctionnelle.
 *   API Modèles IA (`/models/{provider}`) : Récupération dynamique des modèles OK.
-*   **API Analyse Style (`/api/style/analyze-upload`) : Fonctionnelle (Bug 422 corrigé).**
+*   API Analyse Style (`/api/style/analyze-upload`) : Fonctionnelle (Bug 422 corrigé).
 *   Architecture IA : Structure modulaire avec Adapters et Factory stable.
     *   Adaptateur Mistral ([`backend/ai_services/mistral_adapter.py`](backend/ai_services/mistral_adapter.py:1)) : Corrigé et compatible avec `mistralai` v1.7.0.
 *   Base de Données : Gestion SQLite OK.
@@ -22,36 +22,34 @@
 ### Frontend
 *   Fonctionnalités de base de l'éditeur et gestion de projet : Stables et fonctionnelles.
 *   Fournisseur Mistral AI (Éditeur Principal) : Fonctionne.
-*   **Intégration d'icônes SVG personnalisées (Terminée le 20/05) :**
-    *   Logo de l'application ([`frontend/src/assets/cyberplume.svg`](frontend/src/assets/cyberplume.svg:1)) intégré dans la barre de navigation principale ([`frontend/src/App.vue`](frontend/src/App.vue:1)).
-    *   Icône personnalisée ([`frontend/src/assets/ajouter.svg`](frontend/src/assets/ajouter.svg:1)) pour "Ajouter Projet" dans [`frontend/src/components/ProjectToolbar.vue`](frontend/src/components/ProjectToolbar.vue:1).
-    *   Icône personnalisée ([`frontend/src/assets/editer.svg`](frontend/src/assets/editer.svg:1)) pour "Renommer Projet" dans [`frontend/src/components/ProjectItem.vue`](frontend/src/components/ProjectItem.vue:1).
-    *   Icône personnalisée ([`frontend/src/assets/enregistrer.svg`](frontend/src/assets/enregistrer.svg:1)) pour "Sauvegarde manuelle" dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:1).
-    *   Icône personnalisée ([`frontend/src/assets/poubelle.svg`](frontend/src/assets/poubelle.svg:1)) pour "Supprimer Projet" dans [`frontend/src/components/ProjectItem.vue`](frontend/src/components/ProjectItem.vue:1).
-*   **Amélioration esthétique des dialogues de génération IA (Terminée le 20/05) :**
-    *   Dialogue de génération de scène ([`frontend/src/components/dialogs/GenerateSceneDialog.vue`](frontend/src/components/dialogs/GenerateSceneDialog.vue:1)) : Image d'arrière-plan SVG ([`frontend/src/assets/scene2.svg`](frontend/src/assets/scene2.svg:1)) intégrée avec succès en filigrane (opacité `0.05`).
-    *   Dialogue de génération de personnage ([`frontend/src/components/CharacterManager.vue`](frontend/src/components/CharacterManager.vue:1)) : Image d'arrière-plan SVG ([`frontend/src/assets/character2.svg`](frontend/src/assets/character2.svg:1)) intégrée avec succès en filigrane (opacité `0.035`).
-*   **Analyse de Style par Upload (Corrigée le 20/05 - Fin d'après-midi) :**
-    *   La gestion du fichier uploadé dans [`frontend/src/components/dialogs/StyleAnalysisDialog.vue`](frontend/src/components/dialogs/StyleAnalysisDialog.vue:1) et [`frontend/src/composables/useAIActions.js`](frontend/src/composables/useAIActions.js:1) a été corrigée pour passer correctement l'objet `File`.
+*   Intégration d'icônes SVG personnalisées (Terminée le 20/05).
+*   Amélioration esthétique des dialogues de génération IA (Terminée le 20/05).
+*   Analyse de Style par Upload (Corrigée le 20/05 - Fin d'après-midi).
+*   **Export de Projets et Chapitres (Corrigé le 20/05 - Fin d'après-midi) :**
+    *   Correction de la transmission des arguments (`projectId`, `chapterId`, `format`) dans [`frontend/src/components/ProjectItem.vue`](frontend/src/components/ProjectItem.vue:1), [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1), et [`frontend/src/components/ProjectManager.vue`](frontend/src/components/ProjectManager.vue:1).
+    *   Correction de l'erreur `format.toUpperCase is not a function` dans [`frontend/src/composables/useChapters.js`](frontend/src/composables/useChapters.js:164) et du problème des options d'export de chapitre grisées.
 
 ### Configuration & Outillage
 *   Proxy Vite ([`frontend/vite.config.js`](frontend/vite.config.js:1)) : Configuration corrigée.
 *   Utilisation de `Context7` pour la documentation.
 *   Répertoire d'assets ([`frontend/src/assets/`](frontend/src/assets/)) contenant les icônes SVG personnalisées.
 *   Documentation des idées d'icônes dans [`banque-memoire/idees-icones.md`](banque-memoire/idees-icones.md).
-*   **Préparation pour GitHub (Terminée le 20/05 - Milieu de journée) :**
-    *   Fichiers `.gitignore` créés et configurés pour la racine, le backend et le frontend.
-    *   Fichiers `.env.example` créés pour le backend et le frontend.
-    *   Vérification des informations sensibles (pas de clés hardcodées).
-    *   Fichier `README.md` complet et pédagogique créé à la racine.
-    *   Dépendances vérifiées et conflits résolus dans [`backend/requirements.txt`](backend/requirements.txt) et [`frontend/package.json`](frontend/package.json).
-    *   Image logo copiée vers `docs/assets/logo.svg`.
+*   **Préparation pour GitHub (Terminée le 20/05 - Milieu de journée).**
+*   **Initialisation Git et Publication sur GitHub (Terminée le 20/05 - Après-midi).**
+*   **Améliorations du `README.md` (Terminées le 20/05 - Après-midi).**
+*   **Planification Dockerisation (Effectuée le 20/05 - Après-midi).**
+*   *Note : Les logs de débogage ajoutés dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1) pour le bug d'export sont toujours présents et pourraient être nettoyés.*
 
 ## Ce qui Reste à Construire / Améliorer (Prochaine Session)
 
-*   **Initialisation Git et Publication sur GitHub.**
-*   **Tests Post-Publication** (installation depuis le `README.md`, tests backend pour `httpx`).
-*   **(Si temps disponible) Nettoyage des logs de débogage** dans [`backend/routers/style.py`](backend/routers/style.py:1).
+*   **Implémentation de la Dockerisation (Priorité Haute) :**
+    *   Création des `Dockerfile` pour le backend et le frontend (mode dev).
+    *   Création et configuration du fichier `docker-compose.yml`.
+    *   Tests de la configuration Docker.
+*   **(Si temps disponible) Nettoyage des logs de débogage :**
+    *   Dans [`backend/routers/style.py`](backend/routers/style.py:1).
+    *   Dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1) (logs ajoutés pour le bug d'export).
+*   **Tests Post-Publication GitHub** (installation depuis le [`README.md`](README.md:1), tests backend pour `httpx` - à confirmer si l'utilisateur les a faits en détail).
 *   **(Si temps disponible) Bugs des scènes (à réévaluer).**
 *   **(Si temps disponible) Exécuter `npm audit fix` et traiter les vulnérabilités.**
 *   **Réflexion Stratégique IA (si pertinent).**
@@ -66,22 +64,21 @@
 
 ## Évolution des Décisions
 
-### Session 20 Mai - Fin d'après-midi
-*   **Bug d'Analyse de Style Corrigé :**
-    *   La cause était une mauvaise gestion de l'objet `File` retourné par `v-file-input` dans le frontend.
-    *   Correction apportée dans [`frontend/src/components/dialogs/StyleAnalysisDialog.vue`](frontend/src/components/dialogs/StyleAnalysisDialog.vue:1) pour extraire correctement l'objet `File`.
-    *   Amélioration du logging et de la validation dans [`frontend/src/composables/useAIActions.js`](frontend/src/composables/useAIActions.js:1).
-*   **Prochaine priorité :** Initialisation Git et publication sur GitHub.
+### Session 20 Mai - Fin d'après-midi (Cette session)
+*   **Bugs d'Export Corrigés :** Les problèmes d'export de projets et de chapitres dus à une mauvaise transmission des arguments et à une erreur dans `useChapters.js` ont été résolus.
+*   **Mises à jour Git :** Les corrections ont été (ou seront) poussées sur GitHub.
 
-### Session 20 Mai - Milieu de journée (Précédente)
-*   **Préparation GitHub Terminée :**
-    *   Mise à jour de `httpx` à `0.28.1` dans [`backend/requirements.txt`](backend/requirements.txt).
-    *   Fixation de `vuetify` à `3.3.11` dans [`frontend/package.json`](frontend/package.json).
-    *   Création des fichiers `.gitignore` (racine, backend, frontend).
-    *   Création des fichiers `.env.example` (backend, frontend).
-    *   Modification de [`backend/config.py`](backend/config.py:1) pour rendre `API_KEY` obligatoire.
-    *   Création d'un `README.md` détaillé.
+### Session 20 Mai - Après-midi (Précédente)
+*   **Initialisation Git et Publication GitHub Réussies.**
+*   **`README.md` Amélioré.**
+*   **Planification Dockerisation.**
+
+### Session 20 Mai - Fin d'après-midi (Encore avant)
+*   **Bug d'Analyse de Style Corrigé.**
+
+### Session 20 Mai - Milieu de journée (Encore avant)
+*   **Préparation GitHub Terminée.**
 
 *(Les sections d'évolution des décisions plus anciennes sont conservées dans activeContext.md)*
 
-*Ce document reflète l'état au 20/05/2025 (09:41).*
+*Ce document reflète l'état au 20/05/2025 (14:17).*

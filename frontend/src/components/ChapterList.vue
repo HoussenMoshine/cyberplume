@@ -54,7 +54,7 @@
                         density="default"
                         variant="text"
                         v-bind="menuProps"
-                        @click.stop
+                        @click.stop="() => { console.log('ChapterList Menu clicked, exportingChapterId:', exportingChapterId); }"
                         title="Actions Chapitre"
                         class="action-menu-btn"
                         size="default"
@@ -64,7 +64,7 @@
                     </template>
                     <v-list density="compact">
                       <v-list-subheader>Exporter Chapitre</v-list-subheader>
-                      <v-list-item @click="$emit('handle-export', chapter.id, 'docx')" :disabled="!!exportingChapterId" title="Exporter Chapitre en DOCX">
+                      <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'docx' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en DOCX">
                         <template v-slot:prepend>
                           <IconFileText size="20" class="mr-3"/>
                         </template>
@@ -73,7 +73,7 @@
                             <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
                           </template>
                       </v-list-item>
-                      <v-list-item @click="$emit('handle-export', chapter.id, 'pdf')" :disabled="!!exportingChapterId" title="Exporter Chapitre en PDF">
+                      <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'pdf' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en PDF">
                         <template v-slot:prepend>
                           <IconFileTypePdf size="20" class="mr-3"/>
                         </template>
@@ -82,7 +82,7 @@
                             <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
                           </template>
                        </v-list-item>
-                       <v-list-item @click="$emit('handle-export', chapter.id, 'txt')" :disabled="!!exportingChapterId" title="Exporter Chapitre en TXT">
+                       <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'txt' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en TXT">
                          <template v-slot:prepend>
                            <IconFileText size="20" class="mr-3"/>
                          </template>
@@ -91,7 +91,7 @@
                              <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
                            </template>
                         </v-list-item>
-                       <v-list-item @click="$emit('handle-export', chapter.id, 'epub')" :disabled="!!exportingChapterId" title="Exporter Chapitre en EPUB">
+                       <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'epub' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en EPUB">
                          <template v-slot:prepend>
                            <IconBookDownload size="20" class="mr-3"/>
                          </template>
@@ -178,7 +178,7 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref, watch, computed, nextTick } from 'vue';
+import { defineProps, defineEmits, ref, watch, computed, nextTick, onMounted } from 'vue'; // Ajout de onMounted
 import draggable from 'vuedraggable';
 import {
   VListGroup, VListItem, VListItemTitle, VListSubheader, VDivider,
@@ -198,21 +198,25 @@ import {
 } from '@tabler/icons-vue';
 
 const props = defineProps({
+  projectId: {
+    type: Number,
+    required: true,
+  },
   chapters: {
     type: Array,
-    default: () => []
+    default: () => [],
   },
   loadingChapters: {
     type: Boolean,
-    default: false
+    default: false,
   },
   errorChapters: {
-    type: [String, null],
-    default: null
+    type: String,
+    default: null,
   },
   selectedChapterId: {
     type: [Number, null],
-    default: null
+    default: null,
   },
   selectedChapterIds: {
     type: Array,
@@ -226,58 +230,96 @@ const props = defineProps({
     type: [String, null],
     default: null
   },
-  projectId: {
-    type: Number,
-    required: true
-  },
-selectedAiProvider: { type: String, default: null },
-  selectedAiModel: { type: String, default: null },
-  selectedAiStyle: { type: String, default: null },
-  customAiDescription: { type: String, default: null },
+  // Props pour l'IA contextuelle
+  selectedAiProvider: String,
+  selectedAiModel: String,
+  selectedAiStyle: String,
+  customAiDescription: String,
 });
+
+// Log pour vérifier la valeur de la prop exportingChapterId à la création/mise à jour
+onMounted(() => {
+  console.log(`ChapterList for project ${props.projectId} MOUNTED. exportingChapterId:`, props.exportingChapterId);
+});
+watch(() => props.exportingChapterId, (newValue) => {
+  console.log(`ChapterList for project ${props.projectId} exportingChapterId prop CHANGED to:`, newValue);
+});
+
 
 const emit = defineEmits([
   'reordered',
   'select-chapter',
   'toggle-selection',
   'handle-export',
-  'open-delete',
   'open-add-scene',
+  'open-delete',
   'load-scenes-if-needed',
   'apply-suggestion',
   'add-chapter-requested',
-  'chapter-updated' // Ajout de l'événement
+  'chapter-updated'
 ]);
 
-const localChapters = ref([...props.chapters]);
+const { getProjectById } = useProjects();
+const getProjectNameById = (id) => {
+  const project = getProjectById(id);
+  return project ? project.title : 'Projet inconnu';
+};
+
+
+const localChapters = ref([]);
+const showAddChapterDialog = ref(false);
+const showEditChapterDialog = ref(false);
+const editingChapter = ref(null);
+const addChapterError = ref(null); // Pour le dialogue d'ajout
+const editChapterError = ref(null); // Pour le dialogue d'édition
+
+const { submittingChapter, addChapter, updateChapter } = useChapters();
+const {
+    chapterAnalysisResult, loadingChapterAnalysis, errorChapterAnalysis,
+    triggerChapterAnalysis, clearChapterAnalysisState
+} = useAnalysis();
+
+const showChapterAnalysisDialog = ref(false);
+const analyzingChapterId = ref(null);
+
+
+const getChapterTitleById = (chapterId) => {
+  if (!chapterId || !localChapters.value) return 'Chapitre inconnu';
+  const chapter = localChapters.value.find(c => c.id === chapterId);
+  return chapter ? chapter.title : 'Chapitre inconnu';
+};
+
+
+const openChapterAnalysisDialog = (chapterId) => {
+  analyzingChapterId.value = chapterId;
+  clearChapterAnalysisState(); // Clear previous results
+  triggerChapterAnalysis(chapterId);
+  showChapterAnalysisDialog.value = true;
+};
+
+const closeChapterAnalysisDialog = () => {
+  showChapterAnalysisDialog.value = false;
+  analyzingChapterId.value = null;
+};
+
+const handleApplySuggestion = (suggestion) => {
+  emit('apply-suggestion', suggestion);
+  closeChapterAnalysisDialog();
+};
 
 
 watch(() => props.chapters, (newChapters) => {
-  localChapters.value = [...newChapters];
-}, { deep: true });
-
-
-const { submittingChapter, updateChapter, error: chapterError } = useChapters();
-
-const {
-  loadingChapterAnalysis, errorChapterAnalysis, chapterAnalysisResult,
-  triggerChapterAnalysis, analyzingChapterId,
-} = useAnalysis();
-
-
-
-const { getProjectById } = useProjects();
-
-const showAddChapterDialog = ref(false);
-const addChapterError = ref(null);
-const showEditChapterDialog = ref(false);
-const editingChapter = ref(null);
-const editChapterError = ref(null);
-const showChapterAnalysisDialog = ref(false);
+  // console.log(`DEBUG ChapterList WATCH props.chapters for project ${props.projectId}:`, newChapters ? newChapters.length : 0);
+  if (newChapters) {
+    localChapters.value = [...newChapters].sort((a, b) => a.order - b.order);
+  } else {
+    localChapters.value = [];
+  }
+}, { immediate: true, deep: true });
 
 
 const openAddChapterDialogInternal = () => {
-  addChapterError.value = null;
+  addChapterError.value = null; // Réinitialiser l'erreur
   showAddChapterDialog.value = true;
 };
 
@@ -286,13 +328,25 @@ const handleAddChapterDialogClose = () => {
   addChapterError.value = null;
 };
 
-
-const handleAddChapterDialogSave = (chapterTitle) => {
+const handleAddChapterDialogSave = async (title) => {
   addChapterError.value = null;
-  emit('add-chapter-requested', chapterTitle);  
-  handleAddChapterDialogClose();
+  const newChapterData = {
+    project_id: props.projectId,
+    title: title,
+    order: localChapters.value.length > 0 ? Math.max(...localChapters.value.map(c => c.order)) + 1 : 0
+  };
+  const result = await addChapter(newChapterData);
+  if (result) {
+    // localChapters.value.push(result); // Le composable met à jour la liste globale
+    // localChapters.value.sort((a, b) => a.order - b.order);
+    emit('add-chapter-requested', title); // Pour que ProjectManager puisse rafraîchir
+    showAddChapterDialog.value = false;
+  } else {
+    // L'erreur est gérée par le composable et affichée via props.errorChapters
+    // ou une snackbar si implémenté dans le composable
+    addChapterError.value = "Erreur lors de l'ajout du chapitre."; // Message d'erreur générique pour le dialogue
+  }
 };
-
 
 const openEditChapterDialog = (chapter) => {
   editingChapter.value = { ...chapter };
@@ -306,88 +360,80 @@ const closeEditChapterDialog = () => {
   editChapterError.value = null;
 };
 
-
-
-const submitEditChapter = async (chapterData) => {
-  editChapterError.value = null;
+const submitEditChapter = async (newTitle) => {
   if (!editingChapter.value) return;
-  const payload = typeof chapterData === 'string' ? { title: chapterData } : chapterData;
-  const success = await updateChapter(editingChapter.value.id, payload);
-  if (success) {
-    emit('chapter-updated', { projectId: props.projectId, chapterId: editingChapter.value.id }); // Émission de l'événement
-    closeEditChapterDialog();    
-  } else {    
-    editChapterError.value = chapterError.value || 'Erreur lors de la modification du chapitre.';
+  editChapterError.value = null;
+  const updatedData = { title: newTitle };
+  const result = await updateChapter(editingChapter.value.id, updatedData);
+  if (result) {
+    // const index = localChapters.value.findIndex(c => c.id === editingChapter.value.id);
+    // if (index !== -1) {
+    //   localChapters.value[index] = result;
+    // }
+    emit('chapter-updated'); // Pour que ProjectManager puisse rafraîchir
+    closeEditChapterDialog();
+  } else {
+    editChapterError.value = "Erreur lors de la mise à jour du chapitre.";
   }
-};
-
-const openChapterAnalysisDialog = async (chapterId) => {
-  await triggerChapterAnalysis(chapterId, props.selectedAiProvider, props.selectedAiModel);
-  showChapterAnalysisDialog.value = true;
-};
-
-const closeChapterAnalysisDialog = () => {
-  showChapterAnalysisDialog.value = false;
-};
-
-const getChapterTitleById = (chapterId) => {
-  const chapter = localChapters.value.find(c => c.id === chapterId);
-  return chapter ? chapter.title : 'Chapitre inconnu';
-};
-
-const getProjectNameById = (projectId) => {
-    const project = getProjectById(projectId);
-    return project ? project.title : 'Projet inconnu';
-};
-
-
-const handleApplySuggestion = (suggestion) => {
-  emit('apply-suggestion', suggestion);
 };
 
 </script>
 
 <style scoped>
 .chapters-container {
+  /* background-color: #f9f9f9; */
+  /* border-top: 1px solid #eee; */
+  /* border-bottom: 1px solid #eee; */
 }
-
-.chapter-group ::v-deep(.v-list-group__items) {
-  --v-list-item-padding-left: 0;
-}
-
-.list-item-hover-actions {
-  position: relative;
-}
-
-.action-menu-btn {
-  opacity: 0;
-  transition: opacity 0.2s ease-in-out;
-}
-
-.list-item-hover-actions:hover .action-menu-btn {
-  opacity: 1;
-}
-
-.drag-handle {
-  cursor: grab;
-}
-
 .ghost-item {
   opacity: 0.5;
-  background-color: rgba(var(--v-theme-primary), 0.05); /* Updated background color */
+  background: #c8ebfb;
 }
-
 .drag-item {
-  background-color: rgba(var(--v-theme-primary), 0.1); /* Updated background color */
-  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  background: #e0f7fa;
+  /* box-shadow: 0 2px 5px rgba(0,0,0,0.1); */
+}
+.drag-handle {
+  cursor: grab;
+  color: #757575;
+}
+.drag-handle:hover {
+  color: #333;
 }
 
-.active-chapter {
-  background-color: rgba(var(--v-theme-secondary), 0.1);
-  border-left: 3px solid rgb(var(--v-theme-secondary));
+.chapter-group {
+  margin-bottom: 0px; /* Reduced margin */
+  border-radius: 4px;
+  /* overflow: hidden; */
 }
 
 .chapter-item {
-  border-left: 3px solid transparent;
+  /* background-color: white; */
+  /* border-bottom: 1px solid #f0f0f0; */
+  transition: background-color 0.1s ease-in-out;
+}
+.chapter-item:hover {
+  /* background-color: #f5f5f5; */
+}
+
+.active-chapter {
+  /* background-color: rgba(var(--v-theme-primary), 0.08) !important; */
+  /* border-left: 3px solid rgb(var(--v-theme-primary)) !important; */
+  /* color: rgb(var(--v-theme-primary)) !important; */
+}
+.active-chapter .v-list-item-title {
+  /* color: rgb(var(--v-theme-primary)) !important; */
+  /* font-weight: 500 !important; */
+}
+
+.list-item-hover-actions .action-menu-btn {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.list-item-hover-actions:hover .action-menu-btn {
+    visibility: visible;
+    opacity: 1;
 }
 </style>
