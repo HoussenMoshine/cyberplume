@@ -1,3 +1,48 @@
+# Contexte Actif - CyberPlume (Mise à jour : 20/05/2025 - 14:32)
+
+## Focus Actuel
+
+*   **Fin de session de développement (20 Mai - Fin d'après-midi).**
+*   Correction de bugs liés à la gestion des chapitres (ajout, renommage).
+*   Mise à jour de la Banque de Mémoire.
+
+## Décisions et Actions Clés de la Session (20 Mai - Fin d'après-midi - Suite)
+
+*   **Correction du Bug d'Ajout de Chapitre :**
+    *   **Problème :** L'ajout de nouveaux chapitres ne fonctionnait pas. L'appel à la fonction `addChapter` dans le composable `useChapters.js` depuis [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:338) était incorrect. Il passait un objet unique `newChapterData` au lieu des arguments `projectId` et `title` attendus séparément.
+    *   **Solution :** Modification de la fonction `handleAddChapterDialogSave` dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:331) pour appeler `addChapter(props.projectId, title)`.
+    *   **Résultat :** L'ajout de chapitres est de nouveau fonctionnel.
+
+*   **Correction du Bug de Renommage de Chapitre (Rafraîchissement UI) :**
+    *   **Problème :** Après avoir renommé un chapitre, l'interface utilisateur ne se mettait pas à jour immédiatement (nécessitant un rechargement de page) et une erreur `TypeError: Cannot destructure property 'projectId' of 'undefined'` apparaissait dans la console. L'événement `chapter-updated` était émis par [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:373) sans les données nécessaires (`projectId`, `chapterId`).
+    *   **Solution :** Modification de la fonction `submitEditChapter` dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:363) pour que l'émission de l'événement `chapter-updated` inclue un objet `{ projectId: props.projectId, chapterId: editingChapter.value.id }`.
+    *   **Résultat :** Le renommage des chapitres se reflète maintenant correctement et immédiatement dans l'interface, et l'erreur console est résolue.
+
+## Apprentissages et Patrons Importants Récents (Session 20 Mai - Fin d'après-midi - Suite)
+
+*   **Signature des Fonctions Composables :** Une attention continue est nécessaire pour s'assurer que les appels aux fonctions (surtout celles des composables Vue) respectent scrupuleusement la signature attendue (nombre, ordre et type des arguments).
+*   **Payload des Événements Vue (`$emit`) :** Lors de l'émission d'événements entre composants, il est crucial que le payload émis corresponde à ce que le composant parent attend, surtout si le parent déstructure l'argument reçu. Un payload manquant ou mal formé conduit à des erreurs `undefined`.
+
+## Prochaines Étapes (Pour la prochaine session de développement)
+
+1.  **Implémentation de la Dockerisation (Priorité Haute) :**
+    *   Créer le fichier `Dockerfile.backend` pour le service FastAPI.
+    *   Créer le fichier `Dockerfile.frontend-dev` pour le service frontend Vite en mode développement.
+    *   Créer et configurer le fichier `docker-compose.yml` pour orchestrer les deux services, y compris les volumes pour le code source (hot-reloading) et la base de données, ainsi que la gestion des variables d'environnement.
+    *   Tester la configuration Docker en lançant `docker-compose up`.
+    *   (Optionnel) Nettoyer les logs de débogage ajoutés dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1) si ce n'est pas déjà fait.
+2.  **Tests Post-Publication GitHub (à confirmer si faits en détail par l'utilisateur) :**
+    *   Cloner le dépôt dans un nouvel environnement.
+    *   Suivre scrupuleusement les instructions du [`README.md`](README.md:1) pour tester l'installation et le lancement.
+    *   Vérifier la compatibilité des tests backend après la mise à jour de `httpx`.
+3.  **Aborder les autres problèmes en attente (si le temps le permet) :**
+    *   Nettoyage des logs de débogage dans [`backend/routers/style.py`](backend/routers/style.py:1).
+    *   Bugs des scènes (à réévaluer).
+    *   `npm audit`.
+    *   Conflit de dépendance `openai` (à vérifier si toujours pertinent).
+
+---
+*Historique précédent (avant cette mise à jour) conservé ci-dessous.*
 # Contexte Actif - CyberPlume (Mise à jour : 20/05/2025 - 14:16)
 
 ## Focus Actuel
@@ -46,7 +91,7 @@
     *   Conflit de dépendance `openai` (à vérifier si toujours pertinent).
 
 ---
-*Historique précédent (avant cette mise à jour) conservé ci-dessous.*
+*Historique précédent (avant le 20/05/2025 - Après-midi) conservé ci-dessous.*
 # Contexte Actif - CyberPlume (Mise à jour : 20/05/2025 - 13:42)
 
 ## Focus Actuel
@@ -99,7 +144,7 @@
     *   Conflit de dépendance `openai` (à vérifier si toujours pertinent).
 
 ---
-*Historique précédent (avant le 20/05/2025 - Après-midi) conservé ci-dessous.*
+*Historique précédent (avant le 20/05/2025 - Fin d'après-midi) conservé ci-dessous.*
 # Contexte Actif - CyberPlume (Mise à jour : 20/05/2025 - 09:40)
 
 ## Focus Actuel

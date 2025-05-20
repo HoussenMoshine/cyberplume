@@ -1,4 +1,4 @@
-# Progression - CyberPlume (Mise à jour : 20/05/2025 - 14:17)
+# Progression - CyberPlume (Mise à jour : 20/05/2025 - 14:33)
 
 ## Ce qui Fonctionne (État Actuel)
 
@@ -21,6 +21,9 @@
 
 ### Frontend
 *   Fonctionnalités de base de l'éditeur et gestion de projet : Stables et fonctionnelles.
+*   **Gestion des Chapitres (Corrigée le 20/05 - Fin d'après-midi - Suite) :**
+    *   **Ajout de Chapitre :** Fonctionnel. Correction de l'appel à `addChapter` dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:338) pour passer les arguments `projectId` et `title` correctement.
+    *   **Renommage de Chapitre :** Fonctionnel, avec mise à jour immédiate de l'interface. Correction de l'émission de l'événement `chapter-updated` dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:373) pour inclure `{ projectId, chapterId }`.
 *   Fournisseur Mistral AI (Éditeur Principal) : Fonctionne.
 *   Intégration d'icônes SVG personnalisées (Terminée le 20/05).
 *   Amélioration esthétique des dialogues de génération IA (Terminée le 20/05).
@@ -48,7 +51,7 @@
     *   Tests de la configuration Docker.
 *   **(Si temps disponible) Nettoyage des logs de débogage :**
     *   Dans [`backend/routers/style.py`](backend/routers/style.py:1).
-    *   Dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1) (logs ajoutés pour le bug d'export).
+    *   Dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1) (logs ajoutés pour le bug d'export et logs de `onMounted`).
 *   **Tests Post-Publication GitHub** (installation depuis le [`README.md`](README.md:1), tests backend pour `httpx` - à confirmer si l'utilisateur les a faits en détail).
 *   **(Si temps disponible) Bugs des scènes (à réévaluer).**
 *   **(Si temps disponible) Exécuter `npm audit fix` et traiter les vulnérabilités.**
@@ -64,11 +67,17 @@
 
 ## Évolution des Décisions
 
-### Session 20 Mai - Fin d'après-midi (Cette session)
+### Session 20 Mai - Fin d'après-midi - Suite (Cette session)
+*   **Bugs de Gestion des Chapitres Corrigés :**
+    *   **Ajout de Chapitre :** L'appel à `addChapter` dans `ChapterList.vue` a été corrigé pour passer les arguments `projectId` et `title` correctement, résolvant le bug d'ajout.
+    *   **Renommage de Chapitre :** L'événement `chapter-updated` émis par `ChapterList.vue` inclut maintenant `{ projectId, chapterId }`, corrigeant l'erreur console et assurant la mise à jour immédiate de l'UI.
+*   **Mise à jour de la Banque de Mémoire.**
+
+### Session 20 Mai - Fin d'après-midi (Précédente)
 *   **Bugs d'Export Corrigés :** Les problèmes d'export de projets et de chapitres dus à une mauvaise transmission des arguments et à une erreur dans `useChapters.js` ont été résolus.
 *   **Mises à jour Git :** Les corrections ont été (ou seront) poussées sur GitHub.
 
-### Session 20 Mai - Après-midi (Précédente)
+### Session 20 Mai - Après-midi (Encore avant)
 *   **Initialisation Git et Publication GitHub Réussies.**
 *   **`README.md` Amélioré.**
 *   **Planification Dockerisation.**
@@ -81,4 +90,4 @@
 
 *(Les sections d'évolution des décisions plus anciennes sont conservées dans activeContext.md)*
 
-*Ce document reflète l'état au 20/05/2025 (14:17).*
+*Ce document reflète l'état au 20/05/2025 (14:33).*

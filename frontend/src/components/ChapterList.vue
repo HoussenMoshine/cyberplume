@@ -330,21 +330,21 @@ const handleAddChapterDialogClose = () => {
 
 const handleAddChapterDialogSave = async (title) => {
   addChapterError.value = null;
-  const newChapterData = {
-    project_id: props.projectId,
-    title: title,
-    order: localChapters.value.length > 0 ? Math.max(...localChapters.value.map(c => c.order)) + 1 : 0
-  };
-  const result = await addChapter(newChapterData);
+  // L'objet newChapterData n'est plus nécessaire ici car le composable attend projectId et title séparément.
+  // L'ordre sera géré par le backend ou par un rafraîchissement de la liste.
+  const result = await addChapter(props.projectId, title); // Appel corrigé
   if (result) {
-    // localChapters.value.push(result); // Le composable met à jour la liste globale
-    // localChapters.value.sort((a, b) => a.order - b.order);
-    emit('add-chapter-requested', title); // Pour que ProjectManager puisse rafraîchir
+    // Le composable useChapters devrait mettre à jour la liste globale des chapitres
+    // de manière réactive, ce qui devrait se refléter dans props.chapters.
+    // L'émission de 'add-chapter-requested' peut toujours être utile si ProjectManager
+    // a besoin de faire des actions supplémentaires (ex: sélectionner le nouveau chapitre).
+    emit('add-chapter-requested', title); 
     showAddChapterDialog.value = false;
   } else {
-    // L'erreur est gérée par le composable et affichée via props.errorChapters
-    // ou une snackbar si implémenté dans le composable
-    addChapterError.value = "Erreur lors de l'ajout du chapitre."; // Message d'erreur générique pour le dialogue
+    // L'erreur est gérée par le composable useChapters (via chapterError)
+    // et peut être affichée par une snackbar globale ou un message d'erreur dans ProjectManager.
+    // On peut aussi conserver une erreur locale pour le dialogue si nécessaire.
+    addChapterError.value = "Erreur lors de l'ajout du chapitre. Vérifiez la console ou les notifications.";
   }
 };
 
@@ -366,11 +366,9 @@ const submitEditChapter = async (newTitle) => {
   const updatedData = { title: newTitle };
   const result = await updateChapter(editingChapter.value.id, updatedData);
   if (result) {
-    // const index = localChapters.value.findIndex(c => c.id === editingChapter.value.id);
-    // if (index !== -1) {
-    //   localChapters.value[index] = result;
-    // }
-    emit('chapter-updated'); // Pour que ProjectManager puisse rafraîchir
+    // Le composable devrait mettre à jour la liste globale.
+    // Émettre avec projectId et chapterId pour que ProjectManager puisse rafraîchir correctement.
+    emit('chapter-updated', { projectId: props.projectId, chapterId: editingChapter.value.id }); 
     closeEditChapterDialog();
   } else {
     editChapterError.value = "Erreur lors de la mise à jour du chapitre.";
