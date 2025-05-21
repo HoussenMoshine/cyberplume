@@ -1,3 +1,49 @@
+# Contexte Actif - CyberPlume (Mise à jour : 21/05/2025 - 06:14)
+
+## Focus Actuel
+
+*   **Début de session de développement (21 Mai - Matin).**
+*   Résolution d'un problème de sécurité : Suppression de fichiers de test exposant des clés API.
+*   Mise à jour de la Banque de Mémoire.
+
+## Décisions et Actions Clés de la Session (21 Mai - Matin)
+
+*   **Suppression des Fichiers de Test avec Clés API Exposées :**
+    *   **Problème :** Les fichiers [`backend/test_gemini.py`](backend/test_gemini.py:1), [`backend/test_mistral.py`](backend/test_mistral.py:1), et [`backend/test_openrouters.py`](backend/test_openrouters.py:1) contenaient des clés API en dur et étaient publiés sur GitHub.
+    *   **Analyse :** Une recherche a confirmé que ces fichiers n'étaient pas utilisés par l'application principale.
+    *   **Solution :** Suppression des trois fichiers via la commande `rm backend/test_gemini.py backend/test_mistral.py backend/test_openrouters.py`.
+    *   **Résultat :** Les fichiers exposant les clés API ont été supprimés du projet. Il est crucial de s'assurer que ces changements sont committés et poussés sur GitHub, et que les clés API concernées sont révoquées et remplacées si nécessaire.
+
+## Apprentissages et Patrons Importants Récents (Session 21 Mai - Matin)
+
+*   **Sécurité des Clés API :** Ne jamais commiter de clés API ou d'autres informations sensibles directement dans le code source, surtout pour les dépôts publics. Utiliser des variables d'environnement et des fichiers `.gitignore` de manière appropriée.
+*   **Nettoyage Régulier :** Examiner et supprimer régulièrement les fichiers de test ou de brouillon qui ne sont plus nécessaires, en particulier s'ils pourraient contenir des informations sensibles ou obsolètes.
+
+## Prochaines Étapes (Pour cette session de développement ou la suivante)
+
+1.  **Commit et Push des Changements de Sécurité (Priorité Immédiate) :**
+    *   `git add .`
+    *   `git commit -m "Fix: Remove test files exposing API keys"`
+    *   `git push`
+2.  **Révocation et Remplacement des Clés API (Action Externe Critique) :** L'utilisateur doit être informé de révoquer les clés API qui ont été exposées (`AIzaSyBAHyupnFpV1iyZo4IiniJGyklnEU1-Z_E`, `CXaga1oCfRdswb9jJ8ya7efuqVv4h4Lq`, `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`) auprès des fournisseurs respectifs (Google, Mistral, OpenRouter) et de les remplacer par de nouvelles clés dans la configuration d'environnement sécurisée ([`backend/.env`](backend/.env:1)).
+3.  **Implémentation de la Dockerisation (Priorité Haute - Reprise de la session précédente) :**
+    *   Créer le fichier `Dockerfile.backend` pour le service FastAPI.
+    *   Créer le fichier `Dockerfile.frontend-dev` pour le service frontend Vite en mode développement.
+    *   Créer et configurer le fichier `docker-compose.yml` pour orchestrer les deux services, y compris les volumes pour le code source (hot-reloading) et la base de données, ainsi que la gestion des variables d'environnement.
+    *   Tester la configuration Docker en lançant `docker-compose up`.
+    *   (Optionnel) Nettoyer les logs de débogage ajoutés dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1) si ce n'est pas déjà fait.
+4.  **Tests Post-Publication GitHub (à confirmer si faits en détail par l'utilisateur) :**
+    *   Cloner le dépôt dans un nouvel environnement.
+    *   Suivre scrupuleusement les instructions du [`README.md`](README.md:1) pour tester l'installation et le lancement.
+    *   Vérifier la compatibilité des tests backend après la mise à jour de `httpx`.
+5.  **Aborder les autres problèmes en attente (si le temps le permet) :**
+    *   Nettoyage des logs de débogage dans [`backend/routers/style.py`](backend/routers/style.py:1).
+    *   Bugs des scènes (à réévaluer).
+    *   `npm audit`.
+    *   Conflit de dépendance `openai` (à vérifier si toujours pertinent).
+
+---
+*Historique précédent (avant cette mise à jour) conservé ci-dessous.*
 # Contexte Actif - CyberPlume (Mise à jour : 20/05/2025 - 14:32)
 
 ## Focus Actuel

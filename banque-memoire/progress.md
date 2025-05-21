@@ -1,4 +1,4 @@
-# Progression - CyberPlume (Mise à jour : 20/05/2025 - 14:33)
+# Progression - CyberPlume (Mise à jour : 21/05/2025 - 06:15)
 
 ## Ce qui Fonctionne (État Actuel)
 
@@ -17,6 +17,7 @@
 *   API Analyse Contenu Chapitre (`/api/chapters/{chapter_id}/analyze-content`) : Fonctionnelle.
 *   Contexte Personnage : Correctement utilisé dans les prompts.
 *   Configuration ([`backend/config.py`](backend/config.py:1)): `API_KEY` rendue obligatoire.
+*   **Sécurité : Suppression des fichiers de test ([`backend/test_gemini.py`](backend/test_gemini.py:1), [`backend/test_mistral.py`](backend/test_mistral.py:1), [`backend/test_openrouters.py`](backend/test_openrouters.py:1)) qui exposaient des clés API (Corrigé le 21/05 - Matin).**
 *   *Note : Les logs ajoutés dans [`backend/routers/style.py`](backend/routers/style.py:1) pour le débogage du bug 422 sont toujours présents et pourraient être nettoyés lors d'une prochaine session.*
 
 ### Frontend
@@ -45,7 +46,12 @@
 
 ## Ce qui Reste à Construire / Améliorer (Prochaine Session)
 
-*   **Implémentation de la Dockerisation (Priorité Haute) :**
+*   **Commit et Push des Changements de Sécurité (Priorité Immédiate) :**
+    *   `git add .`
+    *   `git commit -m "Fix: Remove test files exposing API keys"`
+    *   `git push`
+*   **Révocation et Remplacement des Clés API (Action Externe Critique) :** L'utilisateur doit révoquer les clés API exposées et les remplacer dans [`backend/.env`](backend/.env:1).
+*   **Implémentation de la Dockerisation (Priorité Haute - Reprise de la session précédente) :**
     *   Création des `Dockerfile` pour le backend et le frontend (mode dev).
     *   Création et configuration du fichier `docker-compose.yml`.
     *   Tests de la configuration Docker.
@@ -67,13 +73,17 @@
 
 ## Évolution des Décisions
 
-### Session 20 Mai - Fin d'après-midi - Suite (Cette session)
+### Session 21 Mai - Matin (Cette session)
+*   **Problème de Sécurité Corrigé :** Suppression des fichiers de test ([`backend/test_gemini.py`](backend/test_gemini.py:1), [`backend/test_mistral.py`](backend/test_mistral.py:1), [`backend/test_openrouters.py`](backend/test_openrouters.py:1)) qui exposaient des clés API.
+*   **Mise à jour de la Banque de Mémoire.**
+
+### Session 20 Mai - Fin d'après-midi - Suite (Précédente)
 *   **Bugs de Gestion des Chapitres Corrigés :**
     *   **Ajout de Chapitre :** L'appel à `addChapter` dans `ChapterList.vue` a été corrigé pour passer les arguments `projectId` et `title` correctement, résolvant le bug d'ajout.
     *   **Renommage de Chapitre :** L'événement `chapter-updated` émis par `ChapterList.vue` inclut maintenant `{ projectId, chapterId }`, corrigeant l'erreur console et assurant la mise à jour immédiate de l'UI.
 *   **Mise à jour de la Banque de Mémoire.**
 
-### Session 20 Mai - Fin d'après-midi (Précédente)
+### Session 20 Mai - Fin d'après-midi (Encore avant)
 *   **Bugs d'Export Corrigés :** Les problèmes d'export de projets et de chapitres dus à une mauvaise transmission des arguments et à une erreur dans `useChapters.js` ont été résolus.
 *   **Mises à jour Git :** Les corrections ont été (ou seront) poussées sur GitHub.
 
@@ -90,4 +100,4 @@
 
 *(Les sections d'évolution des décisions plus anciennes sont conservées dans activeContext.md)*
 
-*Ce document reflète l'état au 20/05/2025 (14:33).*
+*Ce document reflète l'état au 21/05/2025 (06:15).*
