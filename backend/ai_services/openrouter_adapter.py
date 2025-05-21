@@ -105,6 +105,7 @@ class OpenRouterAdapter(AIAdapter):
             logging.warning(f"No model specified for OpenRouter, defaulting to: {current_model}")
             self.model = current_model # Mettre à jour pour les appels suivants
 
+        # logging.info(f"OpenRouterAdapter: self.api_key before setting headers: '{self.api_key}'") # Ligne de log supprimée
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",

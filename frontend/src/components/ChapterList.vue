@@ -293,7 +293,7 @@ const getChapterTitleById = (chapterId) => {
 const openChapterAnalysisDialog = (chapterId) => {
   analyzingChapterId.value = chapterId;
   clearChapterAnalysisState(); // Clear previous results
-  triggerChapterAnalysis(chapterId);
+  triggerChapterAnalysis(chapterId, props.selectedAiProvider, props.selectedAiModel);
   showChapterAnalysisDialog.value = true;
 };
 

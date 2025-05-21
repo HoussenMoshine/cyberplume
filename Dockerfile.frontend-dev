@@ -1,0 +1,24 @@
+# Dockerfile.frontend-dev
+
+# 1. Image de base
+FROM node:lts-alpine
+
+# 2. Répertoire de travail
+WORKDIR /app
+
+# 3. Installation des dépendances
+# Copier package.json et package-lock.json pour profiter du cache Docker
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm install
+
+# 4. Copie du code source
+# Copier le reste du code de l'application frontend
+COPY ./frontend /app
+
+# 5. Exposition du port
+EXPOSE 5173
+
+# 6. Commande de démarrage
+# Exécute "vite --host" pour que le serveur soit accessible depuis l'extérieur du conteneur.
+# Le "--" après "npm run dev" permet de passer des arguments directement au script "vite".
+CMD ["npm", "run", "dev", "--", "--host"]

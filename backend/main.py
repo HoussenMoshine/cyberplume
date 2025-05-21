@@ -174,6 +174,8 @@ async def generate_text(request: GenerationRequest, x_api_key: str = Header(None
             "openrouter": settings.openrouter_api_key
         }.get(request.provider)
 
+        # logging.info(f"API key selected for provider '{request.provider}': '{api_key}'") # Ligne de log supprimée
+
         if not api_key:
              providers_status = {
                  "mistral": bool(settings.mistral_api_key),
@@ -200,11 +202,8 @@ async def generate_text(request: GenerationRequest, x_api_key: str = Header(None
         )
         return {"generated_text": generated_text}
     except ValueError as e:
-        # Log spécifique pour les ValueErrors (souvent liés à la config ou aux entrées)
-        logging.warning(f"ValueError in generate_text: {str(e)}")
+        logging.warning(f"ValueError in generate_text: {str(e)}") # Log plus détaillé
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        # Log général pour les autres exceptions
-        logging.error(f"Unexpected error in generate_text: {str(e)}")
-        logging.exception("Full stack trace for generate_text error:") # Log la stack trace complète
+        logging.error(f"Unexpected error in generate_text: {str(e)}", exc_info=True) # exc_info=True pour la stack trace
         raise HTTPException(status_code=500, detail="Erreur interne du serveur lors de la génération de texte.")
