@@ -12,6 +12,7 @@ from backend.database import get_db # Fonction pour obtenir la session DB
 # Importer la factory IA et la configuration pour les clés API
 from backend.ai_services.factory import create_adapter # Correction: Importer create_adapter
 from backend.config import Settings, get_settings # Importer Settings et get_settings
+from backend.crud_api_keys import get_decrypted_api_key # MODIFIÉ: Importer la fonction pour les clés API
 
 router = APIRouter(
     prefix="/api/characters", # Préfixe pour toutes les routes de ce routeur
@@ -94,7 +95,7 @@ async def delete_character(character_id: int, db: Session = Depends(get_db)):
 
 # --- NOUVEL Endpoint pour la génération de personnage par IA ---
 @router.post("/generate", response_model=models.CharacterGenerateResponse, status_code=status.HTTP_200_OK)
-async def generate_character(request: models.CharacterGenerateRequest, settings: Settings = Depends(get_settings)):
+async def generate_character(request: models.CharacterGenerateRequest, settings: Settings = Depends(get_settings), db: Session = Depends(get_db)): # MODIFIÉ: Ajout de db: Session
     """
     Génère une ébauche de personnage (nom, description, backstory) en utilisant un service IA,
     en tenant compte des caractéristiques optionnelles fournies.
@@ -130,19 +131,13 @@ async def generate_character(request: models.CharacterGenerateRequest, settings:
     # Ajouter une instruction pour faciliter le parsing (optionnel, dépend de la robustesse du parsing)
     prompt_base += "\n\nFormat attendu (approximatif) :\nNom: [Nom du personnage]\nDescription: [Description...]\nBackstory: [Backstory...]"
 
-    # --- Correction: Récupérer la clé API basée sur le provider ---
-    api_key = None
-    if request.provider == "gemini":
-        api_key = settings.gemini_api_key
-    elif request.provider == "mistral":
-        api_key = settings.mistral_api_key
-    elif request.provider == "openrouter":
-        api_key = settings.openrouter_api_key
-    # Ajoutez d'autres providers ici si nécessaire
+    # --- MODIFIÉ: Récupérer la clé API depuis la DB (fallback sur .env) ---
+    # La fonction get_decrypted_api_key sera modifiée pour inclure le fallback sur settings
+    api_key = get_decrypted_api_key(db=db, provider_name=request.provider, settings_fallback=settings)
 
     if not api_key:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"API key for provider '{request.provider}' not configured or provider not supported.")
-    # --- Fin Correction ---
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"API key for provider '{request.provider}' not configured in DB or .env, or provider not supported.")
+    # --- Fin MODIFIÉ ---
 
     try:
         # Obtenir le service IA via la factory
@@ -208,11 +203,3 @@ async def generate_character(request: models.CharacterGenerateRequest, settings:
     except Exception as e:
         logging.error(f"Unexpected error during character generation: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erreur interne du serveur lors de la génération du personnage: {str(e)}")
-
-
-# --- Endpoints pour gérer les relations (Optionnel) ---
-# Ex: Ajouter un personnage à un projet
-# @router.post("/{character_id}/projects/{project_id}", status_code=status.HTTP_200_OK)
-# async def add_character_to_project(character_id: int, project_id: int, db: Session = Depends(get_db)):
-#     # Logique pour ajouter l'association dans la table project_characters
-#     raise HTTPException(status_code=501, detail="Adding character to project not implemented yet.")

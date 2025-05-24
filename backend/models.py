@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, Table
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, Table, Boolean
 from sqlalchemy.orm import relationship, Mapped, mapped_column # Ajout Mapped, mapped_column pour syntaxe moderne optionnelle
 from sqlalchemy.sql import func # Pour default=func.now() si besoin
 from pydantic import BaseModel, Field # Ajout Field
@@ -86,6 +86,24 @@ class CharacterUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     backstory: Optional[str] = None
+
+# --- Schémas Pydantic pour les Clés API (NOUVEAU) ---
+
+class ApiKeyBase(BaseModel):
+    provider_name: str = Field(..., description="Nom du fournisseur (ex: gemini, mistral, openrouter)")
+
+class ApiKeyCreate(ApiKeyBase):
+    api_key: str = Field(..., description="Clé API en clair")
+
+class ApiKeyUpdate(BaseModel): # Peut être utilisé pour mettre à jour la clé d'un fournisseur existant
+    api_key: str = Field(..., description="Nouvelle clé API en clair")
+
+class ApiKeyRead(ApiKeyBase):
+    id: int
+    has_key_set: bool = Field(..., description="Indique si une clé est configurée pour ce fournisseur")
+
+    class Config:
+        from_attributes = True
 
 # --- Schémas Pydantic pour la lecture (Réponses API) ---
 
@@ -253,6 +271,13 @@ class Character(Base):
         back_populates="characters"
     )
 
+# NOUVEAU: Modèle SQLAlchemy pour les Clés API
+class ApiKey(Base):
+    __tablename__ = 'api_keys'
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider_name = Column(String(50), unique=True, nullable=False, index=True)
+    encrypted_api_key = Column(String(512), nullable=False) # Assez long pour une clé chiffrée avec Fernet
 
 # Table d'association pour la relation many-to-many Project <-> Character
 project_characters = Table(

@@ -10,6 +10,7 @@ sqlalchemy>=2.0.23
 aiosqlite>=0.17.0 # Ajouté pour le support async de SQLite
 chardet>=5.0.0 # Ajouté pour la détection d'encodage
 python-multipart>=0.0.7 # NOUVEAU: Requis pour l'upload de fichiers FastAPI
+cryptography>=42.0.0 # NOUVEAU: Pour le chiffrement des clés API
 
 # Text Extraction libraries
 pypdf>=4.0.0 # Ajouté pour l'extraction PDF

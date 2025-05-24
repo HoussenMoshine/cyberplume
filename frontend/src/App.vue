@@ -5,26 +5,27 @@
     <!-- Masquer la barre d'app en mode sans distraction -->
     <!-- Ajout de elevation="0" pour un style plat -->
     <v-app-bar app color="primary" density="compact" v-if="!isDistractionFree" elevation="0">
-<img src="@/assets/cyberplume.svg" alt="CyberPlume Logo" height="30" class="mr-3 ml-3" />
-      <v-tabs v-model="activeTab" align-tabs="center"> <!-- Garder v-model pour le style actif -->
-        <v-tab value="editor" @click="handleEditorTabClick"> <!-- Ajouter @click -->
-          <!-- Utilisation directe de l'icône importée -->
+      <img src="@/assets/cyberplume.svg" alt="CyberPlume Logo" height="30" class="mr-3 ml-3" />
+      <v-tabs v-model="activeTab" align-tabs="center">
+        <v-tab value="editor" @click="handleEditorTabClick">
           <IconFileText size="20" class="mr-2" />
           Éditeur
         </v-tab>
-        <v-tab value="characters"> <!-- @click="activeAgent = null" supprimé -->
-          <!-- Utilisation directe de l'icône importée -->
+        <v-tab value="characters">
           <IconUsers size="20" class="mr-2" />
           Personnages
         </v-tab>
-
+        <v-tab value="config">
+          <IconSettings size="20" class="mr-2" />
+          Configuration
+        </v-tab>
       </v-tabs>
     </v-app-bar>
 
 
-    <!-- Masquer le gestionnaire de projet en mode sans distraction -->
+    <!-- Masquer le gestionnaire de projet en mode sans distraction ou si l'onglet config est actif -->
     <project-manager
-      v-if="!isDistractionFree"
+      v-if="!isDistractionFree && activeTab !== 'config'"
       @chapter-selected="handleChapterSelection"
       @scene-selected="handleSceneSelection"
       @insert-generated-content="handleInsertGeneratedContent"
@@ -39,8 +40,6 @@
     <v-main>
       <v-window v-model="activeTab">
         <v-window-item value="editor" class="editor-window-item">
-
-
           <editor-component
             ref="editorComponentRef"
             :selected-chapter-id="currentChapterId"
@@ -53,11 +52,35 @@
           />
         </v-window-item>
         <v-window-item value="characters">
-          <character-manager v-if="!isDistractionFree" />
+          <!-- Le CharacterManager ne s'affiche que si l'onglet characters est actif et pas en mode sans distraction -->
+          <character-manager v-if="!isDistractionFree && activeTab === 'characters'" />
+        </v-window-item>
+        <v-window-item value="config">
+           <!-- Le ApiKeysManager ne s'affiche que si l'onglet config est actif et pas en mode sans distraction -->
+          <api-keys-manager v-if="!isDistractionFree && activeTab === 'config'" />
         </v-window-item>
         
       </v-window>
     </v-main>
+
+    <!-- Snackbar Global -->
+    <v-snackbar
+      v-model="isSnackbarVisible"
+      :timeout="snackbarTimeout"
+      :color="snackbarColor"
+      location="bottom right"
+      multi-line
+    >
+      {{ snackbarMessage }}
+      <template v-slot:actions>
+        <v-btn
+          variant="text"
+          @click="isSnackbarVisible = false"
+        >
+          Fermer
+        </v-btn>
+      </template>
+    </v-snackbar>
 
   </v-app>
 </template>
@@ -67,17 +90,27 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import EditorComponent from './components/EditorComponent.vue';
 import ProjectManager from './components/ProjectManager.vue';
 import CharacterManager from './components/CharacterManager.vue';
-// import NarrativeTwistGeneratorDialog from './components/dialogs/NarrativeTwistGeneratorDialog.vue'; // Supprimé
+import ApiKeysManager from './components/ApiKeysManager.vue';
 
 // Import des composants Vuetify utilisés
 import {
-  VApp, VAppBar, VTabs, VTab, VMain, VWindow, VWindowItem,
-  // VMenu, VList, VListItem // VMenu, VList, VListItem pourraient être supprimés si plus utilisés ailleurs
+  VApp, VAppBar, VTabs, VTab, VMain, VWindow, VWindowItem, VSnackbar, VBtn // Ajout VSnackbar, VBtn
 } from 'vuetify/components';
 
 // Import des icônes Tabler
-import { IconFileText, IconUsers } from '@tabler/icons-vue'; // IconSparkles supprimé
+import { IconFileText, IconUsers, IconSettings } from '@tabler/icons-vue';
 import { config } from '@/config.js';
+
+// Import et utilisation du composable Snackbar
+import { useSnackbar } from '@/composables/useSnackbar.js';
+const { 
+  showSnackbar: isSnackbarVisible, // Renommer pour clarté (c'est la ref booléenne)
+  snackbarMessage, 
+  snackbarColor, 
+  snackbarTimeout 
+  // displaySnackbar n'est pas appelé directement ici, mais par les autres composants
+} = useSnackbar();
+
 
 // State pour la sélection IA globale
 const globalAIProvider = ref(config.defaultProvider);
@@ -87,12 +120,6 @@ const globalCustomAIDescription = ref(null);
 
 // State pour l'onglet actif
 const activeTab = ref('editor');
-
-// State pour l'agent actif (utilisé pour les agents qui ne sont pas des dialogues)
-// const activeAgent = ref(null); // Supprimé
-
-// State pour contrôler la visibilité du dialogue de twists narratifs
-// const showNarrativeTwistDialog = ref(false); // Supprimé
 
 // State pour l'ID et le titre du chapitre/scène sélectionné
 const currentChapterId = ref(null);
@@ -144,7 +171,6 @@ const handleChapterSelection = (chapterId) => {
   currentChapterTitle.value = null;
   currentSceneId.value = null;
   currentSceneTitle.value = null;
-  // activeAgent.value = null; // Supprimé
   if (chapterId !== null) {
     activeTab.value = 'editor';
     if (isDistractionFree.value) {
@@ -159,7 +185,6 @@ const handleSceneSelection = (sceneId) => {
   isSelectionEvent = true;
   currentSceneId.value = sceneId ?? null;
   currentSceneTitle.value = null;
-  // activeAgent.value = null; // Supprimé
   if (sceneId !== null) {
     currentChapterId.value = null;
     currentChapterTitle.value = null;
@@ -176,7 +201,6 @@ const handleInsertGeneratedContent = (content) => {
   if (editorComponentRef.value && typeof editorComponentRef.value.insertContentAtCursor === 'function') {
     editorComponentRef.value.insertContentAtCursor(content);
     activeTab.value = 'editor';
-    // activeAgent.value = null; // Supprimé
   } else {
     console.error("EditorComponent reference or insertContentAtCursor method not found!");
   }
@@ -187,7 +211,6 @@ const handleApplySuggestionToEditor = (suggestionData) => {
   if (editorComponentRef.value && typeof editorComponentRef.value.applySuggestion === 'function') {
     editorComponentRef.value.applySuggestion(suggestionData);
     activeTab.value = 'editor';
-    // activeAgent.value = null; // Supprimé
   } else {
     console.error("EditorComponent reference or applySuggestion method not found!");
   }
@@ -205,24 +228,8 @@ const updateGlobalAISettings = (settings) => {
 const handleEditorTabClick = () => {
   if (!isSelectionEvent) {
     activeTab.value = 'editor';
-    // activeAgent.value = null; // Supprimé
   }
 };
-
-// const handleAgentSelection = (agentName) => { // Fonction supprimée
-//   console.log(`Agent sélectionné: ${agentName}`);
-//   if (agentName === 'narrative_twist') {
-//     showNarrativeTwistDialog.value = true;
-//     activeTab.value = 'editor'; // Rester ou revenir à l'éditeur en arrière-plan
-//     activeAgent.value = null; // L'agent est géré par le dialogue modal
-//   } else {
-//     activeAgent.value = agentName;
-//     activeTab.value = 'agents_view'; 
-//   }
-//   if (isDistractionFree.value) {
-//     toggleDistractionFreeMode();
-//   }
-// };
 
 </script>
 

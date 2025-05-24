@@ -1,117 +1,114 @@
-# Progression - CyberPlume (Mise à jour : 21/05/2025 - 09:33)
+# Progression - CyberPlume (Mise à jour : 22/05/2025 - 14:11)
 
 ## Ce qui Fonctionne (État Actuel)
 
 ### Backend
 *   API CRUD : Gestion complète (Création, Lecture, Mise à jour, Suppression) pour Projets, Chapitres, Personnages fonctionnelle.
 *   Réordonnancement : API pour réorganiser les chapitres (`/reorder`) opérationnelle.
-*   API IA Générale (`/generate/text`) : Améliorée pour gérer les styles et le contexte des personnages. Fournisseur OpenRouter maintenant fonctionnel.
-*   API Génération Personnage (`/api/characters/generate`) : Améliorée. Fournisseur OpenRouter maintenant fonctionnel.
-*   **API Export : Export de chapitres et projets complets fonctionnel pour DOCX, PDF, TXT, EPUB (Bugs corrigés le 20/05 - Fin d'après-midi).**
+*   API IA Générale (`/generate/text`) :
+    *   Améliorée pour gérer les styles et le contexte des personnages.
+    *   **Testée et VALIDÉE : Utilise les clés API de la DB (avec fallback sur `.env`) pour Gemini, Mistral, OpenRouter.**
+*   API Génération Personnage (`/api/characters/generate`) :
+    *   Améliorée.
+    *   **Testée et VALIDÉE : Utilise les clés API de la DB (avec fallback sur `.env`) pour Gemini, Mistral, OpenRouter.** (Bug TypeError et Fallback corrigé session précédente).
+*   API Export : Export de chapitres et projets complets fonctionnel pour DOCX, PDF, TXT, EPUB.
 *   API Analyse Cohérence (`/api/analyze/consistency`) : Fonctionnelle.
-*   API Modèles IA (`/models/{provider}`) : Récupération dynamique des modèles OK.
-*   API Analyse Style (`/api/style/analyze-upload`) : Fonctionnelle (Bug 422 corrigé).
+*   API Modèles IA (`/models/{provider}`) :
+    *   Récupération dynamique des modèles OK.
+    *   **Testée et VALIDÉE : Utilise les clés API de la DB (avec fallback sur `.env`) pour Gemini, Mistral, OpenRouter.**
+*   API Analyse Style (`/api/style/analyze-upload`) : Fonctionnelle.
 *   Architecture IA : Structure modulaire avec Adapters et Factory stable.
-    *   Adaptateur Mistral ([`backend/ai_services/mistral_adapter.py`](backend/ai_services/mistral_adapter.py:1)) : Corrigé et compatible avec `mistralai` v1.7.0.
-    *   Adaptateur Gemini : Fonctionnel.
-    *   Adaptateur OpenRouter ([`backend/ai_services/openrouter_adapter.py`](backend/ai_services/openrouter_adapter.py:1)) : **Fonctionnel (Bug 401 résolu le 21/05 - Matin, par remplacement de clé API révoquée).**
+    *   Adaptateurs Mistral, Gemini, OpenRouter fonctionnels.
 *   Base de Données : Gestion SQLite OK.
-*   API Analyse Contenu Chapitre (`/api/chapters/{chapter_id}/analyze-content`) : **Fonctionnelle (Bug "Provider missing" corrigé le 21/05 - Matin).**
+    *   Nouvelle table `api_keys` pour stocker les clés API chiffrées.
+*   API Analyse Contenu Chapitre (`/api/chapters/{chapter_id}/analyze-content`) : Fonctionnelle.
 *   Contexte Personnage : Correctement utilisé dans les prompts.
-*   Configuration ([`backend/config.py`](backend/config.py:1)): `API_KEY` rendue obligatoire.
-*   **Sécurité : Suppression des fichiers de test ([`backend/test_gemini.py`](backend/test_gemini.py:1), [`backend/test_mistral.py`](backend/test_mistral.py:1), [`backend/test_openrouters.py`](backend/test_openrouters.py:1)) qui exposaient des clés API (Corrigé le 21/05 - Matin).**
+*   Configuration ([`backend/config.py`](backend/config.py:1)):
+    *   `API_KEY` (pour communication frontend-backend) rendue obligatoire.
+    *   Gestion de `CYBERPLUME_FERNET_KEY` pour le chiffrement des clés API des fournisseurs.
+    *   Clés API des fournisseurs (Gemini, Mistral, OpenRouter) sont maintenant optionnelles dans `.env` (priorité à la DB).
+*   **Sécurité :**
+    *   Suppression des fichiers de test qui exposaient des clés API.
+    *   Chiffrement des clés API des fournisseurs stockées en base de données.
+*   **Gestion des Clés API Fournisseurs :**
+    *   Endpoints CRUD (`/api-keys-config/*`) pour gérer les clés API via l'interface.
+    *   Logique de chiffrement/déchiffrement des clés.
+    *   La fonction `get_decrypted_api_key` dans [`backend/crud_api_keys.py`](backend/crud_api_keys.py:1) gère le fallback sur les variables d'environnement via `settings_fallback`.
+*   **Correction de Bug :**
+    *   Résolution de `AttributeError: 'function' object has no attribute 'HTTP_400_BAD_REQUEST'` dans [`backend/main.py`](backend/main.py:1) en renommant la fonction `status` en `get_application_status`.
 *   *Note : Les logs ajoutés dans [`backend/routers/style.py`](backend/routers/style.py:1) pour le débogage du bug 422 sont toujours présents et pourraient être nettoyés lors d'une prochaine session.*
 
 ### Frontend
 *   Fonctionnalités de base de l'éditeur et gestion de projet : Stables et fonctionnelles.
-*   **Gestion des Chapitres (Corrigée le 20/05 - Fin d'après-midi - Suite) :**
-    *   **Ajout de Chapitre :** Fonctionnel.
-    *   **Renommage de Chapitre :** Fonctionnel.
-*   Fournisseur Mistral AI (Éditeur Principal) : Fonctionne.
-*   Fournisseur Gemini : Fonctionne.
-*   Fournisseur OpenRouter : **Fonctionnel (Bug backend résolu).**
-*   **Analyse de Contenu Chapitre (Corrigée le 21/05 - Matin) :** L'appel à `triggerChapterAnalysis` depuis [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:296) passe maintenant correctement le fournisseur et le modèle IA.
-*   Intégration d'icônes SVG personnalisées (Terminée le 20/05).
-*   Amélioration esthétique des dialogues de génération IA (Terminée le 20/05).
-*   Analyse de Style par Upload (Corrigée le 20/05 - Fin d'après-midi).
-*   **Export de Projets et Chapitres (Corrigé le 20/05 - Fin d'après-midi).**
+*   Gestion des Chapitres : Ajout, Renommage fonctionnels.
+*   Fournisseurs IA (Mistral, Gemini, OpenRouter) : Fonctionnels pour les actions de l'éditeur (via `/generate/text`) et la génération de personnages (confirmé avec les tests de clés API).
+*   Analyse de Contenu Chapitre : Fonctionnelle.
+*   Intégration d'icônes SVG personnalisées.
+*   Amélioration esthétique des dialogues de génération IA.
+*   Analyse de Style par Upload.
+*   Export de Projets et Chapitres.
+*   **Gestion des Clés API Fournisseurs :**
+    *   Nouvel onglet "Configuration" dans [`frontend/src/App.vue`](frontend/src/App.vue:1).
+    *   Interface ([`frontend/src/components/ApiKeysManager.vue`](frontend/src/components/ApiKeysManager.vue:1)) pour ajouter, voir le statut, et supprimer les clés API pour Gemini, Mistral, OpenRouter.
+    *   **Amélioration esthétique :** Dialogue de confirmation de suppression des clés API utilise maintenant un `VDialog` personnalisé au lieu de `window.confirm` dans [`frontend/src/components/ApiKeysManager.vue`](frontend/src/components/ApiKeysManager.vue:1).
+*   **Notifications (Snackbar) :**
+    *   Correction du bug `showSnackbar is not a function` dans `ApiKeysManager.vue`.
+    *   Ajout d'un `VSnackbar` global dans `App.vue` pour une gestion centralisée.
 
 ### Configuration & Outillage
 *   Proxy Vite ([`frontend/vite.config.js`](frontend/vite.config.js:1)) : Configuration corrigée.
 *   Utilisation de `Context7` pour la documentation.
-*   Répertoire d'assets ([`frontend/src/assets/`](frontend/src/assets/)) contenant les icônes SVG personnalisées.
-*   Documentation des idées d'icônes dans [`banque-memoire/idees-icones.md`](banque-memoire/idees-icones.md).
-*   **Préparation pour GitHub (Terminée le 20/05 - Milieu de journée).**
-*   **Initialisation Git et Publication sur GitHub (Terminée le 20/05 - Après-midi).**
-*   **Améliorations du `README.md` (Terminées le 20/05 - Après-midi).**
-*   **Planification Dockerisation (Effectuée le 20/05 - Après-midi).**
-*   **Fichiers de Dockerisation Initiaux Créés (21/05 - Matin) :**
-    *   [`Dockerfile.backend`](Dockerfile.backend:1)
-    *   [`Dockerfile.frontend-dev`](Dockerfile.frontend-dev:1)
-    *   [`docker-compose.yml`](docker-compose.yml:1)
+*   Dépendance `cryptography` ajoutée au backend.
+*   Fichiers de Dockerisation Initiaux Créés : [`Dockerfile.backend`](Dockerfile.backend), [`Dockerfile.frontend-dev`](Dockerfile.frontend-dev), [`docker-compose.yml`](docker-compose.yml). (Finalisation en attente de la stabilisation de la gestion des clés).
 *   *Note : Les logs de débogage ajoutés dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1) pour le bug d'export sont toujours présents et pourraient être nettoyés.*
 
 ## Ce qui Reste à Construire / Améliorer (Prochaine Session)
 
-*   **Implémentation : Configuration des Clés API via le Frontend (Priorité Haute - Plan détaillé disponible) :**
-    *   Permettre aux utilisateurs de saisir et sauvegarder leurs clés API (Gemini, Mistral, OpenRouter) directement depuis l'interface de l'application.
-    *   Implique des modifications frontend (UI de configuration) et backend (stockage sécurisé chiffré, adaptation de la logique d'utilisation des clés).
-    *   La mise en place de HTTPS pour la communication locale n'est pas prioritaire pour cette phase.
-*   **Dockerisation (En Pause - Dépend de la gestion des clés API) :**
-    *   Tests et finalisation de la configuration Docker une fois la gestion des clés API in-app implémentée.
-    *   Mise à jour de la documentation `README.md` pour le lancement via Docker et la configuration des clés.
-*   **Commit et Push des Changements (Priorité Immédiate si pas encore fait de manière globale) :**
-    *   Inclure la suppression des fichiers de test avec clés API, les nouveaux fichiers Docker, et la correction du bug d'analyse de contenu.
-    *   `git add .`
-    *   `git commit -m "Fix: Chapter content analysis provider issue and update memory bank"` (ou message adapté)
-    *   `git push`
-*   **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel - S'assurer que toutes les clés potentiellement compromises ont été traitées).**
+*   **Tests Approfondis de la Gestion des Clés API (TERMINÉS - Phases 1 & 2) :**
+    *   Phase 1 (Clés en DB) : SUCCÈS pour Gemini, Mistral, OpenRouter.
+    *   Phase 2 (Fallback sur .env) : SUCCÈS pour Gemini, Mistral, OpenRouter.
+    *   Phase 3 (Scénarios Mixtes) : Optionnel, **NON REQUIS par l'utilisateur pour le moment.**
+*   **Dockerisation (Priorité Haute) :**
+    *   Tests et finalisation de la configuration Docker.
+    *   Mise à jour de la documentation [`README.md`](README.md) pour le lancement via Docker et la configuration des clés API via l'interface.
+*   **Commit et Push des Changements.**
+*   **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel).**
 *   **(Si temps disponible) Nettoyage des logs de débogage :**
     *   Dans [`backend/routers/style.py`](backend/routers/style.py:1).
-    *   Dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1) (logs ajoutés pour le bug d'export et logs de `onMounted`).
-*   **Tests Post-Publication GitHub** (installation depuis le [`README.md`](README.md:1), tests backend pour `httpx` - à confirmer si l'utilisateur les a faits en détail).
+    *   Dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1).
+*   **(Si temps disponible) Tests Post-Publication GitHub.**
 *   **(Si temps disponible) Bugs des scènes (à réévaluer).**
 *   **(Si temps disponible) Exécuter `npm audit fix` et traiter les vulnérabilités.**
 
 ## Problèmes Actuels (État Actuel)
 
-*   **Gestion des Clés API pour la Distribution Docker (Critique) :** La méthode actuelle via `.env` n'est pas adaptée pour une distribution publique et simple. Bloque la finalisation de la dockerisation. (La fonctionnalité de configuration des clés API par l'utilisateur est la solution).
-*   Conflit de Dépendance `openai` (Mineur - À surveiller - potentiellement résolu ou impacté par les changements de `httpx`).
+*   Conflit de Dépendance `openai` (Mineur - À surveiller).
 *   Scènes Non Fonctionnelles (Reporté - À réévaluer).
 *   (Mineur - Reporté) `npm audit`.
 
 ## Évolution des Décisions
 
-### Session 21 Mai - Matin (Cette session)
-*   **Résolution du Bug OpenRouter :** L'erreur 401 avec OpenRouter a été résolue en remplaçant la clé API qui avait été révoquée.
-*   **Planification de la Gestion des Clés API Utilisateur :** Un plan détaillé a été élaboré. Il a été décidé de ne pas prioriser HTTPS pour la communication locale pour cette fonctionnalité dans l'immédiat.
-*   **Correction du Bug d'Analyse de Contenu Chapitre :** L'erreur "Provider missing" a été corrigée dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:296).
-*   **Mise à jour de la Banque de Mémoire.**
-*   **Prochaine Priorité :** Implémentation de la fonctionnalité de gestion des clés API par l'utilisateur.
-
-### Session 21 Mai - Matin (Début de session - Suite - Avant résolution bug OpenRouter et bug analyse contenu)
-*   **Implémentation Initiale Dockerisation :** Création de `Dockerfile.backend`, `Dockerfile.frontend-dev`, et `docker-compose.yml`.
-*   **Réorientation Stratégique :** Mise en pause de la finalisation de la dockerisation en raison des défis liés à la gestion des clés API pour la distribution.
-*   **Nouvelle Priorité (avant résolution bugs) :** Planifier et implémenter la configuration des clés API par l'utilisateur directement via l'interface frontend.
+### Session 22 Mai - Après-midi (Fin de session)
+*   **Amélioration Esthétique Dialogue Suppression Clés API :** Remplacement de `window.confirm` par `VDialog` dans [`frontend/src/components/ApiKeysManager.vue`](frontend/src/components/ApiKeysManager.vue:1). **VALIDÉ.**
+*   **Session Terminée.** Prochaine priorité pour la prochaine session : Dockerisation.
 *   **Mise à jour de la Banque de Mémoire.**
 
-### Session 21 Mai - Matin (Début de session - Avant résolution bugs)
-*   **Problème de Sécurité Corrigé :** Suppression des fichiers de test ([`backend/test_gemini.py`](backend/test_gemini.py:1), [`backend/test_mistral.py`](backend/test_mistral.py:1), [`backend/test_openrouters.py`](backend/test_openrouters.py:1)) qui exposaient des clés API.
+### Session 22 Mai - Après-midi (Début et milieu de session)
+*   **Correction `AttributeError` dans [`backend/main.py`](backend/main.py:1) :** Renommage de la fonction `status` en `get_application_status`.
+*   **Tests Gestion Clés API (Phases 1 & 2) : SUCCÈS.**
+    *   Phase 1 (Clés en DB) : Validée pour Gemini, Mistral, OpenRouter.
+    *   Phase 2 (Fallback sur `.env`) : Validée pour Gemini, Mistral, OpenRouter.
+
+### Session 22 Mai - Matin (Suite - Fin de session)
+*   **Correction Bug Génération Personnage Clés API (TypeError et Fallback) VALIDÉE.**
 *   **Mise à jour de la Banque de Mémoire.**
+*   **Prochaine Priorité (pour la session suivante à ce moment-là) :** Tests approfondis de la gestion des clés API.
 
-### Session 20 Mai - Fin d'après-midi - Suite (Précédente)
-*   **Bugs de Gestion des Chapitres Corrigés.**
-*   **Mise à jour de la Banque de Mémoire.**
-
-### Session 20 Mai - Fin d'après-midi (Encore avant)
-*   **Bugs d'Export Corrigés.**
-*   **Mises à jour Git.**
-
-### Session 20 Mai - Après-midi (Encore avant)
-*   **Initialisation Git et Publication GitHub Réussies.**
-*   **`README.md` Amélioré.**
-*   **Planification Dockerisation.**
+### Session 22 Mai - Matin (Début session)
+*   **Implémentation Gestion des Clés API Utilisateur (Backend & Frontend).**
+*   **Correction Bug Snackbar Frontend.**
+*   **Identification Nouveau Bug :** Génération de personnages n'utilisait pas les clés API de la DB (corrigé et validé plus tard).
 
 *(Les sections d'évolution des décisions plus anciennes sont conservées dans activeContext.md)*
 
-*Ce document reflète l'état au 21/05/2025 (09:33).*
+*Ce document reflète l'état au 22/05/2025 (14:11).*
