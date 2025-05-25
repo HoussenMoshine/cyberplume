@@ -276,11 +276,24 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
   }
 
 
+// Fonctions spécifiques pour chaque action, appelant triggerAIAction
+  const triggerSuggest = () => triggerAIAction('suggest');
+  const triggerContinue = () => triggerAIAction('continue');
+  const triggerDialogue = () => triggerAIAction('dialogue');
+  const triggerReformulate = () => triggerAIAction('reformulate');
+  const triggerShorten = () => triggerAIAction('shorten');
+  const triggerExpand = () => triggerAIAction('expand');
   // --- Return ---
   return {
     isGenerating,
     isAnalyzing,
     generationError,
+    triggerSuggest,
+    triggerContinue,
+    triggerDialogue,
+    triggerReformulate,
+    triggerShorten,
+    triggerExpand,
     suggestions,
     currentAction,
     triggerAIAction,

@@ -20,7 +20,7 @@ export function useChapters(showSnackbar) {
     // console.log(`useChapters: Fetching chapters for project ${projectId}...`); // Log nettoyé
     try {
       // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
-      const response = await fetch(`/api/projects/${projectId}/chapters/`, { headers: { 'x-api-key': config.apiKey } });
+      const response = await fetch(`/api/projects/${projectId}/chapters`, { headers: { 'x-api-key': config.apiKey } });
       if (!response.ok) {
         const error = new Error(`HTTP error! status: ${response.status}`);
         try { error.data = await response.json(); } catch (e) { /* ignore */ }
@@ -53,7 +53,7 @@ export function useChapters(showSnackbar) {
     let newChapter = null;
     try {
       // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
-      const response = await fetch(`/api/projects/${projectId}/chapters/`, {
+      const response = await fetch(`/api/projects/${projectId}/chapters`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey },
         body: JSON.stringify({ title: title, content: '' }),

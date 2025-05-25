@@ -56,7 +56,7 @@ export function useChapterContent(selectedChapterIdRef, editorRef) {
     try {
 
       // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
-      const response = await fetch(`/api/chapters/${chapterId}/`, {
+      const response = await fetch(`/api/chapters/${chapterId}`, {
         headers: { 'x-api-key': config.apiKey }
       });
 
@@ -138,7 +138,7 @@ export function useChapterContent(selectedChapterIdRef, editorRef) {
       };
 
       // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
-      const response = await fetch(`/api/chapters/${chapterId}/`, {
+      const response = await fetch(`/api/chapters/${chapterId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

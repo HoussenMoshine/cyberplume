@@ -10,7 +10,7 @@ from ..database import get_db # Importer la fonction get_db depuis database.py
 from ..models import ReorderItemsSchema
 
 router = APIRouter(
-    prefix="/api", # Préfixe commun pour ces routes
+    # prefix="/api", # Préfixe commun pour ces routes -- Supprimé car géré par le proxy Vite
     tags=["Projects & Chapters"], # Tag pour la documentation Swagger UI
 )
 

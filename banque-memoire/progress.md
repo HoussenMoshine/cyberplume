@@ -1,70 +1,67 @@
-# Progression - CyberPlume (Mise à jour : 24/05/2025 - 07:18)
+# Progression - CyberPlume (Mise à jour : 25/05/2025 - 08:05)
 
 ## Ce qui Fonctionne (État Actuel)
 
-### Backend
-*   API CRUD : Gestion complète (Création, Lecture, Mise à jour, Suppression) pour Projets, Chapitres, Personnages fonctionnelle (testé en dehors de Docker).
-*   Réordonnancement : API pour réorganiser les chapitres (`/reorder`) opérationnelle (testé en dehors de Docker).
-*   API IA Générale (`/generate/text`) et Génération Personnage (`/api/characters/generate`) : Fonctionnelles avec gestion des clés API DB/fallback .env (testé en dehors de Docker).
-*   API Export, Analyse Cohérence, Modèles IA, Analyse Style : Fonctionnelles (testé en dehors de Docker).
-*   Architecture IA, Base de Données, Configuration `config.py`, Sécurité (chiffrement clés), Gestion Clés API Fournisseurs : Stables (testé en dehors de Docker).
-*   *Note : La correction pour le modèle spaCy (ajout de `RUN python -m spacy download fr_core_news_sm` dans [`Dockerfile.backend`](Dockerfile.backend:1)) a été préparée mais non validée par un build Docker réussi et test fonctionnel.*
+### Backend & Frontend (en environnement Docker)
+*   **Communication de base rétablie :** Les erreurs 404 dues aux `net::ERR_NAME_NOT_RESOLVED` (causées par des redirections 307 avec slashs finaux) ont été corrigées pour les fonctionnalités principales.
+*   **Chargement des Données :**
+    *   Liste des projets.
+    *   Liste des chapitres par projet.
+    *   Contenu des chapitres dans l'éditeur.
+*   **Fonctionnalités CRUD de base (testées par l'utilisateur) :**
+    *   Ajout/suppression de projets.
+    *   Ajout/suppression de chapitres.
+    *   Gestion des scènes (création/affichage).
+    *   Gestion des personnages (création/affichage).
+*   **Actions IA de base :**
+    *   Les fonctions IA de base (ex: "Continuer" via `ActionPanel`) sont de nouveau opérationnelles après correction d'une erreur JavaScript (`triggerContinueFromComposable is not a function`).
+*   **Modèle spaCy :** Le backend semble tenter de charger `fr_core_news_sm` (d'après les logs `WARNING:root:Modèle 'fr_core_news_md' non trouvé. Tentative avec 'fr_core_news_sm'.`), ce qui indique que l'ajout au Dockerfile a eu un effet. Son utilisation effective reste à valider via les fonctionnalités d'analyse.
 
-### Frontend
-*   Fonctionnalités de base de l'éditeur et gestion de projet : Stables (testé en dehors de Docker).
-*   Gestion des Chapitres, Fournisseurs IA, Analyse Contenu/Style, Export, Gestion Clés API, Notifications : Fonctionnels (testé en dehors de Docker).
-*   **Modifications pour Dockerisation :**
-    *   Tous les appels API dans les fichiers composables (`useAIActions.js`, `useAIModels.js`, `useAnalysis.js`, `useChapterContent.js`, `useChapters.js`, `useProjects.js`, `useSceneContent.js`, `useScenes.js`) ont été modifiés pour utiliser des chemins relatifs commençant par `/api/`.
-*   Le frontend se lance via Docker (selon le test utilisateur du 24/05), mais la communication avec le backend échoue (erreurs 404).
-
-### Configuration & Outillage
-*   Proxy Vite ([`frontend/vite.config.js`](frontend/vite.config.js:1)) : Configuration modifiée pour utiliser `VITE_PROXY_API_TARGET_URL` ou une valeur par défaut.
-*   Fichiers de Dockerisation :
-    *   [`Dockerfile.backend`](Dockerfile.backend:1) : Modifié pour inclure le téléchargement du modèle spaCy `fr_core_news_sm`.
-    *   [`Dockerfile.frontend-dev`](Dockerfile.frontend-dev:1) : Structure initiale revue.
-    *   [`docker-compose.yml`](docker-compose.yml:1) : Modifié pour définir `VITE_PROXY_API_TARGET_URL` pour le service frontend et suppression de la ligne `version: '3.8'`.
-*   Branche Git `dockerisation` créée pour isoler ces travaux.
+### Configuration & Outillage (État après corrections)
+*   Proxy Vite ([`frontend/vite.config.js`](frontend/vite.config.js:1)) : Fonctionne avec `VITE_PROXY_API_TARGET_URL=http://backend:8080` et réécriture de `/api`.
+*   Fichiers de Dockerisation ([`Dockerfile.backend`](Dockerfile.backend:1), [`Dockerfile.frontend-dev`](Dockerfile.frontend-dev:1), [`docker-compose.yml`](docker-compose.yml:1)) : Intègrent les corrections pour spaCy et la configuration du proxy.
+*   Appels API Frontend : Corrigés dans `useProjects.js`, `useChapters.js`, `useChapterContent.js` pour ne plus utiliser de slashs finaux problématiques.
+*   Composable `useAIActions.js` : Fonctions correctement exportées et utilisées.
+*   Routeur Backend `projects.py` : Préfixe `/api` supprimé pour éviter conflit avec le proxy.
 
 ## Ce qui Reste à Construire / Améliorer (Prochaine Session)
 
-*   **Dockerisation (Priorité Haute - EN COURS, BLOQUÉ) :**
-    *   **Résoudre Erreur 404 :** La communication Frontend-Backend sous Docker ne fonctionne pas (les projets ne se chargent pas, erreurs 404 sur les appels API). Nécessite une investigation approfondie des logs, des chemins d'API, de la configuration du proxy Vite et de la résolution DNS inter-conteneurs après un `docker-compose up --build`.
-    *   **Valider la correction pour spaCy :** Exécuter `docker-compose up --build` et vérifier les logs backend. Tester les fonctionnalités d'analyse dépendant de spaCy.
-    *   **Alternative spaCy :** Si les problèmes avec spaCy persistent (même après correction du Dockerfile), évaluer des bibliothèques alternatives ou discuter de la simplification/suppression des fonctionnalités d'analyse concernées.
-    *   Tests fonctionnels complets de l'application une fois les problèmes ci-dessus résolus et l'application fonctionnant sous Docker.
-    *   Mise à jour de la documentation [`README.md`](README.md) pour le lancement via Docker et la configuration des clés API.
-*   **Commit et Push des changements** de la branche `dockerisation` une fois la Dockerisation fonctionnelle.
+*   **Résoudre Erreurs 404 pour les Analyses (Priorité Haute) :**
+    *   **Analyse de contenu de chapitre :** `POST /api/chapters/{id}/analyze-content` retourne 404.
+        *   Vérifier l'appel dans [`frontend/src/composables/useAnalysis.js`](frontend/src/composables/useAnalysis.js:1) (slash final, chemin exact).
+        *   Vérifier le routeur [`backend/routers/analysis.py`](backend/routers/analysis.py:1) (absence de préfixe `/api` si géré par proxy, définition de la route).
+    *   **Analyse de cohérence de projet :** `POST /analyze/consistency` retourne 404.
+        *   Vérifier l'appel dans [`frontend/src/composables/useAnalysis.js`](frontend/src/composables/useAnalysis.js:1).
+        *   Vérifier le routeur [`backend/routers/analysis.py`](backend/routers/analysis.py:1).
+*   **Valider le fonctionnement complet de spaCy :** Une fois les routes d'analyse ci-dessus corrigées, tester intensivement ces fonctionnalités.
+*   **(Observation/Optionnel) Redirections `/api/characters` :**
+    *   Les logs backend montrent encore des redirections 307 pour `/api/characters` vers `/api/characters/`. Bien que cela semble fonctionner, envisager de :
+        *   Supprimer le préfixe `/api` du routeur [`backend/routers/characters.py`](backend/routers/characters.py:1) s'il existe.
+        *   S'assurer que les appels frontend (probablement `useCharacters.js`) se font vers `/api/characters` (sans slash final).
+*   **(Observation/Optionnel) Appel `/api-keys-config/status` :**
+    *   Vérifier la cohérence entre l'appel frontend et la définition du routeur [`backend/routers/api_keys_config.py`](backend/routers/api_keys_config.py:1) (préfixe `/api`, slash final).
+*   **Optimisation Docker (Post-Fonctionnalité) :**
+    *   Envisager des stratégies pour réduire les temps de reconstruction des images Docker lors du développement (ex: montage plus fin des volumes pour le code source).
+*   **Tests Fonctionnels Complets :** Effectuer des tests exhaustifs de toutes les fonctionnalités de l'application fonctionnant sous Docker une fois les problèmes d'analyse résolus.
+*   **Documentation :** Mettre à jour [`README.md`](README.md) avec les instructions de lancement via Docker.
+*   **Commit et Push** des changements de la branche `dockerisation`.
 *   **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel).**
-*   **(Si temps disponible) Nettoyage des logs de débogage** (style.py, ChapterList.vue).
-*   **(Si temps disponible) Bugs des scènes (à réévaluer).**
-*   **(Si temps disponible) Exécuter `npm audit fix` et traiter les vulnérabilités.**
 
 ## Problèmes Actuels (État Actuel)
 
-*   **Erreur 404 Communication Docker :** Le frontend ne parvient pas à communiquer avec le backend lorsque les deux s'exécutent dans des conteneurs Docker (test utilisateur du 24/05). Les appels API reçoivent des erreurs 404.
-*   **Modèle spaCy manquant dans Docker (Correction proposée) :** Les logs du backend (avant la dernière tentative de build refusée) indiquent que le modèle `fr_core_news_sm` (ou `md`) est manquant. Une correction a été ajoutée à [`Dockerfile.backend`](Dockerfile.backend:1) mais n'a pas encore été validée par un build et des tests.
-*   Conflit de Dépendance `openai` (Mineur - À surveiller).
-*   Scènes Non Fonctionnelles (Reporté - À réévaluer).
-*   (Mineur - Reporté) `npm audit`.
+*   **Erreur 404 :** `POST /api/chapters/{id}/analyze-content` (lors de l'analyse de contenu d'un chapitre).
+*   **Erreur 404 :** `POST /analyze/consistency` (lors de l'analyse de cohérence d'un projet).
+*   **(Mineur/Observation) Redirections 307 :** Pour les appels à `/api/characters` dans les logs backend, bien que la fonctionnalité semble opérationnelle.
 
 ## Évolution des Décisions
 
-### Session 24 Mai
-*   **Objectif :** Finaliser la Dockerisation.
-*   Création de la branche `dockerisation`.
-*   Modification de [`frontend/vite.config.js`](frontend/vite.config.js:1) pour rendre la cible du proxy dynamique.
-*   Modification de [`docker-compose.yml`](docker-compose.yml:1) pour passer la cible du proxy au conteneur frontend et suppression de la ligne `version`.
-*   Refonte des appels API dans tous les composables frontend pour utiliser des chemins relatifs (ex: `/api/projects/`).
-*   Identification du problème de modèle spaCy manquant dans les logs Docker du backend.
-*   Modification de [`Dockerfile.backend`](Dockerfile.backend:1) pour ajouter le téléchargement du modèle spaCy.
-*   **Blocage :** L'utilisateur a testé l'application (probablement avant que les dernières corrections Dockerfile/docker-compose ne soient buildées) et a rencontré des erreurs 404 indiquant un échec de communication frontend-backend sous Docker.
-*   **Décision :** Arrêt de la session. Priorité à la mise à jour de la Banque de Mémoire. Le débogage des erreurs 404 et la validation de la correction spaCy sont reportés à la prochaine session. L'utilisateur a suggéré d'envisager une alternative à spaCy si cela s'avère trop bloquant.
+### Session 25 Mai
+*   **Objectif :** Rétablir la communication frontend-backend en environnement Docker.
+*   Correction itérative des problèmes de slashs finaux dans les appels API frontend (`useProjects.js`, `useChapters.js`, `useChapterContent.js`) pour résoudre les erreurs `net::ERR_NAME_NOT_RESOLVED` causées par des redirections 307.
+*   Correction d'une erreur JavaScript dans `useAIActions.js` et `EditorComponent.vue` concernant l'appel de `triggerContinueFromComposable`.
+*   Suppression du préfixe `/api` dans le routeur `projects.py` pour alignement avec le proxy Vite.
+*   Validation du fonctionnement de base (CRUD projets/chapitres, contenu chapitres, actions IA de base).
+*   Identification des erreurs 404 pour les fonctionnalités d'analyse comme prochains points à traiter.
+*   Décision de mettre à jour la Banque de Mémoire et de ne pas corriger les erreurs d'analyse dans la session actuelle.
 
-### Session 22 Mai - Après-midi (Fin de session)
-*   Amélioration Esthétique Dialogue Suppression Clés API : Remplacement de `window.confirm` par `VDialog`. VALIDÉ.
-*   Session Terminée. Prochaine priorité (à ce moment) : Dockerisation.
-*   Mise à jour de la Banque de Mémoire.
-
-*(Les détails des sessions antérieures au 22 Mai après-midi sont conservés dans activeContext.md)*
-
-*Ce document reflète l'état au 24/05/2025 (07:18).*
+*(Les détails des sessions antérieures sont conservés dans activeContext.md)*
