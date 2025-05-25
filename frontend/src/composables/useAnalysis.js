@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import { config } from '@/config.js';
+import { config } from '@/config.js'; // config.apiKey est toujours utilisé
 import { handleApiError } from '@/utils/errorHandler.js';
 
 export function useAnalysis(showSnackbar) {
@@ -21,7 +21,8 @@ export function useAnalysis(showSnackbar) {
     analysisResult.value = null; // Reset previous results
     console.log(`useAnalysis: Triggering consistency analysis for project ${projectId}...`);
     try {
-      const response = await fetch(`${config.apiUrl}/api/analyze/consistency`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/analyze/consistency`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey },
         body: JSON.stringify({ project_id: projectId }),
@@ -66,7 +67,8 @@ export function useAnalysis(showSnackbar) {
       if (model) {
         payload.model = model;
       }
-      const response = await fetch(`${config.apiUrl}/api/chapters/${chapterId}/analyze-content`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/chapters/${chapterId}/analyze-content`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey },
         body: JSON.stringify(payload), // Send provider and optional model

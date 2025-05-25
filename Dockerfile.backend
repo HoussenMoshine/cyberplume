@@ -10,6 +10,8 @@ WORKDIR /app
 # Copier d'abord requirements.txt pour profiter du cache Docker
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+# Télécharger le modèle spaCy français (version 'sm' plus légère)
+RUN python -m spacy download fr_core_news_sm
 
 # 4. Copie du code source
 # Copier le reste du code de l'application backend

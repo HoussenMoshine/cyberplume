@@ -1,5 +1,5 @@
 import { ref, reactive } from 'vue';
-import { config } from '@/config.js';
+import { config } from '@/config.js'; // config.apiKey est toujours utilisé
 import { handleApiError } from '@/utils/errorHandler.js';
 
 // Données statiques (peuvent rester ici ou être importées si définies ailleurs)
@@ -39,8 +39,9 @@ export function useAIModels(showSnackbar) {
     errorLoadingModels.value = false; // Reset l'erreur globale avant de fetch
     console.log(`useAIModels: Fetching models for ${provider}...`);
     try {
-      const url = `${config.apiUrl}/models/${provider}`;
-      const headers = { 'x-api-key': config.apiKey };
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const url = `/api/models/${provider}`;
+      const headers = { 'x-api-key': config.apiKey }; // config.apiKey est toujours utilisé
       const response = await fetch(url, { headers });
       if (!response.ok) {
         const error = new Error(`HTTP error! status: ${response.status}`);

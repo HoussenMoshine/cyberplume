@@ -1,7 +1,7 @@
 import { ref, watch, onUnmounted, computed } from 'vue';
 import axios from 'axios';
 import { debounce } from 'lodash-es'; // Utiliser debounce pour la sauvegarde auto
-import { config } from '@/config.js';
+import { config } from '@/config.js'; // config.apiKey est toujours utilisé
 import { handleApiError } from '@/utils/errorHandler.js';
 
 // Délai pour la sauvegarde automatique (en millisecondes)
@@ -24,7 +24,7 @@ export function useSceneContent(selectedSceneIdRef, editorRef) {
     if (!editorRef.value || !editorRef.value.isEditable) return false;
     const editorHtml = editorRef.value.getHTML();
     // Considérer le contenu initial vide comme non modifié
-    // CORRECTION: Remplacer &amp;&amp; par &&
+    // CORRECTION: Remplacer && par &&
     if (lastSavedContent.value === '' && (editorHtml === '<p></p>' || editorHtml === '')) { // Correction: &&
         return false;
     }
@@ -44,7 +44,6 @@ export function useSceneContent(selectedSceneIdRef, editorRef) {
       return;
     }
 
-
     
     isLoading.value = true;
     loadingError.value = null;
@@ -52,7 +51,8 @@ export function useSceneContent(selectedSceneIdRef, editorRef) {
     try {
 
       // L'API GET /api/scenes/{sceneId} renvoie déjà les personnages grâce à SceneRead
-      const response = await axios.get(`${config.apiUrl}/api/scenes/${sceneId}`);
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await axios.get(`/api/scenes/${sceneId}`, { headers: { 'x-api-key': config.apiKey } });
       const content = response.data.content || '<p></p>'; // Contenu par défaut si null
       const characters = response.data.characters || []; // Récupérer les personnages
 
@@ -90,9 +90,10 @@ export function useSceneContent(selectedSceneIdRef, editorRef) {
     savingError.value = null;
     try {
       // L'API PUT /api/scenes/{sceneId} ne met à jour que le contenu (et titre/ordre si inclus)
-      await axios.put(`${config.apiUrl}/api/scenes/${sceneId}`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      await axios.put(`/api/scenes/${sceneId}`, {
         content: contentToSave,
-      });
+      }, { headers: { 'x-api-key': config.apiKey } });
       
       lastSavedContent.value = contentToSave; // Mettre à jour après sauvegarde réussie
       return true; // Indiquer le succès
@@ -107,7 +108,7 @@ export function useSceneContent(selectedSceneIdRef, editorRef) {
 
   // --- Sauvegarde automatique (debounced) ---
   const debouncedSave = debounce(async () => {
-    // CORRECTION: Remplacer &amp;&amp; par &&
+    // CORRECTION: Remplacer && par &&
     if (selectedSceneIdRef.value && hasUnsavedChanges.value && editorRef.value) { // Correction: &&
       
       await saveCurrentScene(selectedSceneIdRef.value, editorRef.value.getHTML());
@@ -137,7 +138,7 @@ export function useSceneContent(selectedSceneIdRef, editorRef) {
   watch(selectedSceneIdRef, (newId, oldId) => {
     
     // Si on passe d'une scène à une autre, sauvegarder l'ancienne avant de charger la nouvelle
-    // CORRECTION: Remplacer &amp;&amp; par &&
+    // CORRECTION: Remplacer && par &&
     if (oldId && editorRef.value && hasUnsavedChanges.value) { // Correction: &&
       
       debouncedSave.cancel(); // Annuler debounce
@@ -180,7 +181,7 @@ export function useSceneContent(selectedSceneIdRef, editorRef) {
     loadingError,
     savingError,
     hasUnsavedChanges,
-loadSceneContent: fetchSceneContent, // Exposer sous le nom attendu par EditorComponent
+    loadSceneContent: fetchSceneContent, // Exposer sous le nom attendu par EditorComponent
     saveCurrentSceneIfNeeded, // Exposer la fonction pour sauvegarde manuelle/blur
     // NOUVEAU: Exposer les personnages chargés
     loadedSceneCharacters: computed(() => loadedSceneCharacters.value), // Exposer en lecture seule
