@@ -222,22 +222,62 @@ export function useChapterContent(selectedChapterIdRef, editorRef) {
   // NOUVEAU: Fonction pour appliquer une suggestion au contenu du chapitre
   // (Cette fonction est un exemple et pourrait nécessiter des ajustements)
   function applySuggestionToChapter(chapterId, suggestionData) {
-    if (selectedChapterIdRef.value !== chapterId || !editorRef.value) {
-      console.warn("Tentative d'appliquer une suggestion à un chapitre non sélectionné ou éditeur non prêt.");
-      return;
-    }
-
-    // Exemple: Insérer la suggestion à la fin du contenu actuel
-    // Vous devrez adapter cela en fonction de la structure de suggestionData
-    // et de la manière dont vous souhaitez que les suggestions soient appliquées.
-    if (suggestionData && suggestionData.text_to_insert) {
-      editorRef.value.chain().focus().insertContent(` ${suggestionData.text_to_insert}`).run();
-      // Optionnel: Sauvegarder immédiatement après l'application
-      // saveCurrentChapterIfNeeded(true);
-    } else {
-      console.warn("Données de suggestion invalides pour l'application.", suggestionData);
-    }
+  if (selectedChapterIdRef.value !== chapterId || !editorRef.value) {
+    console.warn("Tentative d'appliquer une suggestion à un chapitre non sélectionné ou éditeur non prêt.");
+    return;
   }
+
+  // Vérifier que les données de suggestion nécessaires sont présentes et valides
+  if (
+    suggestionData &&
+    typeof suggestionData.startIndex === 'number' &&
+    typeof suggestionData.endIndex === 'number' &&
+    suggestionData.startIndex <= suggestionData.endIndex && // endIndex peut être égal à startIndex pour une simple insertion
+    suggestionData.suggestedText !== undefined // suggestedText peut être une chaîne vide (pour une suppression)
+  ) {
+    try {
+      const editor = editorRef.value;
+      const docSize = editor.state.doc.content.size;
+
+      // S'assurer que les indices sont dans les limites du document.
+      // TipTap clamp généralement les positions, mais une vérification explicite est plus sûre.
+      const from = Math.max(0, Math.min(suggestionData.startIndex, docSize));
+      // 'to' doit être >= 'from' et aussi dans les limites.
+      const to = Math.max(from, Math.min(suggestionData.endIndex, docSize));
+
+      if (from > docSize || to > docSize || from > to) { // Vérification supplémentaire
+          console.warn("Les indices de la suggestion sont invalides ou dépassent la taille du document.", {suggestionData, docSize, from, to});
+          // Idéalement, informer l'utilisateur ici.
+          return;
+      }
+      
+      // Utiliser insertContentAt pour remplacer la plage.
+      // Si startIndex et endIndex sont identiques, cela insère à cette position.
+      // Si suggestedText est une chaîne vide, cela supprime la plage.
+      editor.chain().focus().insertContentAt({ from, to }, suggestionData.suggestedText).run();
+      
+      // TRÈS IMPORTANT: Mettre à jour lastSavedContent pour refléter le changement.
+      // Sinon, hasUnsavedChanges ne fonctionnera pas correctement et la sauvegarde pourrait ne pas se déclencher.
+      // Il est préférable de le faire après que TipTap ait traité la transaction.
+      // Utiliser requestAnimationFrame pour s'assurer que l'état de l'éditeur est mis à jour.
+      requestAnimationFrame(() => {
+        if (editorRef.value) { // Vérifier à nouveau car c'est asynchrone
+            lastSavedContent.value = editorRef.value.getHTML();
+            console.log("Suggestion appliquée et lastSavedContent mis à jour.");
+        }
+      });
+
+      // Optionnel: Sauvegarder immédiatement après l'application (peut être redondant si la sauvegarde auto est active)
+      // saveCurrentChapterIfNeeded(true); 
+
+    } catch (error) {
+      console.error("Erreur lors de l'application de la suggestion à l'éditeur TipTap:", error, suggestionData);
+    }
+  } else {
+    // Ce log est celui que vous voyez actuellement si la structure de suggestionData n'est pas celle attendue par cette nouvelle logique.
+    console.warn("Données de suggestion invalides ou manquantes pour l'application (vérification initiale).", suggestionData);
+  }
+}
 
 
   // --- Return ---

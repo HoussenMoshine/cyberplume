@@ -17,6 +17,7 @@ from ..models import ChapterAnalysisResponse, ChapterAnalysisStats, Suggestion
 from ..ai_services.factory import create_adapter
 from ..ai_services.ai_adapter import AIAdapter
 # Importer les settings pour les clés API
+from .. import crud_api_keys
 from ..config import settings
 
 # Charger le modèle spaCy français (s'assurer qu'il est téléchargé)
@@ -36,7 +37,7 @@ except OSError:
         nlp = None # Indiquer que spaCy n'est pas fonctionnel
 
 router = APIRouter(
-    prefix="/api",
+    
     tags=["analysis"],
     responses={500: {"description": "Internal Server Error"}},
 )
@@ -178,19 +179,26 @@ async def analyze_chapter_content(
     # 3. Préparer et exécuter l'appel IA pour les suggestions
     suggestions: List[Suggestion] = []
     try:
-        api_key = {
-            "mistral": settings.mistral_api_key,
-            "gemini": settings.gemini_api_key,
-            "openrouter": settings.openrouter_api_key
-        }.get(request.provider)
+        provider_lower = request.provider.lower()
 
-        if not api_key:
+        # Vérification explicite si le fournisseur est supporté
+        if provider_lower not in crud_api_keys.SUPPORTED_PROVIDERS:
             raise HTTPException(
-                status_code=400,
-                detail=f"Clé API pour le fournisseur '{request.provider}' non configurée ou fournisseur non supporté."
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Fournisseur non supporté : {request.provider}"
             )
 
-        ai_service: AIAdapter = create_adapter(request.provider, api_key=api_key, model=request.model)
+        # Essayer de récupérer la clé API (DB puis fallback .env)
+        api_key_to_use = crud_api_keys.get_decrypted_api_key(db, provider_lower, settings_fallback=settings)
+
+        if not api_key_to_use:
+            logging.warning(f"Aucune clé API trouvée (DB ou .env) pour le provider: {provider_lower} lors de l'analyse de chapitre.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Clé API non configurée pour le fournisseur : {request.provider}. Veuillez la configurer via l'interface ou le fichier .env."
+            )
+
+        ai_service: AIAdapter = create_adapter(provider_lower, api_key=api_key_to_use, model=request.model)
 
         # MODIFICATION: Ajustement du prompt pour demander les indices sur le TEXTE BRUT
         prompt = f"""

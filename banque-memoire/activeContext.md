@@ -1,3 +1,58 @@
+# Contexte Actif - CyberPlume (Mise à jour : 26/05/2025 - 07:35)
+
+## Focus Actuel
+
+*   **Fin de session de développement (26 Mai).**
+*   **Correction des bugs d'analyse :**
+    *   Les erreurs 404 pour les routes d'analyse (`/api/analyze/consistency` et `/api/chapters/{id}/analyze-content`) ont été résolues.
+    *   L'erreur 400 pour la route d'analyse de contenu de chapitre (liée à la récupération de clé API) a été résolue.
+    *   L'application des suggestions d'analyse dans l'éditeur TipTap fonctionne.
+*   **Problèmes identifiés (non corrigés cette session) :** Erreurs Vue.js (`Unhandled error during execution of watcher callback` et `loadChapterContent is not a function`) apparaissant lors de la sélection de chapitres.
+
+## ⚠️ Rappels Cruciaux
+
+*   **Gestion des Branches Git :** Toujours s'assurer que l'on travaille dans la bonne branche Git. (Rappel général)
+*   **Variables d'environnement et Clés API :** S'assurer que les fichiers `.env` sont correctement configurés et que la logique de récupération des clés (DB puis fallback .env) est utilisée de manière cohérente.
+
+## Décisions et Actions Clés de la Session (26 Mai)
+
+*   **Résolution des erreurs 404 pour les routes d'analyse :**
+    *   Suppression du `prefix="/api"` dans la définition du routeur [`backend/routers/analysis.py`](backend/routers/analysis.py:1) pour éviter les conflits avec le proxy Vite.
+    *   Vérification de l'inclusion correcte du routeur d'analyse dans [`backend/main.py`](backend/main.py:1) (était déjà correct).
+*   **Résolution de l'erreur 400 pour la route d'analyse de contenu de chapitre :**
+    *   Modification de la fonction `analyze_chapter_content` dans [`backend/routers/analysis.py`](backend/routers/analysis.py:1).
+    *   Ajout de l'import de `crud_api_keys`.
+    *   Implémentation de la logique de récupération de clé API : tentative depuis la base de données via `crud_api_keys.get_decrypted_api_key(db, provider_lower, settings_fallback=settings)`, puis fallback sur `settings` (variables d'environnement).
+    *   Mise à jour de l'appel à `create_adapter` pour utiliser `provider_lower` et la clé récupérée (`api_key_to_use`).
+*   **Résolution du bug d'application des suggestions d'analyse à l'éditeur :**
+    *   Réécriture de la fonction `applySuggestionToChapter` dans [`frontend/src/composables/useChapterContent.js`](frontend/src/composables/useChapterContent.js:1).
+    *   La fonction utilise maintenant `startIndex`, `endIndex`, et `suggestedText` pour appliquer les modifications via `editor.chain().focus().insertContentAt({ from, to }, suggestionData.suggestedText).run()`.
+    *   Ajout de la mise à jour de `lastSavedContent.value` après l'application de la suggestion pour assurer la détection correcte des changements non sauvegardés.
+*   **Validation :** Les fonctionnalités d'analyse de cohérence de projet et d'analyse de contenu de chapitre (y compris l'application des suggestions) sont maintenant opérationnelles en développement local.
+*   **Décision :** Ne pas corriger les erreurs Vue.js restantes (`loadChapterContent is not a function` et `Unhandled error during execution of watcher callback`) pendant cette session, et se concentrer sur la mise à jour de la banque de mémoire.
+
+## Apprentissages et Patrons Importants Récents (Session 26 Mai)
+
+*   **Cohérence de la Gestion des Clés API :** Il est crucial d'avoir une méthode unifiée et robuste pour récupérer les clés API (ex: DB d'abord, puis fallback sur les variables d'environnement) à travers tous les endpoints qui en ont besoin. Une implémentation partielle (uniquement `.env`) peut mener à des bugs lorsque les clés sont configurées via l'interface utilisateur.
+*   **Logique d'Application des Modifications à TipTap :** Pour appliquer des modifications textuelles basées sur des indices (comme les suggestions d'IA), il faut utiliser les commandes TipTap appropriées (ex: `insertContentAt`) et s'assurer que les indices sont correctement interprétés. La mise à jour de l'état interne qui reflète le contenu sauvegardé (ex: `lastSavedContent`) est également essentielle après de telles modifications programmatiques.
+*   **Débogage Itératif :** La résolution des problèmes s'est faite étape par étape : 404 -> 400 -> bug d'application. Chaque résolution a révélé le problème suivant.
+
+## Prochaines Étapes (Pour la prochaine session de développement)
+
+1.  **Investiguer et corriger les erreurs Vue.js lors de la sélection de chapitres :**
+    *   `[Vue warn]: Unhandled error during execution of watcher callback` (origine dans [`ProjectManager.vue`](frontend/src/components/ProjectManager.vue:338)).
+    *   `Uncaught (in promise) TypeError: loadChapterContent is not a function` dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:316).
+2.  **Reprendre la Dockerisation (si les erreurs Vue.js sont résolues ou jugées non bloquantes pour cela) :**
+    *   Valider le fonctionnement complet des fonctionnalités d'analyse (et autres) dans l'environnement Docker.
+    *   S'assurer que spaCy fonctionne correctement dans le conteneur Docker.
+    *   Optimisation Docker (Post-Fonctionnalité).
+    *   Tests Fonctionnels Complets sous Docker.
+    *   Documentation [`README.md`](README.md) pour Docker.
+    *   Commit et Push des changements de la branche `dockerisation`.
+3.  **(Observation/Optionnel - à revoir) Redirections `/api/characters` et appel `/api-keys-config/status` :** Vérifier la cohérence des préfixes et des slashs pour ces routes par souci de propreté.
+
+---
+*Historique précédent (avant cette mise à jour) conservé ci-dessous.*
 # Contexte Actif - CyberPlume (Mise à jour : 25/05/2025 - 08:05)
 
 ## Focus Actuel
@@ -29,7 +84,7 @@
 *   **Cohérence Composables/Composants Vue :** Assurer la cohérence entre la manière dont les fonctions sont déstructurées/renommées lors de l'importation depuis un composable Vue et la manière dont elles sont appelées dans le composant est essentiel pour éviter les erreurs `is not a function`.
 *   **Préfixes de Routeurs FastAPI et Proxy :** Les préfixes de routeurs dans FastAPI (ex: `APIRouter(prefix="/api")`) doivent être gérés de manière centralisée ou très claire pour éviter les conflits avec les réécritures de proxy (comme celui de Vite). Si le proxy gère déjà un préfixe (ex: réécrit `/api/endpoint` en `/endpoint`), le routeur backend ne doit pas redéclarer ce même préfixe.
 
-## Prochaines Étapes (Pour la prochaine session de développement)
+## Prochaines Étapes (Pour la prochaine session de développement du 25 Mai)
 
 1.  **Reprendre la Dockerisation sur la branche `dockerisation`.**
 2.  **Investiguer et corriger les erreurs 404 pour les routes d'analyse :**
@@ -49,52 +104,3 @@
 7.  **Tests Fonctionnels Complets :** Effectuer des tests exhaustifs de toutes les fonctionnalités de l'application fonctionnant sous Docker.
 8.  **Documentation :** Mettre à jour la documentation [`README.md`](README.md) avec les instructions de lancement via Docker et la configuration des clés API.
 9.  **Commit et Push** des changements de la branche `dockerisation`.
-
----
-*Historique précédent (avant cette mise à jour) conservé ci-dessous.*
-# Contexte Actif - CyberPlume (Mise à jour : 22/05/2025 - 14:11)
-
-## Focus Actuel
-
-*   **Fin de session de développement (22 Mai - Après-midi).**
-*   **Amélioration Esthétique :** Remplacement de `window.confirm` par un dialogue Vuetify personnalisé dans [`frontend/src/components/ApiKeysManager.vue`](frontend/src/components/ApiKeysManager.vue:1) pour la suppression des clés API. **VALIDÉ.**
-*   **Exécution des Tests Approfondis de la Gestion des Clés API (Phases 1 & 2) :**
-    *   Correction de l'`AttributeError` dans [`backend/main.py`](backend/main.py:1) (conflit de nom `status`).
-    *   Phase 1 (Clés API uniquement en DB) : **SUCCÈS** pour Gemini, Mistral et OpenRouter.
-    *   Phase 2 (Fallback des Clés API sur `.env`) : **SUCCÈS** pour Gemini, Mistral et OpenRouter.
-*   Correction du Bug de Génération de Personnages (TypeError et Fallback) VALIDÉE - *Terminé lors de la session précédente (matin).*
-
-## Décisions et Actions Clés de la Session (22 Mai - Après-midi)
-
-*   **Amélioration Dialogue de Suppression Clé API :**
-    *   Modification de [`frontend/src/components/ApiKeysManager.vue`](frontend/src/components/ApiKeysManager.vue:1).
-    *   Remplacement de `window.confirm` par un composant `VDialog` de Vuetify pour une meilleure cohérence esthétique lors de la suppression d'une clé API.
-    *   Ajout des variables réactives `showDeleteDialog` et `providerToDelete`.
-    *   Création des méthodes `initiateDeleteApiKey` (pour ouvrir le dialogue), `confirmDeleteApiKey` (pour exécuter la suppression), et `cancelDeleteApiKey` (pour annuler).
-    *   Fonctionnalité validée par l'utilisateur.
-*   **Correction de `AttributeError` dans [`backend/main.py`](backend/main.py:1) :**
-    *   Renommage de la fonction `async def status(db: Session ...)` en `async def get_application_status(db: Session ...)` pour éviter le conflit de nom avec l'objet `status` importé de `fastapi`.
-*   **Validation des Tests de Gestion des Clés API (Phases 1 & 2) :**
-    *   **Phase 1 (Clés en DB uniquement) :** Succès confirmé pour Gemini, Mistral, et OpenRouter (après ajustement du modèle pour ce dernier).
-    *   **Phase 2 (Fallback sur `.env`) :** Succès confirmé pour les trois fournisseurs.
-
-## Apprentissages et Patrons Importants Récents (Session 22 Mai - Après-midi)
-
-*   **Cohérence UI/UX :** L'utilisation de composants UI natifs au framework (ex: dialogues Vuetify) plutôt que les éléments par défaut du navigateur (`window.confirm`) améliore significativement la cohérence esthétique et l'expérience utilisateur.
-*   **Conflits de Noms :** Vigilance requise concernant les noms de fonctions ou variables qui pourraient masquer des modules ou objets importés.
-*   **Problèmes de Services Externes :** Importance de la gestion d'erreur et de la communication claire lorsque des API tierces sont indisponibles.
-*   **Validation Incrémentale :** Pertinence confirmée pour isoler et résoudre les problèmes efficacement.
-
-## Prochaines Étapes (Pour la prochaine session de développement)
-
-*   **Fin de la session actuelle.**
-1.  **Tests de Scénarios Mixtes pour les Clés API (Phase 3 - NON REQUIS par l'utilisateur pour le moment).**
-2.  **Finalisation de la Dockerisation (Priorité Haute) :**
-    *   Reprendre les tests de la configuration Docker ([`Dockerfile.backend`](Dockerfile.backend:1), [`Dockerfile.frontend-dev`](Dockerfile.frontend-dev:1), [`docker-compose.yml`](docker-compose.yml:1)).
-    *   S'assurer que les clés API (via DB ou `.env` monté) sont accessibles correctement dans l'environnement Docker.
-    *   Mettre à jour la documentation [`README.md`](README.md) pour expliquer comment lancer l'application via Docker et comment configurer les clés API via l'interface après le premier lancement.
-3.  **Commit et Push des Changements.**
-4.  **Nettoyage et Refinements (Si temps disponible) :**
-    *   Revoir les logs de débogage (ex: dans [`backend/routers/style.py`](backend/routers/style.py:1), [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1)).
-    *   Considérer d'autres améliorations mineures ou bugs en attente.
-5.  **Révocation et Remplacement des Clés API Exposées (Rappel - Action Externe Critique - Vérifier que toutes les clés potentiellement compromises ont été effectivement révoquées et remplacées).**
