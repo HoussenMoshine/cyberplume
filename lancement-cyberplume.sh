@@ -1,78 +1,113 @@
 #!/bin/bash
 
-# Script pour lancer automatiquement le backend et le frontend
-# dans des onglets séparés du terminal, avec activation de l'environnement virtuel
-
-# Définir le répertoire racine du projet
+# --- Configuration ---
+# Chemin vers le dossier racine de votre projet (là où se trouve 'venv')
+# S'il est exécuté depuis la racine, ceci est correct. Sinon, ajustez.
 PROJECT_ROOT=$(pwd)
 
-echo "Lancement du projet depuis le répertoire: $PROJECT_ROOT"
+# Chemin vers le dossier frontend (relatif à PROJECT_ROOT)
+FRONTEND_DIR="frontend" # Ajustez si votre dossier frontend a un autre nom ou emplacement
 
-# Vérifier l'existence de l'environnement virtuel
-if [ ! -d "$PROJECT_ROOT/venv" ]; then
-    echo "Erreur: L'environnement virtuel '$PROJECT_ROOT/venv' n'existe pas!"
-    echo "Veuillez créer l'environnement virtuel avant d'exécuter ce script."
-    exit 1
-fi
+# Temps d'attente (en secondes) pour que le backend démarre avant de lancer le frontend
+BACKEND_STARTUP_DELAY=30 # Ajustez selon le temps que prend votre backend
 
-# Fonction pour lancer un service dans un nouvel onglet de terminal
-launch_tab() {
-    local command=$1
-    local title=$2
-    
-    # Détection du terminal et ouverture d'un nouvel onglet
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        # MacOS
-        osascript -e "tell application \"Terminal\"" \
-                  -e "tell application \"System Events\" to keystroke \"t\" using {command down}" \
-                  -e "do script \"$command\" in front window" \
-                  -e "end tell" > /dev/null
-    elif [[ -n "$GNOME_TERMINAL_SERVICE" ]]; then
-        # GNOME Terminal
-        gnome-terminal --tab --title="$title" -- bash -c "$command; exec bash"
-    elif [[ "$TERM_PROGRAM" == "iTerm.app" ]]; then
-        # iTerm2
-        osascript -e "tell application \"iTerm2\"" \
-                  -e "tell current window to create tab with default profile" \
-                  -e "tell current session of current window to write text \"$command\"" \
-                  -e "end tell" > /dev/null
-    elif command -v xfce4-terminal &> /dev/null; then
-        # XFCE Terminal
-        xfce4-terminal --tab --title="$title" -e "bash -c '$command; exec bash'" &
-    elif command -v konsole &> /dev/null; then
-        # KDE Konsole
-        konsole --new-tab -p tabtitle="$title" -e "bash -c '$command; exec bash'" &
-    else
-        echo "Impossible de détecter un terminal compatible avec les onglets."
-        echo "Commande à exécuter manuellement: $command"
-        return 1
-    fi
-    
-    return 0
+# Commande pour votre terminal. Décommentez celle qui correspond à votre environnement.
+# Pour GNOME (Ubuntu, Fedora, etc.)
+TERMINAL_CMD="gnome-terminal"
+# Pour KDE (Kubuntu, etc.)
+# TERMINAL_CMD="konsole"
+# Pour XFCE (Xubuntu, etc.)
+# TERMINAL_CMD="xfce4-terminal"
+# Pour d'autres (comme mate-terminal, lxterminal), la syntaxe peut varier.
+
+# --- Fonctions pour la clarté ---
+launch_backend() {
+    echo "--- Lancement du Backend ---"
+    echo "Activation de l'environnement virtuel : $PROJECT_ROOT/venv/bin/activate"
+    echo "Commande backend : uvicorn backend.main:app --port 8080 --reload"
+    source "$PROJECT_ROOT/venv/bin/activate"
+    uvicorn backend.main:app --port 8080 --reload
+    # Garde l'onglet ouvert si la commande se termine
+    # exec bash
 }
 
-# Déterminer la commande d'activation de l'environnement virtuel en fonction du système
-if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
-    # Windows avec Git Bash ou similaire
-    ACTIVATE_CMD="source $PROJECT_ROOT/venv/Scripts/activate"
+launch_frontend() {
+    echo "--- Lancement du Frontend ---"
+    echo "Navigation vers : $PROJECT_ROOT/$FRONTEND_DIR"
+    echo "Commande frontend : npm run dev"
+    cd "$PROJECT_ROOT/$FRONTEND_DIR"
+    npm run dev
+    # Garde l'onglet ouvert si la commande se termine
+    # exec bash
+}
+
+# Exporter les fonctions pour qu'elles soient accessibles dans les sous-shells
+export -f launch_backend
+export -f launch_frontend
+export PROJECT_ROOT # Pour que launch_backend/frontend le connaisse dans le nouveau terminal
+export FRONTEND_DIR # Pour que launch_frontend le connaisse
+
+# --- Script principal ---
+echo "-----------------------------------------------------"
+echo "Lancement automatique de l'application..."
+echo "Projet racine détecté : $PROJECT_ROOT"
+echo "Terminal utilisé : $TERMINAL_CMD"
+echo "-----------------------------------------------------"
+echo ""
+
+# Lancer le backend dans un nouvel onglet
+echo "Ouverture d'un nouvel onglet pour le Backend..."
+if [ "$TERMINAL_CMD" == "gnome-terminal" ]; then
+    $TERMINAL_CMD --tab --title="Backend App" --working-directory="$PROJECT_ROOT" -- bash -c "launch_backend; exec bash"
+elif [ "$TERMINAL_CMD" == "konsole" ]; then
+    # Konsole ouvre un nouvel onglet dans la fenêtre active si on ne spécifie pas --new-tab
+    # et utilise -e pour exécuter une commande.
+    # Pour garantir un nouvel onglet, il est parfois plus simple de lancer une nouvelle instance avec onglets.
+    # Cette commande crée une nouvelle fenêtre Konsole avec l'onglet.
+    # konsole --new-tab -p "tabtitle=Backend App" -e bash -c "cd \"$PROJECT_ROOT\"; launch_backend; exec bash"
+    # Pour ajouter un onglet à la fenêtre existante (plus complexe à garantir depuis un script)
+    # Il est plus fiable de lancer la commande directement dans un nouvel onglet si Konsole est déjà la fenêtre active.
+    # Si ce script est lancé DEPUIS Konsole :
+    # qdbus org.kde.konsole "$(qdbus org.kde.konsole | grep /Sessions/ | head -n 1)" newSession title "Backend App" bash -c "cd \"$PROJECT_ROOT\"; launch_backend; exec bash"
+    # Solution plus simple mais ouvre une nouvelle fenêtre Konsole :
+    $TERMINAL_CMD -p "tabtitle=Backend App" --workdir "$PROJECT_ROOT" -e bash -c "launch_backend; exec bash" &
+elif [ "$TERMINAL_CMD" == "xfce4-terminal" ]; then
+    $TERMINAL_CMD --tab --title="Backend App" --working-directory="$PROJECT_ROOT" --command="bash -c 'launch_backend; exec bash'"
 else
-    # Linux, macOS, etc.
-    ACTIVATE_CMD="source $PROJECT_ROOT/venv/bin/activate"
+    echo "Terminal non supporté pour l'ouverture d'onglets automatiques via ce script."
+    echo "Veuillez lancer le backend manuellement dans un autre terminal :"
+    echo "  cd \"$PROJECT_ROOT\""
+    echo "  source venv/bin/activate"
+    echo "  uvicorn backend.main:app --port 8080 --reload"
+    # On continue quand même, au cas où l'utilisateur le fait.
 fi
 
-# Lancer le backend avec activation de l'environnement virtuel
-echo "Lancement du backend avec l'environnement virtuel..."
-BACKEND_CMD="$ACTIVATE_CMD && cd $PROJECT_ROOT/backend && uvicorn main:app --reload --app-dir .."
-launch_tab "$BACKEND_CMD" "Backend Flask"
+echo ""
+echo "Attente de $BACKEND_STARTUP_DELAY secondes pour le démarrage du backend..."
+sleep $BACKEND_STARTUP_DELAY
+echo ""
 
-# Attendre que le backend démarre
-echo "Attente du démarrage du backend (5 secondes)..."
-sleep 5
+# Lancer le frontend dans un autre nouvel onglet
+echo "Ouverture d'un nouvel onglet pour le Frontend..."
+if [ "$TERMINAL_CMD" == "gnome-terminal" ]; then
+    $TERMINAL_CMD --tab --title="Frontend App" --working-directory="$PROJECT_ROOT/$FRONTEND_DIR" -- bash -c "launch_frontend; exec bash"
+elif [ "$TERMINAL_CMD" == "konsole" ]; then
+    # Voir note précédente pour Konsole
+    $TERMINAL_CMD -p "tabtitle=Frontend App" --workdir "$PROJECT_ROOT/$FRONTEND_DIR" -e bash -c "launch_frontend; exec bash" &
+elif [ "$TERMINAL_CMD" == "xfce4-terminal" ]; then
+    $TERMINAL_CMD --tab --title="Frontend App" --working-directory="$PROJECT_ROOT/$FRONTEND_DIR" --command="bash -c 'launch_frontend; exec bash'"
+else
+    echo "Terminal non supporté pour l'ouverture d'onglets automatiques via ce script."
+    echo "Veuillez lancer le frontend manuellement dans un autre terminal :"
+    echo "  cd \"$PROJECT_ROOT/$FRONTEND_DIR\""
+    echo "  npm run dev"
+fi
 
-# Lancer le frontend
-echo "Lancement du frontend..."
-FRONTEND_CMD="cd $PROJECT_ROOT/frontend && npm run dev"
-launch_tab "$FRONTEND_CMD" "Frontend NPM"
+echo ""
+echo "-----------------------------------------------------"
+echo "Les processus Backend et Frontend devraient être en cours de lancement dans de nouveaux onglets."
+echo "Cet onglet (où le script a été lancé) peut être utilisé pour autre chose ou fermé."
+echo "-----------------------------------------------------"
 
-echo "Le projet a été lancé avec succès!"
-echo "Pour arrêter les serveurs, fermez les onglets de terminal ou utilisez Ctrl+C dans chacun d'eux."
+# Optionnel: garder cet onglet principal ouvert aussi
+# exec bash
