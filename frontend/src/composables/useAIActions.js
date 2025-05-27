@@ -1,5 +1,5 @@
 import { ref } from 'vue';
-import { config } from '@/config.js';
+import { config } from '@/config.js'; // config.apiKey est toujours utilisé
 import { handleApiError } from '@/utils/errorHandler.js';
 
 /**
@@ -103,11 +103,12 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
     if (action === 'suggest') suggestions.value = [];
 
     try {
-      const response = await fetch(`${config.apiUrl}/generate/text`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/generate/text`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': config.apiKey
+          'x-api-key': config.apiKey // config.apiKey est toujours utilisé
         },
         // NOUVEAU: Passer le signal de l'AbortController
         signal: controller.signal,
@@ -199,96 +200,104 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
   }
 
   // --- Analyse de Style ---
+  /**
+   * Envoie un fichier au backend pour analyse de style.
+   * @param {File} file - Le fichier à analyser.
+   * @returns {Promise<string|null>} - La description du style analysé ou null en cas d'erreur.
+   */
   async function analyzeStyleUpload(file) { // file ici devrait être un objet File
-    if (!file || !(file instanceof File)) { // Vérification plus robuste
-      generationError.value = "Aucun fichier valide n'a été fourni pour l'analyse.";
-      console.error("useAIActions: analyzeStyleUpload called with invalid file object:", file);
-      // Il est important de throw une erreur ici pour que le .catch dans StyleAnalysisDialog.vue soit déclenché
-      throw new Error("Invalid file object provided.");
+    if (!file) {
+      generationError.value = "Aucun fichier sélectionné pour l'analyse de style.";
+      return null;
     }
 
-    console.log(`useAIActions: Calling backend for style analysis of file: ${file.name}, type: ${file.type}, size: ${file.size}`);
     isAnalyzing.value = true;
-    generationError.value = null; // Réinitialiser l'erreur avant chaque tentative
+    generationError.value = null;
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append("file", file);
 
-    // const controller = new AbortController(); // Pourrait être ajouté si l'annulation est nécessaire
-    // activeAbortController.value = controller;
+    // Annuler toute action précédente si elle est encore en cours
+    if (activeAbortController.value) {
+        activeAbortController.value.abort();
+    }
+    const controller = new AbortController();
+    activeAbortController.value = controller;
 
     try {
-      const response = await fetch(`${config.apiUrl}/api/style/analyze-upload`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/style/analyze-upload`, {
         method: 'POST',
         headers: {
-          // 'Content-Type': 'multipart/form-data' // NE PAS METTRE, le navigateur le fait pour FormData
-          'x-api-key': config.apiKey
+          // 'Content-Type': 'multipart/form-data' est défini automatiquement par le navigateur pour FormData
+          'x-api-key': config.apiKey // config.apiKey est toujours utilisé
         },
         body: formData,
-        // signal: controller.signal, // Si annulation
+        signal: controller.signal,
       });
 
       if (!response.ok) {
         let errorBody = null;
         try { errorBody = await response.json(); } catch (e) { /* Ignorer */ }
         const error = new Error(`HTTP error! status: ${response.status}`);
-        error.response = { status: response.status, data: errorBody }; // Attacher les détails de la réponse
-        throw error; // Lancer pour être attrapé par le bloc catch ci-dessous
+        error.response = { status: response.status, data: errorBody };
+        throw error;
       }
-
       const data = await response.json();
-
-      if (data && data.analyzed_style) {
-        console.log("useAIActions: Style analysis successful:", data.analyzed_style);
-        return data.analyzed_style; // Retourner le résultat pour le dialogue
+      if (data && data.style_description) {
+        return data.style_description;
       } else {
-        console.error("useAIActions: Réponse d'analyse de style API invalide:", data);
-        throw new Error("La réponse de l'API ne contient pas le style analysé attendu.");
+        throw new Error("La réponse de l'API ne contient pas la description du style attendue.");
       }
     } catch (error) {
-      // if (error.name === 'AbortError') { ... } // Si annulation
-      const userMessage = handleApiError(error, `analyse de style du fichier "${file.name}"`);
-      generationError.value = userMessage; // Mettre à jour l'état d'erreur pour l'UI
-      console.error(`useAIActions: Failed style analysis for file "${file.name}":`, error);
-      throw error; // Re-throw pour que StyleAnalysisDialog.vue puisse aussi le catcher si besoin (ou pour tests)
+      if (error.name === 'AbortError') {
+        console.log("useAIActions: Style analysis was cancelled by the user.");
+      } else {
+        const userMessage = handleApiError(error, "analyse de style");
+        generationError.value = userMessage;
+        console.error("useAIActions: Failed style analysis:", error);
+      }
+      return null;
     } finally {
       isAnalyzing.value = false;
-      // if (activeAbortController.value === controller) { activeAbortController.value = null; } // Si annulation
+      if (activeAbortController.value === controller) {
+          activeAbortController.value = null;
+      }
     }
   }
 
-  // --- NOUVELLE FONCTION: Annuler l'action en cours ---
+  // NOUVEAU: Fonction pour annuler l'action en cours
   function cancelCurrentAction() {
-      if (activeAbortController.value) {
-          console.log("useAIActions: Attempting to cancel ongoing AI action...");
-          activeAbortController.value.abort();
-          // L'erreur AbortError sera capturée dans le bloc catch de triggerAIAction/analyzeStyleUpload
-          // et l'état isGenerating/isAnalyzing sera remis à false dans le finally.
-      } else {
-          console.log("useAIActions: No active AI action to cancel.");
-      }
+    if (activeAbortController.value) {
+      console.log("useAIActions: User requested cancellation of the current AI action.");
+      activeAbortController.value.abort(); // Déclenche l'événement 'abort'
+      // Le `finally` block dans `triggerAIAction` ou `analyzeStyleUpload` nettoiera
+      // isGenerating/isAnalyzing et activeAbortController.
+    }
   }
 
 
-  // --- Exposed Methods & State ---
+// Fonctions spécifiques pour chaque action, appelant triggerAIAction
+  const triggerSuggest = () => triggerAIAction('suggest');
+  const triggerContinue = () => triggerAIAction('continue');
+  const triggerDialogue = () => triggerAIAction('dialogue');
+  const triggerReformulate = () => triggerAIAction('reformulate');
+  const triggerShorten = () => triggerAIAction('shorten');
+  const triggerExpand = () => triggerAIAction('expand');
+  // --- Return ---
   return {
     isGenerating,
     isAnalyzing,
     generationError,
+    triggerSuggest,
+    triggerContinue,
+    triggerDialogue,
+    triggerReformulate,
+    triggerShorten,
+    triggerExpand,
     suggestions,
     currentAction,
-
-    // Fonctions pour déclencher les actions de génération
-    triggerSuggest: () => triggerAIAction('suggest'),
-    triggerContinue: () => triggerAIAction('continue'),
-    triggerDialogue: () => triggerAIAction('dialogue'),
-    triggerReformulate: () => triggerAIAction('reformulate'),
-    triggerShorten: () => triggerAIAction('shorten'),
-    triggerExpand: () => triggerAIAction('expand'),
-
-    // Fonction pour l'analyse de style
+    triggerAIAction,
     analyzeStyleUpload,
-
-    // NOUVEAU: Fonction pour annuler
-    cancelCurrentAction,
+    cancelCurrentAction, // Exposer la fonction d'annulation
   };
 }

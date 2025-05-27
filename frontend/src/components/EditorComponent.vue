@@ -253,7 +253,7 @@ const {
   loadingError: chapterLoadingError,
   savingError: chapterSavingError,
   hasUnsavedChanges: chapterHasUnsavedChanges,
-  loadChapterContent,
+  fetchChapterContent: loadChapterContent,
   // saveChapterContent, // Garder pour l'instant, mais ne pas utiliser directement pour la sauvegarde manuelle
   saveCurrentChapterIfNeeded, // CORRIGÉ: Déstructurer la bonne fonction
   applySuggestionToChapter,

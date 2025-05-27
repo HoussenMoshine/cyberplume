@@ -1,5 +1,5 @@
 import { ref, reactive } from 'vue';
-import { config } from '@/config.js';
+import { config } from '@/config.js'; // config.apiKey est toujours utilisé
 import { handleApiError } from '@/utils/errorHandler.js';
 
 export function useProjects() {
@@ -18,7 +18,8 @@ export function useProjects() {
     loadingProjects.value = true;
     errorProjects.value = null;
     try {
-      const response = await fetch(`${config.apiUrl}/api/projects/`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/projects`, {
           headers: { 'x-api-key': config.apiKey }
       });
       if (!response.ok) {
@@ -40,7 +41,8 @@ export function useProjects() {
     submittingProject.value = true;
     errorProjects.value = null;
     try {
-      const response = await fetch(`${config.apiUrl}/api/projects/`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/projects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -70,7 +72,8 @@ export function useProjects() {
     submittingProject.value = true;
     errorProjects.value = null;
     try {
-      const response = await fetch(`${config.apiUrl}/api/projects/${projectId}/`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/projects/${projectId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -105,9 +108,10 @@ console.log(`[useProjects] deleteProject called with projectId: ${projectId}`);
     deletingItem.id = projectId;
     errorProjects.value = null;
     try {
-const apiUrl = `${config.apiUrl}/api/projects/${projectId}/`;
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const apiUrl = `/api/projects/${projectId}/`; // Modifié pour être cohérent, même si non utilisé directement dans fetch
       console.log(`[useProjects] Attempting to DELETE: ${apiUrl}`);
-      const response = await fetch(`${config.apiUrl}/api/projects/${projectId}/`, {
+      const response = await fetch(`/api/projects/${projectId}`, {
         method: 'DELETE',
         headers: { 'x-api-key': config.apiKey }
       });
@@ -140,7 +144,8 @@ const apiUrl = `${config.apiUrl}/api/projects/${projectId}/`;
     exportError.value = null;
 
     try {
-      const response = await fetch(`${config.apiUrl}/api/projects/${projectId}/export/${format}`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/projects/${projectId}/export/${format}`, {
         method: 'GET',
         headers: { 'x-api-key': config.apiKey }
       });
@@ -198,7 +203,6 @@ const apiUrl = `${config.apiUrl}/api/projects/${projectId}/`;
     exportingProjectId,
     exportingFormat,
     exportError,
-
     fetchProjects,
     addProject,
     updateProject,

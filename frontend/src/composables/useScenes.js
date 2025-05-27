@@ -1,5 +1,5 @@
 import { ref, reactive } from 'vue';
-import { config } from '@/config.js';
+import { config } from '@/config.js'; // config.apiKey est toujours utilisé
 import { handleApiError } from '@/utils/errorHandler.js';
 
 /**
@@ -47,7 +47,8 @@ export function useScenes(showSnackbar) {
     loadingScenes[chapterId] = true;
     errorScenes[chapterId] = null;
     try {
-      const response = await fetch(`${config.apiUrl}/api/chapters/${chapterId}/scenes/`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/chapters/${chapterId}/scenes/`, {
         headers: { 'x-api-key': config.apiKey }
       });
       if (!response.ok) {
@@ -79,7 +80,8 @@ export function useScenes(showSnackbar) {
     errorScenes[chapterId] = null; // Réinitialiser l'erreur spécifique au chapitre
     let newScene = null;
     try {
-      const response = await fetch(`${config.apiUrl}/api/chapters/${chapterId}/scenes/`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/chapters/${chapterId}/scenes/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -127,7 +129,8 @@ export function useScenes(showSnackbar) {
     }
 
     try {
-      const response = await fetch(`${config.apiUrl}/api/scenes/${sceneId}/`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/scenes/${sceneId}/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -177,7 +180,8 @@ export function useScenes(showSnackbar) {
     }
 
     try {
-      const response = await fetch(`${config.apiUrl}/api/scenes/${sceneId}/`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/scenes/${sceneId}/`, {
         method: 'DELETE',
         headers: { 'x-api-key': config.apiKey }
       });
@@ -198,32 +202,31 @@ export function useScenes(showSnackbar) {
          if (response.status === 404) {
              console.warn(`useScenes: Scene ${sceneId} not found for deletion (already removed locally?).`);
              // Considérer comme un succès si déjà retiré localement
-             return sceneRemovedLocally;
+             if (sceneRemovedLocally && showSnackbar) showSnackbar('Scène supprimée (déjà absente du serveur).', 'info');
+             else if (showSnackbar) showSnackbar('Scène non trouvée sur le serveur.', 'warning');
+             return sceneRemovedLocally; // Succès si retiré localement
          }
         const errorData = await response.json().catch(() => ({ detail: response.statusText }));
         throw new Error(errorData.detail || `HTTP error ${response.status}`);
       }
-
-      console.log(`useScenes: Scene ${sceneId} deleted successfully.`);
+      console.log(`useScenes: Scene ${sceneId} deleted successfully from server.`);
       if (showSnackbar) showSnackbar('Scène supprimée.', 'success');
-      // Pas de fetch ici
-      return true;
+      return true; // Succès
     } catch (error) {
       const userMessage = handleApiError(error, `suppression de la scène ${sceneId}`);
-       if (parentChapterId !== null) errorScenes[parentChapterId] = userMessage;
+      if (parentChapterId !== null) errorScenes[parentChapterId] = userMessage;
       console.error(`useScenes: Failed to delete scene ${sceneId}:`, error);
       if (showSnackbar) showSnackbar(userMessage, 'error');
-      // En cas d'erreur API après suppression locale, on pourrait vouloir re-fetcher
-      // if (sceneRemovedLocally && parentChapterId !== null) {
-      //     fetchScenesForChapter(parentChapterId);
-      // }
-      return false;
+      // Si la suppression a échoué mais qu'on l'avait retirée localement, il faut peut-être la remettre ?
+      // Ou forcer un re-fetch pour synchroniser. Pour l'instant, on laisse l'état local tel quel.
+      // fetchScenesForChapter(parentChapterId); // Optionnel
+      return false; // Échec
     } finally {
       deletingSceneId.value = null;
     }
   }
 
-  // --- Exposed Methods & State ---
+
   return {
     scenesByChapterId,
     loadingScenes,

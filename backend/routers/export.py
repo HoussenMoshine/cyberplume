@@ -20,7 +20,7 @@ from ..models import Chapter, Project # Ajout Project
 from .. import models # Pour accéder aux modèles via models.Project etc.
 
 router = APIRouter(
-    prefix="/api",
+    
     tags=["Export"],
     responses={404: {"description": "Not found"}},
 )

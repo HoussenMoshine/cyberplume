@@ -1,5 +1,5 @@
 import { reactive, ref } from 'vue';
-import { config } from '@/config.js';
+import { config } from '@/config.js'; // config.apiKey est toujours utilisé
 import { handleApiError } from '@/utils/errorHandler.js';
 
 export function useChapters(showSnackbar) {
@@ -19,7 +19,8 @@ export function useChapters(showSnackbar) {
     chapterError.value = null; // Réinitialiser l'erreur générale
     // console.log(`useChapters: Fetching chapters for project ${projectId}...`); // Log nettoyé
     try {
-      const response = await fetch(`${config.apiUrl}/api/projects/${projectId}/chapters/`, { headers: { 'x-api-key': config.apiKey } });
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/projects/${projectId}/chapters`, { headers: { 'x-api-key': config.apiKey } });
       if (!response.ok) {
         const error = new Error(`HTTP error! status: ${response.status}`);
         try { error.data = await response.json(); } catch (e) { /* ignore */ }
@@ -51,7 +52,8 @@ export function useChapters(showSnackbar) {
     chapterError.value = null; // Réinitialiser l'erreur générale
     let newChapter = null;
     try {
-      const response = await fetch(`${config.apiUrl}/api/projects/${projectId}/chapters/`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/projects/${projectId}/chapters`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey },
         body: JSON.stringify({ title: title, content: '' }),
@@ -88,7 +90,8 @@ export function useChapters(showSnackbar) {
      let success = false;
      let targetProjectId = null; // Pour logger
      try {
-       const response = await fetch(`${config.apiUrl}/api/chapters/${chapterId}`, {
+       // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+       const response = await fetch(`/api/chapters/${chapterId}`, {
          method: 'PUT',
          headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey },
          body: JSON.stringify(updateData),
@@ -130,7 +133,8 @@ console.log(`[useChapters] deleteChapter called with chapterId: ${chapterId}`);
     let deletedChapterProjectId = null;
 
     try {
-      const response = await fetch(`${config.apiUrl}/api/chapters/${chapterId}`, {
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const response = await fetch(`/api/chapters/${chapterId}`, {
         method: 'DELETE',
         headers: { 'x-api-key': config.apiKey },
       });
@@ -167,7 +171,8 @@ console.log(`[useChapters] deleteChapter called with chapterId: ${chapterId}`);
     chapterError.value = null; // Réinitialiser l'erreur générale
     if (showSnackbar) showSnackbar(`Export du chapitre en ${format.toUpperCase()}...`, 'info');
     try {
-      const url = `${config.apiUrl}/api/chapters/${chapterId}/export/${format}`;
+      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+      const url = `/api/chapters/${chapterId}/export/${format}`;
       const response = await fetch(url, { headers: { 'x-api-key': config.apiKey } });
       if (!response.ok) {
         let errorBody = null; let errorText = `Erreur HTTP ${response.status}`;
@@ -199,59 +204,72 @@ console.log(`[useChapters] deleteChapter called with chapterId: ${chapterId}`);
     }
   };
 
+  // Fonction pour vider la liste des chapitres pour un projet donné (utilisé lors de la suppression d'un projet)
   const clearChaptersForProject = (projectId) => {
-      if (chaptersByProjectId[projectId]) {
-          // logChapterState(projectId, 'clearChaptersForProject - Before Delete'); // Log nettoyé
-          delete chaptersByProjectId[projectId]; // Modification
-          // logChapterState(projectId, 'clearChaptersForProject - After Delete'); // Log nettoyé
-          delete loadingChapters[projectId];
-          delete errorChapters[projectId];
-          // console.log(`useChapters: Cleared chapter state for deleted project ${projectId}`); // Log nettoyé
-      }
+    if (chaptersByProjectId[projectId]) {
+      // console.log(`[useChapters LOG - clearChaptersForProject] Clearing chapters for project ${projectId}.`); // Log nettoyé
+      chaptersByProjectId[projectId] = [];
+      // logChapterState(projectId, 'clearChaptersForProject - After Clear'); // Log nettoyé
+    }
   };
 
+  // Fonction pour réordonner les chapitres
   const reorderChapters = async (projectId, orderedIds) => {
-      if (!projectId || !Array.isArray(orderedIds)) return false;
-      // Optimistic update
-      const originalChapters = chaptersByProjectId[projectId] ? [...chaptersByProjectId[projectId]] : [];
-      // logChapterState(projectId, 'reorderChapters - Before Optimistic Update'); // Log nettoyé
-      // Créer une map pour un accès rapide
-      const chapterMap = new Map(originalChapters.map(chapter => [chapter.id, chapter]));
-      // Créer le nouveau tableau ordonné
-      const reorderedChapters = orderedIds.map(id => chapterMap.get(id)).filter(Boolean); // filter(Boolean) pour enlever les undefined si un ID n'existe pas
+    if (!projectId || !Array.isArray(orderedIds)) {
+      console.error("reorderChapters: projectId ou orderedIds manquant ou invalide.");
+      if (showSnackbar) showSnackbar("Erreur lors de la tentative de réorganisation des chapitres.", 'error');
+      return false;
+    }
 
-      if (reorderedChapters.length !== originalChapters.length) {
-          console.error("[useChapters - reorderChapters] Mismatch in chapter count after reordering. Aborting optimistic update.");
-          return false; // Sécurité: ne pas mettre à jour si les comptes ne correspondent pas
-      }
+    // Sauvegarde optimiste de l'état actuel pour la réactivité de l'UI
+    const originalOrder = chaptersByProjectId[projectId] ? [...chaptersByProjectId[projectId]] : [];
+    const newOrderedChapters = [];
+    const chapterMap = new Map(originalOrder.map(chap => [chap.id, chap]));
 
-      chaptersByProjectId[projectId] = reorderedChapters; // Modification (Optimistic)
-      // logChapterState(projectId, 'reorderChapters - After Optimistic Update'); // Log nettoyé
+    for (const id of orderedIds) {
+        const chapter = chapterMap.get(id);
+        if (chapter) {
+            newOrderedChapters.push(chapter);
+        }
+    }
+    chaptersByProjectId[projectId] = newOrderedChapters;
 
-      try {
-          const response = await fetch(`${config.apiUrl}/api/projects/${projectId}/chapters/reorder`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey },
-              body: JSON.stringify({ ordered_chapter_ids: orderedIds }),
-          });
-          if (!response.ok) {
-              const error = new Error(`HTTP error! status: ${response.status}`);
-              try { error.data = await response.json(); } catch (e) { /* ignore */ }
-              throw error;
-          }
-          // Pas besoin de re-fetch, l'update optimiste est confirmé
-          if (showSnackbar) showSnackbar('Ordre des chapitres sauvegardé');
-          return true;
-      } catch (error) {
-          // Rollback optimistic update
-          // logChapterState(projectId, 'reorderChapters - Before Rollback'); // Log nettoyé
-          chaptersByProjectId[projectId] = originalChapters; // Modification (Rollback)
-          // logChapterState(projectId, 'reorderChapters - After Rollback'); // Log nettoyé
-          const errorMessage = handleApiError(error, 'Erreur réorganisation chapitres');
-          chapterError.value = errorMessage;
-          if (showSnackbar) showSnackbar(errorMessage, 'error');
-          return false;
-      }
+
+    submittingChapter.value = true; // Utiliser un indicateur de chargement existant ou un nouveau
+    chapterError.value = null;
+
+    try {
+        // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
+        const response = await fetch(`/api/projects/${projectId}/chapters/reorder`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey },
+            body: JSON.stringify({ ordered_chapter_ids: orderedIds }),
+        });
+
+        if (!response.ok) {
+            const error = new Error(`HTTP error! status: ${response.status}`);
+            try { error.data = await response.json(); } catch (e) { /* ignore */ }
+            throw error;
+        }
+
+        // La réponse du backend pourrait être les chapitres réordonnés ou juste un succès.
+        // Si la réponse contient les chapitres, on pourrait les utiliser pour mettre à jour.
+        // Pour l'instant, on suppose que la mise à jour optimiste est suffisante.
+        // const updatedChapters = await response.json();
+        // chaptersByProjectId[projectId] = updatedChapters; // Si le backend renvoie la liste mise à jour
+
+        if (showSnackbar) showSnackbar('Ordre des chapitres sauvegardé.', 'success');
+        return true;
+    } catch (error) {
+        const errorMessage = handleApiError(error, "Erreur lors de la réorganisation des chapitres");
+        chapterError.value = errorMessage;
+        if (showSnackbar) showSnackbar(errorMessage, 'error');
+        // Annuler la mise à jour optimiste en cas d'erreur
+        chaptersByProjectId[projectId] = originalOrder;
+        return false;
+    } finally {
+        submittingChapter.value = false;
+    }
   };
 
 
@@ -269,6 +287,6 @@ console.log(`[useChapters] deleteChapter called with chapterId: ${chapterId}`);
     deleteChapter,
     exportChapter,
     clearChaptersForProject,
-    reorderChapters
+    reorderChapters,
   };
 }

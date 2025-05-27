@@ -1,95 +1,95 @@
-# Contexte Actif - CyberPlume (Mise à jour : 22/05/2025 - 14:11)
+# Contexte Actif - CyberPlume (Mise à jour : 27/05/2025 - 07:19)
 
 ## Focus Actuel
 
-*   **Fin de session de développement (22 Mai - Après-midi).**
-*   **Amélioration Esthétique :** Remplacement de `window.confirm` par un dialogue Vuetify personnalisé dans [`frontend/src/components/ApiKeysManager.vue`](frontend/src/components/ApiKeysManager.vue:1) pour la suppression des clés API. **VALIDÉ.**
-*   **Exécution des Tests Approfondis de la Gestion des Clés API (Phases 1 & 2) :**
-    *   Correction de l'`AttributeError` dans [`backend/main.py`](backend/main.py:1) (conflit de nom `status`).
-    *   Phase 1 (Clés API uniquement en DB) : **SUCCÈS** pour Gemini, Mistral et OpenRouter.
-    *   Phase 2 (Fallback des Clés API sur `.env`) : **SUCCÈS** pour Gemini, Mistral et OpenRouter.
-*   Correction du Bug de Génération de Personnages (TypeError et Fallback) VALIDÉE - *Terminé lors de la session précédente (matin).*
+*   **Fin de session de développement (27 Mai - matin).**
+*   **Mise à jour du [`README.md`](README.md) TERMINÉE :**
+    *   Instructions de lancement via Docker intégrées comme méthode principale.
+    *   Fonctionnalités d'export et d'analyse (contenu, cohérence) documentées comme étant stables.
+    *   Mention de la configuration des clés API directement via l'interface utilisateur ajoutée.
+*   **Prochaine étape :** Mise à jour de la Banque de Mémoire (en cours), puis fin de session. L'utilisateur se chargera du merge et du push Git.
 
-## Décisions et Actions Clés de la Session (22 Mai - Après-midi)
+## ⚠️ Rappels Cruciaux
 
-*   **Amélioration Dialogue de Suppression Clé API :**
-    *   Modification de [`frontend/src/components/ApiKeysManager.vue`](frontend/src/components/ApiKeysManager.vue:1).
-    *   Remplacement de `window.confirm` par un composant `VDialog` de Vuetify pour une meilleure cohérence esthétique lors de la suppression d'une clé API.
-    *   Ajout des variables réactives `showDeleteDialog` et `providerToDelete`.
-    *   Création des méthodes `initiateDeleteApiKey` (pour ouvrir le dialogue), `confirmDeleteApiKey` (pour exécuter la suppression), et `cancelDeleteApiKey` (pour annuler).
-    *   Fonctionnalité validée par l'utilisateur.
-*   **Correction de `AttributeError` dans [`backend/main.py`](backend/main.py:1) :**
-    *   Renommage de la fonction `async def status(db: Session ...)` en `async def get_application_status(db: Session ...)` pour éviter le conflit de nom avec l'objet `status` importé de `fastapi`.
-*   **Validation des Tests de Gestion des Clés API (Phases 1 & 2) :**
-    *   **Phase 1 (Clés en DB uniquement) :** Succès confirmé pour Gemini, Mistral, et OpenRouter (après ajustement du modèle pour ce dernier).
-    *   **Phase 2 (Fallback sur `.env`) :** Succès confirmé pour les trois fournisseurs.
+*   **Gestion des Branches Git :** L'utilisateur effectuera le merge de la branche de travail (probablement `dockerisation`) vers la branche principale et le push vers GitHub.
+*   **Révocation des Clés API :** Rappel important pour l'utilisateur de révoquer et remplacer les clés API qui auraient pu être exposées ou versionnées par erreur.
 
-## Apprentissages et Patrons Importants Récents (Session 22 Mai - Après-midi)
+## Décisions et Actions Clés de la Session (27 Mai - matin)
 
-*   **Cohérence UI/UX :** L'utilisation de composants UI natifs au framework (ex: dialogues Vuetify) plutôt que les éléments par défaut du navigateur (`window.confirm`) améliore significativement la cohérence esthétique et l'expérience utilisateur.
-*   **Conflits de Noms :** Vigilance requise concernant les noms de fonctions ou variables qui pourraient masquer des modules ou objets importés.
-*   **Problèmes de Services Externes :** Importance de la gestion d'erreur et de la communication claire lorsque des API tierces sont indisponibles.
-*   **Validation Incrémentale :** Pertinence confirmée pour isoler et résoudre les problèmes efficacement.
+*   **Planification de la mise à jour du [`README.md`](README.md) :**
+    *   Analyse de la Banque de Mémoire et du [`README.md`](README.md) existant.
+    *   Élaboration d'un plan de mise à jour incluant Docker, les fonctionnalités récentes (exports, analyses, configuration des clés API in-app).
+    *   Validation du plan par l'utilisateur.
+*   **Rédaction et Écriture du [`README.md`](README.md) :**
+    *   Le fichier [`README.md`](README.md) a été entièrement réécrit pour incorporer tous les changements planifiés.
+*   **Préparation de la fin de session :**
+    *   Lancement de la mise à jour de la Banque de Mémoire.
+
+## Apprentissages et Patrons Importants Récents (Session 27 Mai - matin)
+
+*   **Importance d'une Documentation Utilisateur Claire :** La mise à jour du [`README.md`](README.md) est cruciale pour faciliter l'adoption et l'utilisation de l'application, notamment avec l'introduction de Docker.
+*   **Processus Itératif de Documentation :** La Banque de Mémoire et la documentation publique (comme le [`README.md`](README.md)) évoluent en parallèle avec le développement.
 
 ## Prochaines Étapes (Pour la prochaine session de développement)
 
-*   **Fin de la session actuelle.**
-1.  **Tests de Scénarios Mixtes pour les Clés API (Phase 3 - NON REQUIS par l'utilisateur pour le moment).**
-2.  **Finalisation de la Dockerisation (Priorité Haute) :**
-    *   Reprendre les tests de la configuration Docker ([`Dockerfile.backend`](Dockerfile.backend), [`Dockerfile.frontend-dev`](Dockerfile.frontend-dev), [`docker-compose.yml`](docker-compose.yml)).
-    *   S'assurer que les clés API (via DB ou `.env` monté) sont accessibles correctement dans l'environnement Docker.
-    *   Mettre à jour la documentation [`README.md`](README.md) pour expliquer comment lancer l'application via Docker et comment configurer les clés API via l'interface après le premier lancement.
-3.  **Commit et Push des Changements.**
-4.  **Nettoyage et Refinements (Si temps disponible) :**
-    *   Revoir les logs de débogage (ex: dans [`backend/routers/style.py`](backend/routers/style.py:1), [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1)).
-    *   Considérer d'autres améliorations mineures ou bugs en attente.
-5.  **Révocation et Remplacement des Clés API Exposées (Rappel - Action Externe Critique - Vérifier que toutes les clés potentiellement compromises ont été effectivement révoquées et remplacées).**
+1.  **Gestion de Version (par l'utilisateur) :**
+    *   Merger la branche de travail (ex: `dockerisation`) dans la branche principale (ex: `main` ou `develop`).
+    *   Pusher les changements sur GitHub.
+2.  **Validation Approfondie de spaCy :**
+    *   Vérifier la pertinence et l'exactitude des résultats de l'analyse de cohérence et de contenu, notamment dans l'environnement Docker.
+3.  **(Observation/Optionnel - Propreté du code) Redirections et Appels API Spécifiques :**
+    *   Vérifier la cohérence des préfixes et des slashs pour les routes `/api/characters`.
+    *   Examiner l'appel `/api-keys-config/status` pour s'assurer de sa conformité avec les patrons établis.
+4.  **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel Utilisateur).**
+5.  **(Optionnel) Optimisations Docker :** Envisager des optimisations pour les images Docker (taille, temps de build) une fois les fonctionnalités de base stabilisées.
+6.  **(Optionnel) Tests Fonctionnels Complets sous Docker :** Réaliser une passe de tests exhaustive de toutes les fonctionnalités dans l'environnement Docker.
 
 ---
-*Historique précédent (avant cette mise à jour) conservé ci-dessous.*
-# Contexte Actif - CyberPlume (Mise à jour : 22/05/2025 - 14:05)
+# Historique des Contextes Actifs Précédents
+---
+
+# Contexte Actif - CyberPlume (Mise à jour : 26/05/2025 - 14:21)
 
 ## Focus Actuel
 
-*   **Session de développement (22 Mai - Après-midi).**
-*   **Exécution des Tests Approfondis de la Gestion des Clés API :**
-    *   Correction de l'`AttributeError` dans [`backend/main.py`](backend/main.py:1) (conflit de nom `status`).
-    *   Phase 1 (Clés API uniquement en DB) : **SUCCÈS** pour Gemini, Mistral et OpenRouter (après changement de modèle pour OpenRouter).
-    *   Phase 2 (Fallback des Clés API sur `.env`) : **SUCCÈS** pour Gemini, Mistral et OpenRouter.
-*   Correction du Bug de Génération de Personnages (TypeError et Fallback) VALIDÉE - *Terminé lors de la session précédente (matin).*
+*   **Fin de session de développement (26 Mai - après-midi).**
+*   **Correction des erreurs 404 pour les exports VALIDÉE :**
+    *   La suppression du préfixe `/api` du routeur dans [`backend/routers/export.py`](backend/routers/export.py:23) a résolu les erreurs 404 lors des exports.
+*   **Correction des erreurs Vue.js VALIDÉE :**
+    *   La correction appliquée à [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:256) a résolu les erreurs lors de la sélection de chapitres.
+*   **Prochaines étapes pour la session suivante :** Finalisation de la Dockerisation, merge, push GitHub, mise à jour du [`README.md`](README.md).
 
-## Décisions et Actions Clés de la Session (22 Mai - Après-midi)
+## ⚠️ Rappels Cruciaux
 
-*   **Correction de `AttributeError` dans [`backend/main.py`](backend/main.py:1) :**
-    *   Renommage de la fonction `async def status(db: Session ...)` en `async def get_application_status(db: Session ...)` pour éviter le conflit de nom avec l'objet `status` importé de `fastapi` (utilisé pour les codes HTTP).
-*   **Validation des Tests de Gestion des Clés API (Phases 1 & 2) :**
-    *   **Phase 1 (Clés en DB uniquement) :**
-        *   Les clés API commentées dans [`backend/.env`](backend/.env).
-        *   Clés ajoutées via l'interface CyberPlume (stockées en DB).
-        *   Backend redémarré.
-        *   **Résultat :** Fonctionnement confirmé pour Gemini, Mistral. OpenRouter a initialement retourné une erreur 503 pour un modèle spécifique (`mistralai/devstral-small:free`), mais a fonctionné correctement avec d'autres modèles, confirmant que la récupération de la clé depuis la DB est OK. L'`AttributeError` a été résolue par la correction ci-dessus.
-    *   **Phase 2 (Fallback sur `.env`) :**
-        *   Clés API supprimées de la DB via l'interface.
-        *   Clés API restaurées dans [`backend/.env`](backend/.env).
-        *   Backend redémarré.
-        *   **Résultat :** Fonctionnement confirmé pour Gemini, Mistral et OpenRouter pour les fonctionnalités principales (lister modèles, génération texte, génération personnage).
+*   **Gestion des Branches Git :** S'assurer d'être sur la branche `dockerisation` (ou la branche de développement principale) avant de merger et pusher.
+*   **Variables d'environnement et Clés API :** Vérifier la configuration pour Docker avant de finaliser.
 
-## Apprentissages et Patrons Importants Récents (Session 22 Mai - Après-midi)
+## Décisions et Actions Clés de la Session (26 Mai - après-midi)
 
-*   **Conflits de Noms :** Faire attention aux noms de fonctions ou variables qui pourraient masquer des modules ou objets importés, menant à des `AttributeError` ou comportements inattendus (ex: `status` fonction vs `status` module).
-*   **Problèmes de Services Externes :** Les erreurs 5xx (comme 503 Service Unavailable) des API tierces sont hors de notre contrôle direct. Il est bon d'avoir des mécanismes de gestion d'erreur robustes et de suggérer des contournements (essayer un autre modèle, vérifier le statut du service).
-*   **Validation Incrémentale :** Tester les composants et les flux de manière isolée puis intégrée aide à identifier plus rapidement la source des problèmes.
+*   **Résolution et Validation des erreurs Vue.js lors de la sélection de chapitres :**
+    *   **Action :** Modification de [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:256) avec l'alias `fetchChapterContent: loadChapterContent,`.
+    *   **Validation :** Tests par l'utilisateur confirmant la disparition des erreurs.
+*   **Résolution et Validation des erreurs 404 pour les exports :**
+    *   **Action :** Suppression de `prefix="/api",` de la définition du routeur dans [`backend/routers/export.py`](backend/routers/export.py:23).
+    *   **Validation :** Tests par l'utilisateur confirmant le bon fonctionnement des exports.
+*   **Fin de la session de développement.**
 
-## Prochaines Étapes
+## Apprentissages et Patrons Importants Récents (Session 26 Mai - après-midi)
 
-1.  **Tests de Scénarios Mixtes pour les Clés API (Phase 3 - Optionnel) :**
-    *   Discuter avec l'utilisateur s'il souhaite effectuer ces tests (ex: une clé en DB, une autre en `.env`).
-2.  **Finalisation de la Dockerisation (Priorité Haute si Phase 3 non requise ou terminée) :**
-    *   Reprendre les tests de la configuration Docker ([`Dockerfile.backend`](Dockerfile.backend), [`Dockerfile.frontend-dev`](Dockerfile.frontend-dev), [`docker-compose.yml`](docker-compose.yml)).
-    *   S'assurer que les clés API (via DB ou `.env` monté) sont accessibles correctement dans l'environnement Docker.
-    *   Mettre à jour la documentation [`README.md`](README.md) pour expliquer comment lancer l'application via Docker et comment configurer les clés API via l'interface après le premier lancement.
-3.  **Commit et Push des Changements.**
-4.  **Nettoyage et Refinements (Si temps disponible) :**
-    *   Revoir les logs de débogage (ex: dans [`backend/routers/style.py`](backend/routers/style.py:1), [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1)).
-    *   Considérer d'autres améliorations mineures ou bugs en attente.
-5.  **Révocation et Remplacement des Clés API Exposées (Rappel - Action Externe Critique - Vérifier que toutes les clés potentiellement compromises ont été effectivement révoquées et remplacées).**
+*   **Cohérence de Nommage Inter-fichiers.**
+*   **Importance des Tests Utilisateur Itératifs.**
+*   **Gestion Cohérente des Préfixes d'API avec Proxy.**
+
+## Prochaines Étapes (Pour la prochaine session de développement)
+
+1.  **Finalisation de la Dockerisation :**
+    *   S'assurer que les conteneurs Docker sont à jour avec les dernières corrections (reconstruire si besoin : `docker-compose up -d --build`).
+    *   Valider le fonctionnement complet de TOUTES les fonctionnalités (y compris exports, analyses, chargement de chapitres) dans l'environnement Docker.
+    *   S'assurer que spaCy fonctionne correctement dans le conteneur Docker.
+    *   Envisager des optimisations Docker (Post-Fonctionnalité).
+    *   Effectuer des Tests Fonctionnels Complets sous Docker.
+2.  **Gestion de Version et Documentation :**
+    *   Merger la branche de travail (ex: `dockerisation`) dans la branche principale (ex: `main` ou `develop`).
+    *   Pusher les changements sur GitHub.
+    *   Mettre à jour le fichier [`README.md`](README.md) pour refléter les nouveaux changements, fonctionnalités (notamment les exports fonctionnels, les analyses) et les instructions de lancement via Docker.
+3.  **(Observation/Optionnel - à revoir) Redirections `/api/characters` et appel `/api-keys-config/status` :** Vérifier la cohérence des préfixes et des slashs pour ces routes par souci de propreté, une fois l'environnement Docker stable.

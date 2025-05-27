@@ -1,114 +1,75 @@
-# Progression - CyberPlume (Mise à jour : 22/05/2025 - 14:11)
+# Progression - CyberPlume (Mise à jour : 27/05/2025 - 07:20)
 
 ## Ce qui Fonctionne (État Actuel)
 
-### Backend
-*   API CRUD : Gestion complète (Création, Lecture, Mise à jour, Suppression) pour Projets, Chapitres, Personnages fonctionnelle.
-*   Réordonnancement : API pour réorganiser les chapitres (`/reorder`) opérationnelle.
-*   API IA Générale (`/generate/text`) :
-    *   Améliorée pour gérer les styles et le contexte des personnages.
-    *   **Testée et VALIDÉE : Utilise les clés API de la DB (avec fallback sur `.env`) pour Gemini, Mistral, OpenRouter.**
-*   API Génération Personnage (`/api/characters/generate`) :
-    *   Améliorée.
-    *   **Testée et VALIDÉE : Utilise les clés API de la DB (avec fallback sur `.env`) pour Gemini, Mistral, OpenRouter.** (Bug TypeError et Fallback corrigé session précédente).
-*   API Export : Export de chapitres et projets complets fonctionnel pour DOCX, PDF, TXT, EPUB.
-*   API Analyse Cohérence (`/api/analyze/consistency`) : Fonctionnelle.
-*   API Modèles IA (`/models/{provider}`) :
-    *   Récupération dynamique des modèles OK.
-    *   **Testée et VALIDÉE : Utilise les clés API de la DB (avec fallback sur `.env`) pour Gemini, Mistral, OpenRouter.**
-*   API Analyse Style (`/api/style/analyze-upload`) : Fonctionnelle.
-*   Architecture IA : Structure modulaire avec Adapters et Factory stable.
-    *   Adaptateurs Mistral, Gemini, OpenRouter fonctionnels.
-*   Base de Données : Gestion SQLite OK.
-    *   Nouvelle table `api_keys` pour stocker les clés API chiffrées.
-*   API Analyse Contenu Chapitre (`/api/chapters/{chapter_id}/analyze-content`) : Fonctionnelle.
-*   Contexte Personnage : Correctement utilisé dans les prompts.
-*   Configuration ([`backend/config.py`](backend/config.py:1)):
-    *   `API_KEY` (pour communication frontend-backend) rendue obligatoire.
-    *   Gestion de `CYBERPLUME_FERNET_KEY` pour le chiffrement des clés API des fournisseurs.
-    *   Clés API des fournisseurs (Gemini, Mistral, OpenRouter) sont maintenant optionnelles dans `.env` (priorité à la DB).
-*   **Sécurité :**
-    *   Suppression des fichiers de test qui exposaient des clés API.
-    *   Chiffrement des clés API des fournisseurs stockées en base de données.
-*   **Gestion des Clés API Fournisseurs :**
-    *   Endpoints CRUD (`/api-keys-config/*`) pour gérer les clés API via l'interface.
-    *   Logique de chiffrement/déchiffrement des clés.
-    *   La fonction `get_decrypted_api_key` dans [`backend/crud_api_keys.py`](backend/crud_api_keys.py:1) gère le fallback sur les variables d'environnement via `settings_fallback`.
-*   **Correction de Bug :**
-    *   Résolution de `AttributeError: 'function' object has no attribute 'HTTP_400_BAD_REQUEST'` dans [`backend/main.py`](backend/main.py:1) en renommant la fonction `status` en `get_application_status`.
-*   *Note : Les logs ajoutés dans [`backend/routers/style.py`](backend/routers/style.py:1) pour le débogage du bug 422 sont toujours présents et pourraient être nettoyés lors d'une prochaine session.*
+### Fonctionnalités Clés
+*   **Analyse de Cohérence du Projet :** La fonctionnalité est accessible et retourne des résultats.
+*   **Analyse de Contenu de Chapitre :** La fonctionnalité est accessible, se connecte à l'IA, et affiche des suggestions.
+*   **Application des Suggestions d'Analyse :** Les suggestions issues de l'analyse de contenu peuvent être appliquées correctement à l'éditeur TipTap.
+*   **Gestion des Clés API :**
+    *   Récupération des clés API (DB puis fallback `.env`) fonctionnelle pour les routes d'analyse.
+    *   **Configuration des clés API via l'interface utilisateur** est implémentée et fonctionnelle.
+*   **Exportation de Chapitres et de Projets :** Les formats DOCX, PDF, TXT, EPUB sont fonctionnels.
+*   **Lancement via Docker :** L'application peut être lancée avec `docker-compose` et les fonctionnalités principales sont opérationnelles dans cet environnement (selon les tests utilisateur).
 
-### Frontend
-*   Fonctionnalités de base de l'éditeur et gestion de projet : Stables et fonctionnelles.
-*   Gestion des Chapitres : Ajout, Renommage fonctionnels.
-*   Fournisseurs IA (Mistral, Gemini, OpenRouter) : Fonctionnels pour les actions de l'éditeur (via `/generate/text`) et la génération de personnages (confirmé avec les tests de clés API).
-*   Analyse de Contenu Chapitre : Fonctionnelle.
-*   Intégration d'icônes SVG personnalisées.
-*   Amélioration esthétique des dialogues de génération IA.
-*   Analyse de Style par Upload.
-*   Export de Projets et Chapitres.
-*   **Gestion des Clés API Fournisseurs :**
-    *   Nouvel onglet "Configuration" dans [`frontend/src/App.vue`](frontend/src/App.vue:1).
-    *   Interface ([`frontend/src/components/ApiKeysManager.vue`](frontend/src/components/ApiKeysManager.vue:1)) pour ajouter, voir le statut, et supprimer les clés API pour Gemini, Mistral, OpenRouter.
-    *   **Amélioration esthétique :** Dialogue de confirmation de suppression des clés API utilise maintenant un `VDialog` personnalisé au lieu de `window.confirm` dans [`frontend/src/components/ApiKeysManager.vue`](frontend/src/components/ApiKeysManager.vue:1).
-*   **Notifications (Snackbar) :**
-    *   Correction du bug `showSnackbar is not a function` dans `ApiKeysManager.vue`.
-    *   Ajout d'un `VSnackbar` global dans `App.vue` pour une gestion centralisée.
+### Backend & Frontend
+*   **Communication de base :** Les erreurs 404 (slashs finaux, préfixes API) ont été corrigées pour les fonctionnalités principales, y compris les exports.
+*   **Chargement des Données :**
+    *   Liste des projets.
+    *   Liste des chapitres par projet.
+    *   Contenu des chapitres dans l'éditeur (erreurs Vue.js résolues).
+*   **Fonctionnalités CRUD de base :** Ajout/suppression de projets, chapitres, scènes, personnages.
+*   **Actions IA de base (ex: "Continuer") :** Opérationnelles.
+*   **Modèle spaCy :** Le backend charge un modèle spaCy. Son utilisation effective dans les analyses de cohérence est confirmée.
 
 ### Configuration & Outillage
-*   Proxy Vite ([`frontend/vite.config.js`](frontend/vite.config.js:1)) : Configuration corrigée.
-*   Utilisation de `Context7` pour la documentation.
-*   Dépendance `cryptography` ajoutée au backend.
-*   Fichiers de Dockerisation Initiaux Créés : [`Dockerfile.backend`](Dockerfile.backend), [`Dockerfile.frontend-dev`](Dockerfile.frontend-dev), [`docker-compose.yml`](docker-compose.yml). (Finalisation en attente de la stabilisation de la gestion des clés).
-*   *Note : Les logs de débogage ajoutés dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1) pour le bug d'export sont toujours présents et pourraient être nettoyés.*
+*   Proxy Vite ([`frontend/vite.config.js`](frontend/vite.config.js:1)) : Fonctionne et gère la réécriture de `/api`.
+*   Routeurs Backend : Préfixes API conflictuels corrigés.
+*   Logique de récupération des clés API : Standardisée.
+*   Logique d'application des suggestions TipTap : Corrigée.
+*   Correction d'incohérence de nommage (Vue.js) : VALIDÉE.
+*   **Documentation Utilisateur ([`README.md`](README.md)) :** Mise à jour pour inclure les instructions de lancement Docker, les fonctionnalités récentes (exports, analyses, configuration des clés API in-app).
 
 ## Ce qui Reste à Construire / Améliorer (Prochaine Session)
 
-*   **Tests Approfondis de la Gestion des Clés API (TERMINÉS - Phases 1 & 2) :**
-    *   Phase 1 (Clés en DB) : SUCCÈS pour Gemini, Mistral, OpenRouter.
-    *   Phase 2 (Fallback sur .env) : SUCCÈS pour Gemini, Mistral, OpenRouter.
-    *   Phase 3 (Scénarios Mixtes) : Optionnel, **NON REQUIS par l'utilisateur pour le moment.**
-*   **Dockerisation (Priorité Haute) :**
-    *   Tests et finalisation de la configuration Docker.
-    *   Mise à jour de la documentation [`README.md`](README.md) pour le lancement via Docker et la configuration des clés API via l'interface.
-*   **Commit et Push des Changements.**
-*   **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel).**
-*   **(Si temps disponible) Nettoyage des logs de débogage :**
-    *   Dans [`backend/routers/style.py`](backend/routers/style.py:1).
-    *   Dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:1).
-*   **(Si temps disponible) Tests Post-Publication GitHub.**
-*   **(Si temps disponible) Bugs des scènes (à réévaluer).**
-*   **(Si temps disponible) Exécuter `npm audit fix` et traiter les vulnérabilités.**
+1.  **Gestion de Version (par l'utilisateur) :**
+    *   Merger la branche de travail (ex: `dockerisation`) dans la branche principale.
+    *   Pusher les changements sur GitHub.
+2.  **Validation Approfondie de spaCy :**
+    *   Vérifier la pertinence et l'exactitude des résultats de l'analyse de cohérence et de contenu, notamment dans l'environnement Docker.
+3.  **(Observation/Optionnel - Propreté du code) Redirections et Appels API Spécifiques :**
+    *   Vérifier la cohérence des préfixes et des slashs pour les routes `/api/characters`.
+    *   Examiner l'appel `/api-keys-config/status`.
+4.  **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel Utilisateur).**
+5.  **(Optionnel) Optimisations Docker :** Envisager des optimisations pour les images Docker (taille, temps de build).
+6.  **(Optionnel) Tests Fonctionnels Complets et Exhaustifs sous Docker :** Réaliser une passe de tests approfondie de toutes les fonctionnalités dans l'environnement Docker pour confirmer la stabilité avant une éventuelle "release".
 
 ## Problèmes Actuels (État Actuel)
 
-*   Conflit de Dépendance `openai` (Mineur - À surveiller).
-*   Scènes Non Fonctionnelles (Reporté - À réévaluer).
-*   (Mineur - Reporté) `npm audit`.
+*   **(Mineur/Observation) Redirections 307 :** Pour les appels à `/api/characters` (à vérifier pour la propreté).
 
 ## Évolution des Décisions
 
-### Session 22 Mai - Après-midi (Fin de session)
-*   **Amélioration Esthétique Dialogue Suppression Clés API :** Remplacement de `window.confirm` par `VDialog` dans [`frontend/src/components/ApiKeysManager.vue`](frontend/src/components/ApiKeysManager.vue:1). **VALIDÉ.**
-*   **Session Terminée.** Prochaine priorité pour la prochaine session : Dockerisation.
-*   **Mise à jour de la Banque de Mémoire.**
+### Session 27 Mai (Matin)
+*   **Objectif :** Mettre à jour le fichier [`README.md`](README.md) pour refléter l'état actuel du projet, notamment la Dockerisation et les fonctionnalités récentes.
+*   **Action :**
+    *   Planification détaillée de la mise à jour du [`README.md`](README.md).
+    *   Réécriture complète du [`README.md`](README.md) incluant :
+        *   Instructions de lancement via Docker comme méthode principale.
+        *   Confirmation des exports fonctionnels.
+        *   Ajout des fonctionnalités d'analyse de contenu et de cohérence.
+        *   Mention de la configuration des clés API via l'interface.
+*   **Validation :** Implicite par la finalisation de la tâche de rédaction du [`README.md`](README.md).
+*   Mise à jour de la Banque de Mémoire (`activeContext.md`, `progress.md`).
+*   **Fin de la session.**
 
-### Session 22 Mai - Après-midi (Début et milieu de session)
-*   **Correction `AttributeError` dans [`backend/main.py`](backend/main.py:1) :** Renommage de la fonction `status` en `get_application_status`.
-*   **Tests Gestion Clés API (Phases 1 & 2) : SUCCÈS.**
-    *   Phase 1 (Clés en DB) : Validée pour Gemini, Mistral, OpenRouter.
-    *   Phase 2 (Fallback sur `.env`) : Validée pour Gemini, Mistral, OpenRouter.
+### Session 26 Mai (Après-midi)
+*   **Objectif :** Résoudre les erreurs Vue.js et les erreurs 404 des exports.
+*   **Action (Vue.js) :** Modification de [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:256) avec l'alias `fetchChapterContent: loadChapterContent,`.
+*   **Validation (Vue.js) :** Tests par l'utilisateur confirmant la résolution des erreurs.
+*   **Action (Exports) :** Suppression du `prefix="/api",` dans [`backend/routers/export.py`](backend/routers/export.py:23).
+*   **Validation (Exports) :** Tests par l'utilisateur confirmant le bon fonctionnement des exports.
+*   Mise à jour de la Banque de Mémoire (`activeContext.md`, `progress.md`).
+*   **Fin de la session.**
 
-### Session 22 Mai - Matin (Suite - Fin de session)
-*   **Correction Bug Génération Personnage Clés API (TypeError et Fallback) VALIDÉE.**
-*   **Mise à jour de la Banque de Mémoire.**
-*   **Prochaine Priorité (pour la session suivante à ce moment-là) :** Tests approfondis de la gestion des clés API.
-
-### Session 22 Mai - Matin (Début session)
-*   **Implémentation Gestion des Clés API Utilisateur (Backend & Frontend).**
-*   **Correction Bug Snackbar Frontend.**
-*   **Identification Nouveau Bug :** Génération de personnages n'utilisait pas les clés API de la DB (corrigé et validé plus tard).
-
-*(Les sections d'évolution des décisions plus anciennes sont conservées dans activeContext.md)*
-
-*Ce document reflète l'état au 22/05/2025 (14:11).*
+*(Les détails des sessions antérieures sont conservés dans activeContext.md)*
