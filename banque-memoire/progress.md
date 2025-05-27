@@ -1,4 +1,4 @@
-# Progression - CyberPlume (Mise à jour : 26/05/2025 - 07:35)
+# Progression - CyberPlume (Mise à jour : 26/05/2025 - 14:22)
 
 ## Ce qui Fonctionne (État Actuel)
 
@@ -7,66 +7,64 @@
 *   **Analyse de Contenu de Chapitre :** La fonctionnalité est accessible, se connecte à l'IA, et affiche des suggestions.
 *   **Application des Suggestions d'Analyse :** Les suggestions issues de l'analyse de contenu peuvent être appliquées correctement à l'éditeur TipTap.
 *   **Gestion des Clés API pour l'Analyse :** La récupération des clés API (DB puis fallback .env) fonctionne pour les routes d'analyse.
+*   **Exportation de Chapitres et de Projets :** Les formats DOCX, PDF, TXT, EPUB sont fonctionnels.
 
-### Backend & Frontend (Bases établies lors des sessions précédentes, majoritairement en Docker)
+### Backend & Frontend
 *   **Communication de base :** Les erreurs 404 dues aux `net::ERR_NAME_NOT_RESOLVED` (slashs finaux) ont été corrigées pour les fonctionnalités principales.
 *   **Chargement des Données :**
     *   Liste des projets.
     *   Liste des chapitres par projet.
-    *   Contenu des chapitres dans l'éditeur.
+    *   Contenu des chapitres dans l'éditeur (les erreurs Vue.js lors de la sélection de chapitre sont résolues).
 *   **Fonctionnalités CRUD de base :**
     *   Ajout/suppression de projets, chapitres, scènes, personnages.
 *   **Actions IA de base (ex: "Continuer") :** Opérationnelles.
-*   **Modèle spaCy :** Le backend charge un modèle spaCy (`fr_core_news_sm` ou `fr_core_news_md`). Son utilisation effective dans les analyses de cohérence est maintenant confirmée.
+*   **Modèle spaCy :** Le backend charge un modèle spaCy (`fr_core_news_sm` ou `fr_core_news_md`). Son utilisation effective dans les analyses de cohérence est confirmée.
 
 ### Configuration & Outillage
 *   Proxy Vite ([`frontend/vite.config.js`](frontend/vite.config.js:1)) : Fonctionne et gère la réécriture de `/api`.
-*   Routeurs Backend : Les préfixes conflictuels ont été corrigés pour `projects.py` et `analysis.py`.
-*   Logique de récupération des clés API : Standardisée pour les nouvelles fonctionnalités d'analyse pour utiliser DB puis fallback .env.
+*   Routeurs Backend :
+    *   Les préfixes conflictuels (`/api`) ont été corrigés pour `projects.py` et `analysis.py`.
+    *   Le préfixe `/api` a été supprimé du routeur [`backend/routers/export.py`](backend/routers/export.py:23) et cette correction a été **VALIDÉE**, résolvant les erreurs 404 des exports.
+*   Logique de récupération des clés API : Standardisée pour les fonctionnalités d'analyse pour utiliser DB puis fallback .env.
 *   Logique d'application des suggestions TipTap : Corrigée dans [`frontend/src/composables/useChapterContent.js`](frontend/src/composables/useChapterContent.js:1).
+*   **Correction d'incohérence de nommage VALIDÉE :** L'appel à la fonction de chargement de contenu de chapitre dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:256) a résolu les erreurs Vue.js.
 
 ## Ce qui Reste à Construire / Améliorer (Prochaine Session)
 
-*   **Résoudre les Erreurs Vue.js (Priorité Haute si bloquant pour d'autres tests) :**
-    *   `[Vue warn]: Unhandled error during execution of watcher callback` (origine dans [`ProjectManager.vue`](frontend/src/components/ProjectManager.vue:338), impactant `EditorComponent` lors de la sélection de chapitre).
-    *   `[Vue warn]: Unhandled error during execution of component update` (similaire).
-    *   `Uncaught (in promise) TypeError: loadChapterContent is not a function` dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:316) lors de la sélection de chapitre.
-*   **Validation Approfondie de spaCy :** Vérifier la pertinence et l'exactitude des résultats de l'analyse de cohérence et de contenu (maintenant que les routes sont fonctionnelles).
-*   **Finalisation de la Dockerisation (Après résolution des bugs Vue.js critiques) :**
-    *   Tester exhaustivement toutes les fonctionnalités (y compris les analyses corrigées) dans l'environnement Docker.
+1.  **Finalisation de la Dockerisation (Priorité Haute) :**
+    *   S'assurer que les conteneurs Docker sont à jour avec les dernières corrections (reconstruire si besoin : `docker-compose up -d --build`).
+    *   Tester exhaustivement toutes les fonctionnalités (y compris exports, analyses, chargement de chapitres) dans l'environnement Docker.
     *   S'assurer que les clés API et spaCy fonctionnent comme prévu dans les conteneurs.
-    *   Optimisation Docker (montage de volumes pour développement, taille des images).
-*   **(Observation/Optionnel - Propreté du code) Redirections `/api/characters` et appel `/api-keys-config/status` :**
+    *   Envisager des optimisations Docker (Post-Fonctionnalité).
+    *   Effectuer des Tests Fonctionnels Complets sous Docker.
+2.  **Gestion de Version et Documentation (Après stabilisation Docker) :**
+    *   Merger la branche de travail (ex: `dockerisation`) dans la branche principale (ex: `main` ou `develop`).
+    *   Pusher les changements sur GitHub.
+    *   Mettre à jour le fichier [`README.md`](README.md) pour refléter les nouveaux changements, fonctionnalités (notamment les exports fonctionnels, les analyses) et les instructions de lancement via Docker.
+3.  **Validation Approfondie de spaCy :** Vérifier la pertinence et l'exactitude des résultats de l'analyse de cohérence et de contenu (peut être fait en parallèle ou après la stabilisation de Docker).
+4.  **(Observation/Optionnel - Propreté du code) Redirections `/api/characters` et appel `/api-keys-config/status` :**
     *   Vérifier la cohérence des préfixes et des slashs pour ces routes.
-*   **Tests Fonctionnels Complets :** Une fois l'application stable localement et sous Docker.
-*   **Documentation :** Mettre à jour [`README.md`](README.md) (notamment pour Docker).
-*   **Commit et Push** des changements.
-*   **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel).**
+5.  **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel).**
 
 ## Problèmes Actuels (État Actuel)
 
-*   **Erreurs Vue.js :**
-    *   `[Vue warn]: Unhandled error during execution of watcher callback` (dans [`ProjectManager.vue`](frontend/src/components/ProjectManager.vue:338) lors de la sélection de chapitre).
-    *   `Uncaught (in promise) TypeError: loadChapterContent is not a function` ([`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:316) lors de la sélection de chapitre).
 *   **(Mineur/Observation) Redirections 307 :** Pour les appels à `/api/characters` (à vérifier pour la propreté).
 
 ## Évolution des Décisions
 
-### Session 26 Mai
-*   **Objectif :** Résoudre les erreurs 404 et 400 bloquant les fonctionnalités d'analyse de contenu et de cohérence. Rendre l'application des suggestions fonctionnelle.
-*   Correction du préfixe `/api` dans [`backend/routers/analysis.py`](backend/routers/analysis.py:1) (résolution 404).
-*   Standardisation de la récupération des clés API (DB puis .env) dans `analyze_chapter_content` de [`backend/routers/analysis.py`](backend/routers/analysis.py:1) (résolution 400).
-*   Réécriture de la logique d'application des suggestions (`applySuggestionToChapter`) dans [`frontend/src/composables/useChapterContent.js`](frontend/src/composables/useChapterContent.js:1) pour utiliser `startIndex`, `endIndex`, `suggestedText` et mettre à jour `lastSavedContent`.
-*   Validation du fonctionnement des analyses et de l'application des suggestions en développement local.
-*   Identification de nouvelles erreurs Vue.js non liées directement, décision de ne pas les corriger dans la session actuelle.
+### Session 26 Mai (Après-midi)
+*   **Objectif :** Résoudre les erreurs Vue.js et les erreurs 404 des exports.
+*   **Action (Vue.js) :** Modification de [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:256) avec l'alias `fetchChapterContent: loadChapterContent,`.
+*   **Validation (Vue.js) :** Tests par l'utilisateur confirmant la résolution des erreurs.
+*   **Action (Exports) :** Suppression du `prefix="/api",` dans [`backend/routers/export.py`](backend/routers/export.py:23).
+*   **Validation (Exports) :** Tests par l'utilisateur confirmant le bon fonctionnement des exports.
 *   Mise à jour de la Banque de Mémoire (`activeContext.md`, `progress.md`).
+*   **Fin de la session.**
+
+### Session 26 Mai (Matin - Planification)
+*   Identification de la cause probable des erreurs Vue.js. Planification de la correction.
 
 ### Session 25 Mai
-*   **Objectif :** Rétablir la communication frontend-backend en environnement Docker.
-*   Correction itérative des problèmes de slashs finaux dans les appels API frontend.
-*   Correction d'une erreur JavaScript dans `useAIActions.js`.
-*   Suppression du préfixe `/api` dans le routeur `projects.py`.
-*   Validation du fonctionnement de base (CRUD, actions IA de base).
-*   Identification des erreurs 404 pour les fonctionnalités d'analyse comme prochains points à traiter.
+*   Rétablissement de la communication frontend-backend en Docker. Corrections diverses. Identification des erreurs 404 pour l'analyse.
 
 *(Les détails des sessions antérieures sont conservés dans activeContext.md)*

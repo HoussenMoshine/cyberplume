@@ -8,11 +8,14 @@ CyberPlume est une application d'aide à l'écriture conçue pour fonctionner lo
 
 - [Fonctionnalités Clés](#fonctionnalités-clés)
 - [Technologies Utilisées](#technologies-utilisées)
-- [Prérequis](#prérequis)
-- [Installation](#installation)
-- [Lancement de l'Application](#lancement-de-lapplication)
+- [Lancement Facile avec Docker (Recommandé)](#lancement-facile-avec-docker-recommandé)
+- [Prérequis (Pour Installation Manuelle)](#prérequis-pour-installation-manuelle)
+- [Installation Manuelle (Pour Développeurs)](#installation-manuelle-pour-développeurs)
+- [Lancement Manuel de l'Application](#lancement-manuel-de-lapplication)
 - [Dépannage (Troubleshooting)](#dépannage-troubleshooting)
 - [Structure du Projet (Aperçu)](#structure-du-projet-aperçu)
+- [Soutenir CyberPlume](#soutenir-cyberplume)
+
 ## Fonctionnalités Clés
 
 CyberPlume offre une suite d'outils intégrés pour accompagner les écrivains à chaque étape de leur processus créatif :
@@ -32,19 +35,16 @@ CyberPlume offre une suite d'outils intégrés pour accompagner les écrivains �
     *   **Support Multi-Fournisseurs :** Connectez-vous à différents modèles d'IA via Gemini, Mistral, OpenRouter, et d'autres à venir, grâce à une architecture modulaire.
     *   **Sélection Dynamique :** Choisissez facilement le fournisseur et le modèle IA que vous souhaitez utiliser via l'interface.
     *   **Personnalisation :** Ajustez les paramètres de l'IA (comme la température, la longueur maximale) et guidez le style de génération.
-*   **Export et Partage Faciles :**
+    *   **Gestion des Clés API Intégrée :** Configurez et gérez vos clés API pour les différents fournisseurs d'IA directement depuis l'interface de l'application, offrant une alternative sécurisée au stockage dans des fichiers `.env`.
+*   **Outils d'Analyse Intégrés :**
+    *   **Analyse de Contenu Assistée par IA :** Obtenez des suggestions pertinentes pour améliorer la qualité et le style de vos chapitres.
+    *   **Analyse de Cohérence du Projet :** (Fonctionnalité en cours d'amélioration) Vérifiez la cohérence globale de votre œuvre grâce à des outils basés sur le NLP.
+*   **Export et Partage Faciles (Fonctionnels !) :**
     *   **Formats Multiples :** Exportez votre travail aux formats DOCX, PDF, TXT, EPUB, ODT, et Markdown.
     *   **Niveaux d'Export :** Exportez un chapitre spécifique ou l'intégralité d'un projet.
 
 ---
 
-## Soutenir CyberPlume
-
-Si vous appréciez CyberPlume ou que vous me suivez sur ma chaine Youtube dédiée à l'IA et que vous souhaitez me soutenir, vous pouvez le faire via Patreon. Votre soutien est grandement apprécié !
-
-[![Soutenir sur Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/houssenmoshine)
-
----
 ## Technologies Utilisées
 
 *   **Backend :**
@@ -61,244 +61,175 @@ Si vous appréciez CyberPlume ou que vous me suivez sur ma chaine Youtube dédi�
     *   Axios (Client HTTP)
 *   **IA :**
     *   Bibliothèques clientes spécifiques : `google-generativeai`, `mistralai`, `openai` (pour OpenRouter).
+    *   spaCy (pour l'analyse de texte NLP)
+*   **Déploiement & Environnement :**
+    *   Docker
+    *   Docker Compose
 
-## Prérequis
+---
 
-Avant de commencer, assurez-vous d'avoir les éléments suivants installés sur votre système :
+## Lancement Facile avec Docker (Recommandé)
 
-1.  **Git :**
-    *   **Vérification :** Ouvrez un terminal et tapez `git --version`.
-    *   **Installation :**
-        *   **Linux (Debian/Ubuntu) :** `sudo apt update && sudo apt install git`
-        *   **Linux (Fedora) :** `sudo dnf install git`
-        *   **macOS :** Git est souvent préinstallé. Sinon, il sera proposé à l'installation avec les outils de développement Xcode Command Line Tools. Vous pouvez aussi l'installer via [Homebrew](https://brew.sh/) : `brew install git`.
-        *   **Windows :** Téléchargez et installez [Git for Windows](https://git-scm.com/download/win).
+La méthode la plus simple et recommandée pour lancer CyberPlume est d'utiliser Docker et Docker Compose. Cela évite d'avoir à installer manuellement Python, Node.js et toutes les dépendances sur votre système.
 
-2.  **Python :**
-    *   **Version :** 3.11 ou plus récent.
-    *   **Vérification :** Ouvrez un terminal et tapez `python --version` ou `python3 --version`.
-    *   **Installation :**
-        *   **Linux :** Généralement préinstallé. Utilisez le gestionnaire de paquets de votre distribution si nécessaire (ex: `sudo apt install python3.11 python3.11-venv`).
-        *   **macOS :** Peut être installé via le [site officiel Python](https://www.python.org/downloads/macos/) ou Homebrew (`brew install python`).
-        *   **Windows :** Téléchargez l'installeur depuis le [site officiel Python](https://www.python.org/downloads/windows/). **Assurez-vous de cocher "Add Python to PATH"** lors de l'installation.
+**Prérequis pour Docker :**
 
-3.  **Node.js et npm :**
-    *   **Node.js Version :** 18.x ou 20.x (LTS recommandé). npm est inclus avec Node.js.
-    *   **Vérification :** Ouvrez un terminal et tapez `node -v` puis `npm -v`.
-    *   **Installation :**
-        *   **Linux & macOS :** La méthode recommandée est d'utiliser [nvm (Node Version Manager)](https://github.com/nvm-sh/nvm).
-            1.  Installez nvm : `curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash` (vérifiez la dernière version sur le dépôt nvm).
-            2.  Sourcez votre profil shell (ex: `source ~/.bashrc`, `source ~/.zshrc`) ou ouvrez un nouveau terminal.
-            3.  Installez Node.js LTS : `nvm install --lts`
-        *   **Windows :** Téléchargez l'installeur LTS depuis le [site officiel Node.js](https://nodejs.org/).
+*   **Docker Desktop** (pour Windows et macOS) ou **Docker Engine & Docker Compose** (pour Linux) installés et fonctionnels.
+    *   **Vérification :** Ouvrez un terminal et tapez `docker --version` et `docker-compose --version` (ou `docker compose version` pour les versions plus récentes de Docker Desktop).
+    *   **Installation :** Suivez les instructions officielles sur le [site de Docker](https://docs.docker.com/get-docker/).
 
-## Installation
+**Étapes de Lancement avec Docker :**
 
-1.  **Cloner le dépôt :**
-    Ouvrez votre terminal, naviguez vers le répertoire où vous souhaitez cloner le projet, et exécutez :
+1.  **Cloner le dépôt (si ce n'est pas déjà fait) :**
     ```bash
-    git clone https://github.com/VOTRE_UTILISATEUR/NOM_DU_DEPOT.git
-    cd NOM_DU_DEPOT
+    git clone https://github.com/HoussenMoshine/CyberPlume.git # Remplacez par l'URL réelle si différente
+    cd CyberPlume
     ```
-    *(Remplacez `VOTRE_UTILISATEUR/NOM_DU_DEPOT` par l'URL réelle du dépôt une fois créé).*
 
-2.  **Installation du Backend (Serveur API) :**
-
-    *   **Naviguez vers le dossier backend :**
-        ```bash
-        cd backend
-        ```
-
-    *   **Créez un environnement virtuel Python :**
-        *   **Linux/macOS :**
-            ```bash
-            python3 -m venv venv
-            ```
-        *   **Windows (CMD) :**
-            ```bash
-            python -m venv venv
-            ```
-        *   **Windows (PowerShell) :**
-            ```powershell
-            python -m venv venv
-            ```
-        *(Cela crée un dossier `venv` dans le répertoire `backend`)*
-
-    *   **Activez l'environnement virtuel :**
-        *   **Linux/macOS (bash/zsh) :**
-            ```bash
-            source venv/bin/activate
-            ```
-        *   **Windows (CMD) :**
-            ```batch
-            venv\Scripts\activate.bat
-            ```
-        *   **Windows (PowerShell) :**
-            ```powershell
-            .\venv\Scripts\Activate.ps1
-            ```
-            *(Si vous obtenez une erreur concernant l'exécution des scripts sur PowerShell, vous devrez peut-être exécuter `Set-ExecutionPolicy Unrestricted -Scope Process` puis réessayer. N'oubliez pas de remettre la politique à son état précédent après, si nécessaire, par exemple `Set-ExecutionPolicy Restricted -Scope Process`)*
-        *(Votre invite de terminal devrait maintenant indiquer que l'environnement `(venv)` est actif)*
-
-    *   **Installez les dépendances Python :**
-        ```bash
-        pip install -r requirements.txt
-        ```
-
-    *   **Configurez les variables d'environnement du backend :**
-        1.  Copiez le fichier d'exemple :
-            *   **Linux/macOS :** `cp .env.example .env`
-            *   **Windows (CMD/PowerShell) :** `copy .env.example .env`
-        2.  Ouvrez le fichier `backend/.env` nouvellement créé avec un éditeur de texte.
-        3.  Remplissez les clés API nécessaires (pour Gemini, Mistral, OpenRouter) et la clé `API_KEY` pour CyberPlume.
+2.  **Configuration des Variables d'Environnement :**
+    CyberPlume nécessite des clés API pour accéder aux services d'IA. Vous pouvez les configurer de deux manières :
+    *   **Via l'interface de l'application (Recommandé pour la simplicité) :** Une fois l'application lancée, vous pourrez entrer vos clés API directement dans la section de configuration.
+    *   **Via un fichier `.env` (Optionnel, pour un pré-remplissage) :**
+        1.  À la racine du projet cloné (`CyberPlume/`), créez un fichier nommé `.env`.
+        2.  Vous pouvez copier le contenu de [`backend/.env.example`](backend/.env.example:0) et/ou [`frontend/.env.example`](frontend/.env.example:0) comme base, mais pour Docker, seules les clés API des services IA sont typiquement nécessaires dans ce fichier `.env` racine si vous souhaitez les pré-configurer.
             ```env
+            # Exemple de contenu pour CyberPlume/.env (optionnel)
             GEMINI_API_KEY=VOTRE_CLE_API_GEMINI_ICI
             MISTRAL_API_KEY=VOTRE_CLE_API_MISTRAL_ICI
             OPENROUTER_API_KEY=VOTRE_CLE_API_OPENROUTER_ICI
-            API_KEY=VOTRE_CLE_API_CYBERPLUME_ICI
+            # La variable API_KEY pour la communication interne est gérée par docker-compose.yml
             ```
-            *(La `API_KEY` est utilisée pour sécuriser la communication entre le frontend et le backend. Vous pouvez générer une chaîne aléatoire sécurisée pour cela).*
+        *Note : La clé `API_KEY` pour la communication interne entre le frontend et le backend est déjà définie dans le fichier [`docker-compose.yml`](docker-compose.yml:0) et n'a pas besoin d'être ajoutée au fichier `.env` racine pour le lancement avec Docker, sauf si vous souhaitez la surcharger.*
+
+3.  **Lancer les conteneurs Docker :**
+    Ouvrez un terminal à la racine du projet (`CyberPlume/`) et exécutez :
+    ```bash
+    docker-compose up -d --build
+    ```
+    *   `--build` : Reconstruit les images si elles n'existent pas ou si les Dockerfiles ont changé.
+    *   `-d` : Lance les conteneurs en mode détaché (en arrière-plan).
+
+4.  **Accéder à CyberPlume :**
+    Une fois les conteneurs démarrés (cela peut prendre quelques minutes la première fois), ouvrez votre navigateur web et allez à l'adresse :
+    [http://localhost:5173](http://localhost:5173) (ou le port sur lequel Vite est configuré pour s'exposer via Docker, vérifiez les logs de `docker-compose up` si besoin).
+
+5.  **Arrêter les conteneurs :**
+    Pour arrêter l'application, retournez dans votre terminal à la racine du projet et exécutez :
+    ```bash
+    docker-compose down
+    ```
+
+---
+
+## Prérequis (Pour Installation Manuelle)
+
+Cette section concerne l'installation manuelle, qui est plus complexe et généralement recommandée uniquement pour les développeurs souhaitant contribuer au code. **Pour une utilisation standard, veuillez privilégier la méthode Docker ci-dessus.**
+
+1.  **Git :** (Voir [Installation de Git](#installation-de-git) plus bas si besoin)
+2.  **Python :** Version 3.11 ou plus récent. (Voir [Installation de Python](#installation-de-python))
+3.  **Node.js et npm :** Node.js 18.x ou 20.x (LTS recommandé). npm est inclus. (Voir [Installation de Node.js et npm](#installation-de-nodejs-et-npm))
+
+---
+
+## Installation Manuelle (Pour Développeurs)
+
+Suivez ces étapes si vous ne souhaitez pas utiliser Docker.
+
+1.  **Cloner le dépôt :**
+    <a id="installation-de-git"></a>
+    Ouvrez votre terminal, naviguez vers le répertoire où vous souhaitez cloner le projet, et exécutez :
+    ```bash
+    git clone https://github.com/HoussenMoshine/CyberPlume.git # Remplacez par l'URL réelle si différente
+    cd CyberPlume
+    ```
+
+2.  **Installation du Backend (Serveur API) :**
+    <a id="installation-de-python"></a>
+    *   **Naviguez vers le dossier backend :** `cd backend`
+    *   **Créez et activez un environnement virtuel Python :**
+        *   Linux/macOS : `python3 -m venv venv && source venv/bin/activate`
+        *   Windows : `python -m venv venv && .\venv\Scripts\activate`
+    *   **Installez les dépendances Python :** `pip install -r requirements.txt`
+    *   **Configurez les variables d'environnement du backend :**
+        1.  Copiez `cp .env.example .env` (ou `copy .env.example .env` sur Windows).
+        2.  Modifiez `backend/.env` pour ajouter vos clés API (Gemini, Mistral, OpenRouter) et une `API_KEY` pour CyberPlume (chaîne aléatoire sécurisée).
 
 3.  **Installation du Frontend (Interface Utilisateur) :**
-
-    *   **Naviguez vers le dossier frontend (depuis la racine du projet) :**
-        ```bash
-        cd ../frontend
-        ```
-        *(Si vous étiez dans `backend/`, sinon `cd frontend` depuis la racine)*
-
-    *   **Installez les dépendances Node.js :**
-        ```bash
-        npm install
-        ```
-
+    <a id="installation-de-nodejs-et-npm"></a>
+    *   **Naviguez vers le dossier frontend :** `cd ../frontend` (depuis `backend/`) ou `cd frontend` (depuis la racine).
+    *   **Installez les dépendances Node.js :** `npm install`
     *   **Configurez les variables d'environnement du frontend :**
-        1.  Copiez le fichier d'exemple :
-            *   **Linux/macOS :** `cp .env.example .env`
-            *   **Windows (CMD/PowerShell) :** `copy .env.example .env`
-        2.  Ouvrez le fichier `frontend/.env` nouvellement créé.
-        3.  Assurez-vous que les variables sont correctement configurées :
-            ```env
-            VITE_API_KEY=LA_MEME_CLE_QUE_API_KEY_DANS_BACKEND/.ENV
-            VITE_API_URL=http://127.0.0.1:8080/api
-            ```
-            *   `VITE_API_KEY` doit correspondre à la `API_KEY` que vous avez définie dans `backend/.env`.
-            *   `VITE_API_URL` est généralement `http://127.0.0.1:8080/api` pour le développement local, car le serveur de développement Vite (sur un autre port, ex: 5173) proxyfiera les requêtes `/api` vers le backend FastAPI qui tourne sur le port 8080.
+        1.  Copiez `cp .env.example .env` (ou `copy .env.example .env` sur Windows).
+        2.  Modifiez `frontend/.env` :
+            *   `VITE_API_KEY` doit correspondre à la `API_KEY` définie dans `backend/.env`.
+            *   `VITE_API_URL` est généralement `http://127.0.0.1:8080/api`.
 
-## Lancement de l'Application
+---
 
-Pour lancer CyberPlume, vous devez démarrer le serveur backend PUIS le serveur de développement frontend.
+## Lancement Manuel de l'Application
 
 1.  **Démarrez le Backend :**
-    *   Ouvrez un terminal.
-    *   Naviguez vers le dossier `backend/`.
-    *   Activez l'environnement virtuel (si ce n'est pas déjà fait) :
-        *   Linux/macOS : `source venv/bin/activate`
-        *   Windows CMD : `venv\Scripts\activate.bat`
-        *   Windows PowerShell : `.\venv\Scripts\Activate.ps1`
-    *   Lancez le serveur FastAPI :
-        ```bash
-        uvicorn backend.main:app --reload --port 8080
-        ```
-        *(Le backend devrait maintenant tourner sur `http://127.0.0.1:8080`)*
+    *   Ouvrez un terminal, naviguez vers `backend/`, activez l'environnement virtuel.
+    *   Lancez : `uvicorn backend.main:app --reload --port 8080`
 
 2.  **Démarrez le Frontend :**
-    *   Ouvrez un **nouveau** terminal (laissez le backend tourner dans le premier).
-    *   Naviguez vers le dossier `frontend/`.
-    *   Lancez le serveur de développement Vite :
-        ```bash
-        npm run dev
-        ```
-        *(Vite vous indiquera l'URL sur laquelle le frontend est accessible, généralement `http://localhost:5173` ou un port similaire).*
+    *   Ouvrez un **nouveau** terminal, naviguez vers `frontend/`.
+    *   Lancez : `npm run dev`
+    *   L'application devrait être accessible sur l'URL affichée (généralement [http://localhost:5173](http://localhost:5173)).
 
-3.  **Accédez à CyberPlume :**
-    *   Ouvrez votre navigateur web et allez à l'URL fournie par Vite pour le frontend (ex: `http://localhost:5173`).
+---
 
 ## Dépannage (Troubleshooting)
 
-Voici quelques problèmes courants que vous pourriez rencontrer et leurs solutions :
+*   **Problèmes de port :** Si le port 8080 (backend) ou 5173 (frontend) est déjà utilisé, vous devrez peut-être arrêter l'application qui l'utilise ou configurer CyberPlume pour utiliser des ports différents (plus avancé).
+*   **Erreurs de proxy Vite :** Assurez-vous que `VITE_API_URL` dans `frontend/.env` pointe correctement vers votre backend et que le proxy dans [`frontend/vite.config.js`](frontend/vite.config.js:0) est bien configuré si vous avez modifié les ports par défaut.
+*   **Problèmes avec l'environnement virtuel Python :** Assurez-vous qu'il est bien activé avant de lancer le backend ou d'installer des dépendances.
+*   **Erreurs Docker :** Consultez les logs des conteneurs avec `docker-compose logs backend` ou `docker-compose logs frontend` pour identifier les problèmes. Assurez-vous que Docker Desktop (ou Docker Engine) est en cours d'exécution.
+*   **Clés API :** Si les fonctionnalités IA ne marchent pas, vérifiez que vos clés API sont correctement configurées (soit via l'interface, soit dans les fichiers `.env` pour l'installation manuelle, soit dans le `.env` racine pour le pré-remplissage Docker).
 
-*   **Erreur "Port déjà utilisé" (Address already in use) :**
-    *   **Cause :** Un autre service utilise déjà le port sur lequel le backend (8080) ou le frontend (ex: 5173) essaie de démarrer.
-    *   **Solution Backend (Port 8080) :**
-        *   Vous pouvez changer le port dans la commande de lancement : `uvicorn backend.main:app --reload --port AUTRE_PORT` (ex: `--port 8081`).
-        *   Si vous changez le port du backend, n'oubliez pas de mettre à jour `VITE_API_URL` dans `frontend/.env` en conséquence (ex: `http://127.0.0.1:8081/api`).
-    *   **Solution Frontend (Port Vite) :**
-        *   Vite essaiera automatiquement un autre port s'il est occupé. Si vous voulez forcer un port spécifique, vous pouvez modifier le script `dev` dans `frontend/package.json` : `"dev": "vite --port NOUVEAU_PORT"`.
-    *   **Identifier le processus utilisant un port :**
-        *   **Linux/macOS :** `sudo lsof -i :PORT` (ex: `sudo lsof -i :8080`). Puis `kill -9 PID_DU_PROCESSUS`.
-        *   **Windows (CMD) :** `netstat -ano | findstr :PORT`. Trouvez le PID et utilisez `taskkill /PID VOTRE_PID /F`.
-        *   **Windows (PowerShell) :** `Get-NetTCPConnection -LocalPort PORT | Select-Object -ExpandProperty OwningProcess | Get-Process -Id {$_.Id} | Stop-Process -Force`.
-
-*   **Erreurs liées aux clés API (ex: 401 Unauthorized, 403 Forbidden, erreurs spécifiques du fournisseur IA) :**
-    *   **Cause :** Les clés API dans `backend/.env` sont incorrectes, manquantes, ou n'ont pas les permissions nécessaires auprès du fournisseur IA. La `API_KEY` (pour la communication frontend-backend) ne correspond pas entre `backend/.env` et `frontend/.env`.
-    *   **Solution :**
-        1.  Vérifiez attentivement que les clés API dans `backend/.env` sont correctes et valides.
-        2.  Assurez-vous que la variable `API_KEY` dans `backend/.env` est identique à `VITE_API_KEY` dans `frontend/.env`.
-        3.  Consultez la documentation du fournisseur IA concerné si l'erreur persiste.
-
-*   **Oubli d'activation de l'environnement virtuel Python (`venv`) :**
-    *   **Symptômes :** Erreurs `ModuleNotFoundError` pour des paquets listés dans `requirements.txt` lorsque vous essayez de lancer le backend.
-    *   **Solution :** Assurez-vous d'activer l'environnement virtuel (`source venv/bin/activate` ou équivalent Windows) avant de lancer `uvicorn`.
-
-*   **Problèmes de proxy ou CORS :**
-    *   **Symptômes :** Le frontend ne parvient pas à communiquer avec le backend, erreurs CORS dans la console du navigateur.
-    *   **Solution :**
-        1.  Vérifiez que `VITE_API_URL` dans `frontend/.env` est correcte (généralement `http://127.0.0.1:8080/api`).
-        2.  Assurez-vous que le backend FastAPI a la configuration CORS appropriée (dans `backend/main.py`, cela devrait déjà être géré pour autoriser les origines locales).
-        3.  Vérifiez la configuration du proxy dans `frontend/vite.config.js`.
-
-*   **Le modèle de langue spaCy n'est pas trouvé :**
-    *   **Symptômes :** Erreur lors de l'utilisation d'une fonctionnalité d'analyse de texte, mentionnant un modèle manquant (ex: `fr_core_news_md`).
-    *   **Solution :** Après avoir installé les dépendances de `backend/requirements.txt`, vous devez télécharger le modèle spaCy manuellement. Activez votre environnement virtuel backend et exécutez :
-        ```bash
-        python -m spacy download fr_core_news_md
-        ```
+---
 
 ## Structure du Projet (Aperçu)
 
 ```
-cyberplume/
-├── backend/                # API Backend (FastAPI, Python)
-│   ├── .env.example        # Exemple de fichier d'environnement pour le backend
-│   ├── .gitignore          # Fichiers ignorés par Git pour le backend
-│   ├── ai_services/        # Modules pour l'intégration des services IA
-│   ├── routers/            # Logique des routes API (endpoints)
-│   ├── tests/              # Tests pour le backend
-│   ├── config.py           # Configuration (chargement des variables d'env)
-│   ├── database.py         # Configuration de la base de données (SQLAlchemy)
-│   ├── main.py             # Point d'entrée de l'application FastAPI
-│   ├── models.py           # Modèles de données (SQLAlchemy & Pydantic)
-│   └── requirements.txt    # Dépendances Python
-│
-├── docs/                   # Documentation du projet
-│   └── assets/
-│       └── logo.svg        # Logo de l'application
-│   └── plan-preparation-github.md # Plan de préparation GitHub
-│
-├── frontend/               # Application Frontend (Vue.js, Vuetify)
-│   ├── .env.example        # Exemple de fichier d'environnement pour le frontend
-│   ├── .gitignore          # Fichiers ignorés par Git pour le frontend
-│   ├── public/             # Assets statiques publics
-│   ├── src/                # Code source du frontend
-│   │   ├── assets/         # Images, polices, etc. (autres que le logo principal)
-│   │   ├── components/     # Composants Vue réutilisables
-│   │   ├── composables/    # Logique réutilisable (Composition API)
-│   │   ├── plugins/        # Configuration des plugins (ex: Vuetify)
-│   │   ├── App.vue         # Composant racine de l'application Vue
-│   │   ├── main.js         # Point d'entrée de l'application Vue
-│   │   └── config.js       # Configuration spécifique au frontend
-│   ├── index.html          # Point d'entrée HTML
-│   ├── package.json        # Dépendances et scripts npm
-│   └── vite.config.js      # Configuration de Vite (outil de build)
-│
-├── instance/               # Fichiers d'instance (ex: base de données locale)
-│   └── cyberplume.db       # Base de données SQLite (ignorée par .gitignore du backend)
-│
-├── .gitignore              # Fichiers ignorés par Git à la racine du projet
-└── README.md               # Ce fichier
+CyberPlume/
+├── backend/            # API FastAPI (Python)
+│   ├── ai_services/    # Logique d'intégration des modèles IA
+│   ├── routers/        # Points d'entrée de l'API (routes)
+│   ├── .env.example    # Exemple de variables d'environnement backend
+│   ├── config.py       # Chargement de la configuration
+│   ├── crud_*.py       # Opérations CRUD sur la base de données
+│   ├── database.py     # Configuration SQLAlchemy et session DB
+│   ├── main.py         # Point d'entrée de l'application FastAPI
+│   ├── models.py       # Modèles de données SQLAlchemy et Pydantic
+│   └── requirements.txt # Dépendances Python
+├── frontend/           # Application Vue.js 3 (JavaScript/Vue)
+│   ├── src/
+│   │   ├── assets/     # Icônes, images
+│   │   ├── components/ # Composants Vue réutilisables
+│   │   ├── composables/# Logique réutilisable (Composition API)
+│   │   ├── plugins/    # Configuration des plugins (Vuetify)
+│   │   ├── App.vue     # Composant racine de l'application
+│   │   ├── main.js     # Point d'entrée de l'application Vue
+│   │   └── config.js   # Configuration front-end
+│   ├── .env.example    # Exemple de variables d'environnement frontend
+│   ├── index.html      # Fichier HTML principal
+│   ├── package.json    # Dépendances Node.js et scripts npm
+│   └── vite.config.js  # Configuration de Vite (build, proxy dev)
+├── instance/           # Données d'instance (ex: base de données SQLite)
+│   └── cyberplume.db   # Fichier de base de données SQLite (créé au premier lancement)
+├── docs/               # Documentation additionnelle
+├── .gitignore          # Fichiers et dossiers ignorés par Git
+├── docker-compose.yml  # Configuration pour Docker Compose
+├── Dockerfile.backend  # Instructions pour construire l'image Docker du backend
+├── Dockerfile.frontend-dev # Instructions pour construire l'image Docker du frontend (dev)
+└── README.md           # Ce fichier
 ```
 
-## Contribution
+---
 
-Les contributions sont les bienvenues ! Si vous souhaitez contribuer, veuillez d'abord ouvrir une "issue" pour discuter des changements que vous aimeriez apporter.
+## Soutenir CyberPlume
+
+Si vous appréciez CyberPlume ou que vous me suivez sur ma chaîne Youtube dédiée à l'IA et que vous souhaitez me soutenir, vous pouvez le faire via Patreon. Votre soutien est grandement apprécié !
+
+[![Soutenir sur Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/houssenmoshine)
