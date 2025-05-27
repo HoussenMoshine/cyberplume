@@ -11,7 +11,7 @@ __pycache__/
 .Python
 build/
 develop-eggs/
-dist/
+dist/  # ### MODIFICATION ### Peut aussi être pour le frontend, donc on le garde générique
 downloads/
 eggs/
 .eggs/
@@ -48,7 +48,7 @@ htmlcov/
 nosetests.xml
 coverage.xml
 *.cover
-*.py,cover
+*.py,cover  # ### NOTE ### Typo probable ici, devrait être *.py.cover ? Ou juste *.cover suffit.
 .hypothesis/
 .pytest_cache/
 
@@ -57,13 +57,13 @@ coverage.xml
 *.pot
 
 # Django stuff:
-*.log
+# *.log # ### MODIFICATION ### Déplacé vers une section plus générale pour les logs
 local_settings.py
-db.sqlite3
-db.sqlite3-journal
+db.sqlite3       # ### MODIFICATION ### Rendons cela plus générique pour SQLite
+db.sqlite3-journal # ### MODIFICATION ### Rendons cela plus générique pour SQLite
 
 # Flask stuff:
-instance/
+instance/          # ### MODIFICATION ### Garder, mais on peut être plus spécifique pour les .db dedans
 .webassets-cache
 
 # Scrapy stuff:
@@ -103,6 +103,9 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+### AJOUT ### Fichiers d'environnement locaux plus spécifiques
+.env.*.local
+*.env.local # Utilisé par certains frameworks JS
 
 # Spyder project settings
 .spyderproject
@@ -112,7 +115,7 @@ venv.bak/
 .ropeproject
 
 # mkdocs documentation
-/site
+/site/ # ### MODIFICATION ### Ajout du slash final pour s'assurer que c'est un dossier à la racine
 
 # mypy
 .mypy_cache/
@@ -128,6 +131,63 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# CyberPlume specific
-instance/cyberplume.db
+### AJOUT ### Section pour les fichiers d'OS et d'éditeur
+####################################################
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+desktop.ini
+
+### AJOUT ### Section pour les fichiers de configuration d'IDE spécifiques à l'utilisateur
+###########################################################
+.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+### AJOUT ### Section spécifique pour le Frontend (Node.js / Vue.js / React / etc.)
+################################################################################
+# Dépendances
+node_modules/
+
+# Fichiers de build du frontend (dist/ est déjà plus haut, mais on peut ajouter d'autres spécifiques)
+.nuxt/ # Pour Nuxt.js
+.next/ # Pour Next.js
+out/   # Parfois utilisé par Next.js pour l'export statique
+
+# Fichiers de log spécifiques à Node/npm/yarn
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+### AJOUT ### Section plus générale pour les bases de données et les logs
+#########################################################################
+# Bases de données SQLite (ou autres bases de données locales)
+*.db
+*.sqlite
+*.sqlite3
+# Si tu veux être plus précis pour les sous-dossiers :
+# backend/**/*.db
+# frontend/**/*.db
+# instance/**/*.db # Couvre instance/cyberplume.db et d'autres .db dans instance/
+
+# Fichiers de log généraux
 *.log
+logs/
+
+# CyberPlume specific
+# instance/cyberplume.db # ### MODIFICATION ### Est maintenant couvert par la section plus générale des .db ou instance/**/*.db
+# *.log # ### MODIFICATION ### Est maintenant couvert par la section plus générale des logs
+
+### AJOUT ### Fichiers secrets ou sensibles (À VÉRIFIER ET ADAPTER)
+################################################################
+# C'est un rappel, assure-toi que tes vrais fichiers de secrets ne sont pas versionnés.
+# Exemple:
+# secrets.ini
+# .secrets
+# *.pem
+# *.key
