@@ -9,7 +9,7 @@ PROJECT_ROOT=$(pwd)
 FRONTEND_DIR="frontend" # Ajustez si votre dossier frontend a un autre nom ou emplacement
 
 # Temps d'attente (en secondes) pour que le backend démarre avant de lancer le frontend
-BACKEND_STARTUP_DELAY=30 # Ajustez selon le temps que prend votre backend
+BACKEND_STARTUP_DELAY=20 # Ajustez selon le temps que prend votre backend
 
 # Commande pour votre terminal. Décommentez celle qui correspond à votre environnement.
 # Pour GNOME (Ubuntu, Fedora, etc.)
