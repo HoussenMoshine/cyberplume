@@ -1,3 +1,53 @@
+# Contexte Actif - CyberPlume (Mise à jour : 27/05/2025 - 07:19)
+
+## Focus Actuel
+
+*   **Fin de session de développement (27 Mai - matin).**
+*   **Mise à jour du [`README.md`](README.md) TERMINÉE :**
+    *   Instructions de lancement via Docker intégrées comme méthode principale.
+    *   Fonctionnalités d'export et d'analyse (contenu, cohérence) documentées comme étant stables.
+    *   Mention de la configuration des clés API directement via l'interface utilisateur ajoutée.
+*   **Prochaine étape :** Mise à jour de la Banque de Mémoire (en cours), puis fin de session. L'utilisateur se chargera du merge et du push Git.
+
+## ⚠️ Rappels Cruciaux
+
+*   **Gestion des Branches Git :** L'utilisateur effectuera le merge de la branche de travail (probablement `dockerisation`) vers la branche principale et le push vers GitHub.
+*   **Révocation des Clés API :** Rappel important pour l'utilisateur de révoquer et remplacer les clés API qui auraient pu être exposées ou versionnées par erreur.
+
+## Décisions et Actions Clés de la Session (27 Mai - matin)
+
+*   **Planification de la mise à jour du [`README.md`](README.md) :**
+    *   Analyse de la Banque de Mémoire et du [`README.md`](README.md) existant.
+    *   Élaboration d'un plan de mise à jour incluant Docker, les fonctionnalités récentes (exports, analyses, configuration des clés API in-app).
+    *   Validation du plan par l'utilisateur.
+*   **Rédaction et Écriture du [`README.md`](README.md) :**
+    *   Le fichier [`README.md`](README.md) a été entièrement réécrit pour incorporer tous les changements planifiés.
+*   **Préparation de la fin de session :**
+    *   Lancement de la mise à jour de la Banque de Mémoire.
+
+## Apprentissages et Patrons Importants Récents (Session 27 Mai - matin)
+
+*   **Importance d'une Documentation Utilisateur Claire :** La mise à jour du [`README.md`](README.md) est cruciale pour faciliter l'adoption et l'utilisation de l'application, notamment avec l'introduction de Docker.
+*   **Processus Itératif de Documentation :** La Banque de Mémoire et la documentation publique (comme le [`README.md`](README.md)) évoluent en parallèle avec le développement.
+
+## Prochaines Étapes (Pour la prochaine session de développement)
+
+1.  **Gestion de Version (par l'utilisateur) :**
+    *   Merger la branche de travail (ex: `dockerisation`) dans la branche principale (ex: `main` ou `develop`).
+    *   Pusher les changements sur GitHub.
+2.  **Validation Approfondie de spaCy :**
+    *   Vérifier la pertinence et l'exactitude des résultats de l'analyse de cohérence et de contenu, notamment dans l'environnement Docker.
+3.  **(Observation/Optionnel - Propreté du code) Redirections et Appels API Spécifiques :**
+    *   Vérifier la cohérence des préfixes et des slashs pour les routes `/api/characters`.
+    *   Examiner l'appel `/api-keys-config/status` pour s'assurer de sa conformité avec les patrons établis.
+4.  **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel Utilisateur).**
+5.  **(Optionnel) Optimisations Docker :** Envisager des optimisations pour les images Docker (taille, temps de build) une fois les fonctionnalités de base stabilisées.
+6.  **(Optionnel) Tests Fonctionnels Complets sous Docker :** Réaliser une passe de tests exhaustive de toutes les fonctionnalités dans l'environnement Docker.
+
+---
+# Historique des Contextes Actifs Précédents
+---
+
 # Contexte Actif - CyberPlume (Mise à jour : 26/05/2025 - 14:21)
 
 ## Focus Actuel
@@ -42,54 +92,4 @@
     *   Merger la branche de travail (ex: `dockerisation`) dans la branche principale (ex: `main` ou `develop`).
     *   Pusher les changements sur GitHub.
     *   Mettre à jour le fichier [`README.md`](README.md) pour refléter les nouveaux changements, fonctionnalités (notamment les exports fonctionnels, les analyses) et les instructions de lancement via Docker.
-3.  **(Observation/Optionnel - à revoir) Redirections `/api/characters` et appel `/api-keys-config/status` :** Vérifier la cohérence des préfixes et des slashs pour ces routes par souci de propreté, une fois l'environnement Docker stable.
-
----
-*Historique précédent (avant cette mise à jour) conservé ci-dessous.*
-# Contexte Actif - CyberPlume (Mise à jour : 26/05/2025 - 14:17)
-
-## Focus Actuel
-
-*   **Session de développement (26 Mai - après-midi).**
-*   **Correction des erreurs 404 pour les exports :**
-    *   Le préfixe `/api` a été supprimé du routeur dans [`backend/routers/export.py`](backend/routers/export.py:23) pour s'aligner avec la gestion des préfixes par le proxy Vite et les autres routeurs. Tests en attente.
-*   **Correction des erreurs Vue.js VALIDÉE :**
-    *   La correction appliquée à [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:256) a résolu les erreurs lors de la sélection de chapitres.
-*   **Prochaine étape : Tester les exports, puis poursuivre la Dockerisation.**
-*   **Correction des bugs d'analyse (session précédente validée).**
-
-## ⚠️ Rappels Cruciaux
-
-*   **Gestion des Branches Git :** Toujours s'assurer que l'on travaille dans la bonne branche Git (probablement `dockerisation`).
-*   **Variables d'environnement et Clés API :** S'assurer que les fichiers `.env` sont correctement configurés pour l'environnement Docker.
-
-## Décisions et Actions Clés de la Session (26 Mai - après-midi)
-
-*   **Résolution et Validation des erreurs Vue.js lors de la sélection de chapitres :**
-    *   **Cause identifiée :** Incohérence de nommage (`loadChapterContent` vs `fetchChapterContent`).
-    *   **Action :** Modification de [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:256) avec l'alias `fetchChapterContent: loadChapterContent,`.
-    *   **Validation :** Tests par l'utilisateur confirmant la disparition des erreurs.
-*   **Résolution (tentée) des erreurs 404 pour les exports :**
-    *   **Cause identifiée :** Le routeur [`backend/routers/export.py`](backend/routers/export.py:23) avait un `prefix="/api"`, ce qui entrait en conflit avec la gestion des préfixes par le proxy Vite (qui supprime déjà `/api`). Les autres routeurs (`analysis.py`, `projects.py`) avaient déjà eu ce préfixe supprimé pour cette raison.
-    *   **Action :** Suppression de `prefix="/api",` de la définition du routeur dans [`backend/routers/export.py`](backend/routers/export.py:23).
-*   **Préparation pour la reprise de la Dockerisation (après validation des exports).**
-
-## Apprentissages et Patrons Importants Récents (Session 26 Mai - après-midi)
-
-*   **Cohérence de Nommage Inter-fichiers :** Confirmé comme une source potentielle de bugs.
-*   **Importance des Tests Utilisateur :** Crucial après chaque correction.
-*   **Gestion Cohérente des Préfixes d'API avec Proxy :** Si un proxy (ex: Vite) gère la réécriture des chemins d'API (ex: suppression d'un préfixe `/api`), les routeurs backend ne doivent pas redéclarer ce même préfixe pour éviter les conflits et les erreurs 404. La centralisation de la gestion des préfixes (soit uniquement dans le proxy, soit uniquement dans `main.py` lors de l'inclusion des routeurs) est préférable.
-
-## Prochaines Étapes
-
-1.  **Tester la correction des erreurs d'exportation (404) :**
-    *   Vérifier si les exports de chapitres et de projets (ex: PDF) fonctionnent maintenant sans erreur 404.
-2.  **Reprendre la Dockerisation (si les exports sont fonctionnels) :**
-    *   Lancer la reconstruction des conteneurs Docker si ce n'est pas déjà fait ou si des doutes subsistent sur la prise en compte des changements backend (bien que le mode reload devrait aider).
-    *   Valider le fonctionnement complet des fonctionnalités (y compris les exports, analyses, chargement de chapitres) dans l'environnement Docker.
-    *   S'assurer que spaCy fonctionne correctement dans le conteneur Docker.
-    *   Optimisation Docker (Post-Fonctionnalité).
-    *   Tests Fonctionnels Complets sous Docker.
-    *   Documentation [`README.md`](README.md) pour Docker.
-    *   Commit et Push des changements de la branche `dockerisation`.
 3.  **(Observation/Optionnel - à revoir) Redirections `/api/characters` et appel `/api-keys-config/status` :** Vérifier la cohérence des préfixes et des slashs pour ces routes par souci de propreté, une fois l'environnement Docker stable.
