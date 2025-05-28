@@ -8,7 +8,7 @@
       class="list-item-hover-actions project-header pa-2"
       density="default"
       min-height="52px"
-      @click.prevent
+      @click.prevent="$emit('chapters-requested', project.id)" 
     >
       <template v-slot:prepend>
         <v-checkbox-btn
@@ -123,17 +123,17 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits } from 'vue';
+import { defineProps, defineEmits, onMounted } from 'vue'; // Ajout de onMounted
 import {
   VCard, VListItem, VListItemTitle, VListSubheader,
   VBtn, VMenu, VDivider, VCheckboxBtn, VProgressCircular, VList
 } from 'vuetify/components';
 
 import {
-  IconFolder, IconDotsVertical, IconSquarePlus, IconScan, // IconPencil supprimée
-  IconFileText, IconFileTypePdf, IconBook // IconTrash supprimée
+  IconFolder, IconDotsVertical, IconSquarePlus, IconScan, 
+  IconFileText, IconFileTypePdf, IconBook 
 } from '@tabler/icons-vue';
-import EditerIconURL from '@/assets/editer.svg'; // Ajout de l'import pour l'icône SVG
+import EditerIconURL from '@/assets/editer.svg'; 
 import PoubelleIconURL from '@/assets/poubelle.svg';
 
 const props = defineProps({
@@ -160,8 +160,17 @@ const emit = defineEmits([
   'open-edit',
   'open-analysis',
   'handle-export',
-  'open-delete'
+  'open-delete',
+  'chapters-requested' // Ajout de l'événement ici
 ]);
+
+// Émettre 'chapters-requested' lorsque le composant ProjectItem est monté
+// Cela garantit que les chapitres sont chargés pour chaque projet affiché.
+onMounted(() => {
+  if (props.project && props.project.id) {
+    emit('chapters-requested', props.project.id);
+  }
+});
 
 </script>
 

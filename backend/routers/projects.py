@@ -8,6 +8,9 @@ from .. import models # Utiliser .. pour remonter d'un niveau
 from ..database import get_db # Importer la fonction get_db depuis database.py
 # NOUVEAU: Importer le schéma de réordonnancement depuis models
 from ..models import ReorderItemsSchema
+# NOUVEAU: Importer le service de résumé
+from ..services import summary_service
+
 
 router = APIRouter(
     # prefix="/api", # Préfixe commun pour ces routes -- Supprimé car géré par le proxy Vite
@@ -206,20 +209,16 @@ async def delete_chapter(chapter_id: int, db: Session = Depends(get_db)):
     """
     Supprime un chapitre.
     """
-    print(f"[ROUTER] Attempting to delete chapter with ID: {chapter_id}")
     db_chapter = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
     if db_chapter is None:
-        print(f"[ROUTER] Chapter with ID: {chapter_id} not found for deletion.")
         raise HTTPException(status_code=404, detail="Chapter not found")
 
-    print(f"[ROUTER] Deleting chapter: {db_chapter.title} (ID: {chapter_id})")
     db.delete(db_chapter)
     db.commit()
-    print(f"[ROUTER] Chapter with ID: {chapter_id} committed for deletion.")
     return None
 
 
-@router.post("/chapters/batch-delete", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/chapters/batch-delete", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_chapters_batch(batch_data: models.DeleteBatchSchema, db: Session = Depends(get_db)):
     """
     Supprime plusieurs chapitres en une seule fois.
@@ -227,7 +226,7 @@ async def delete_chapters_batch(batch_data: models.DeleteBatchSchema, db: Sessio
     chapters_to_delete = db.query(models.Chapter).filter(models.Chapter.id.in_(batch_data.ids)).all()
 
     if not chapters_to_delete:
-        return None # Ou HTTPException 404 si aucun ID n'est trouvé ?
+        return None # Ou lever une 404 si aucun ID n'est trouvé ? Pour l'instant, silencieux.
 
     # Optionnel: Logguer si certains IDs n'ont pas été trouvés
     if len(chapters_to_delete) != len(set(batch_data.ids)):
@@ -245,29 +244,62 @@ async def delete_chapters_batch(batch_data: models.DeleteBatchSchema, db: Sessio
 @router.post("/projects/{project_id}/chapters/reorder", status_code=status.HTTP_204_NO_CONTENT)
 async def reorder_project_chapters(project_id: int, reorder_data: ReorderItemsSchema, db: Session = Depends(get_db)):
     """
-    Réorganise les chapitres d'un projet donné.
-    `ordered_ids` est la liste des IDs des chapitres dans le nouvel ordre souhaité.
+    Réordonne les chapitres d'un projet donné.
+    La liste `ordered_ids` doit contenir tous les IDs des chapitres du projet,
+    dans le nouvel ordre souhaité.
     """
     db_project = db.query(models.Project).filter(models.Project.id == project_id).first()
     if db_project is None:
         raise HTTPException(status_code=404, detail=f"Project with id {project_id} not found")
 
-    # Vérifier que tous les IDs fournis appartiennent bien au projet
-    chapters_in_project = {chapter.id for chapter in db_project.chapters}
-    if not set(reorder_data.ordered_ids).issubset(chapters_in_project):
-        raise HTTPException(status_code=400, detail="One or more chapter IDs do not belong to the specified project.")
+    # Vérifier que tous les chapitres du projet sont présents dans la liste et vice-versa
+    current_chapter_ids = {chapter.id for chapter in db_project.chapters}
+    provided_chapter_ids = set(reorder_data.ordered_ids)
 
-    # Vérifier que tous les chapitres du projet sont présents dans la liste ordonnée
-    if len(reorder_data.ordered_ids) != len(chapters_in_project):
-         raise HTTPException(status_code=400, detail="The list of ordered IDs must contain all chapters of the project.")
-
+    if current_chapter_ids != provided_chapter_ids:
+        missing_ids = current_chapter_ids - provided_chapter_ids
+        extra_ids = provided_chapter_ids - current_chapter_ids
+        detail = "Mismatch in chapter IDs for reordering. "
+        if missing_ids:
+            detail += f"Missing from payload: {missing_ids}. "
+        if extra_ids:
+            detail += f"Unknown in project: {extra_ids}."
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
 
     # Mettre à jour l'ordre
-    for index, chapter_id in enumerate(reorder_data.ordered_ids):
+    for i, chapter_id in enumerate(reorder_data.ordered_ids):
         chapter = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
-        if chapter: # Devrait toujours être vrai à cause des vérifications précédentes
-            chapter.order = index
+        if chapter: # Devrait toujours être vrai à cause de la vérification ci-dessus
+            chapter.order = i
             db.add(chapter)
 
     db.commit()
     return None
+
+# --- Endpoint pour la Génération de Résumé de Chapitre ---
+
+@router.post("/chapters/{chapter_id}/generate-summary", response_model=models.ChapterRead, status_code=status.HTTP_200_OK)
+async def generate_chapter_summary_route(chapter_id: int, db: Session = Depends(get_db)):
+    """
+    Déclenche la génération et la sauvegarde du résumé pour un chapitre spécifique.
+    Retourne le chapitre avec son résumé (potentiellement mis à jour).
+    """
+    db_chapter = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+    if db_chapter is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chapter not found")
+
+    try:
+        await summary_service.generate_and_save_summary(db_chapter, db)
+        # Le service s'occupe du db.commit() et db.refresh(db_chapter)
+    except HTTPException as e:
+        # Propage l'exception HTTP levée par le service (ex: erreur IA, configuration)
+        raise e
+    except Exception as e:
+        # Gérer les autres erreurs inattendues du service
+        print(f"Erreur inattendue lors de la génération du résumé pour le chapitre {chapter_id}: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erreur interne lors de la génération du résumé: {str(e)}")
+    
+    # db.refresh(db_chapter) # Normalement fait par le service après commit, ou implicite si la session est la même.
+                            # Pour être sûr, on peut le faire ici si le service ne le garantit pas.
+                            # Mais si le service fait db.refresh, c'sest bon.
+    return db_chapter

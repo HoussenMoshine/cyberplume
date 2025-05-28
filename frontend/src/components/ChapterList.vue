@@ -45,8 +45,32 @@
                 </template>
 
                 <v-list-item-title class="text-body-1 font-weight-medium">{{ chapter.title }}</v-list-item-title>
+                <v-list-item-subtitle v-if="chapter.summary" class="summary-preview mt-1">
+                  Résumé: {{ chapter.summary.substring(0, 70) }}{{ chapter.summary.length > 70 ? '...' : '' }}
+                </v-list-item-subtitle>
+
 
                 <template v-slot:append>
+                  <v-tooltip location="top">
+                    <template v-slot:activator="{ props: tooltipPropsSummary }">
+                      <v-btn
+                        v-bind="tooltipPropsSummary"
+                        icon
+                        density="default"
+                        variant="text"
+                        size="default"
+                        @click.stop="$emit('request-generate-summary', chapter.id)" 
+                        :loading="props.generatingSummaryChapterId === chapter.id" 
+                        :disabled="props.generatingSummaryChapterId === chapter.id"
+                        class="action-btn"
+                        title="Générer/Régénérer le résumé"
+                      >
+                        <v-icon size="20">mdi-text-box-check-outline</v-icon>
+                      </v-btn>
+                    </template>
+                    <span>{{ chapter.summary ? 'Régénérer le résumé' : 'Générer le résumé' }}</span>
+                  </v-tooltip>
+
                   <v-menu location="bottom end">
                     <template v-slot:activator="{ props: menuProps }">
                       <v-btn
@@ -54,7 +78,7 @@
                         density="default"
                         variant="text"
                         v-bind="menuProps"
-                        @click.stop="() => { console.log('ChapterList Menu clicked, exportingChapterId:', exportingChapterId); }"
+                        @click.stop
                         title="Actions Chapitre"
                         class="action-menu-btn"
                         size="default"
@@ -102,11 +126,11 @@
                         </v-list-item>
                       <v-divider class="my-1"></v-divider>
                       <v-list-subheader>Actions Chapitre</v-list-subheader>
-                      <v-list-item @click="openEditChapterDialog(chapter)" title="Renommer le chapitre">
+                      <v-list-item @click="openEditChapterDialog(chapter)" title="Modifier le chapitre">
                         <template v-slot:prepend>
                           <IconPencil size="20" class="mr-3"/>
                         </template>
-                        <v-list-item-title>Renommer</v-list-item-title>
+                        <v-list-item-title>Modifier</v-list-item-title>
                       </v-list-item>
                       <v-list-item @click.stop="$emit('open-add-scene', chapter.id)" title="Ajouter une scène">
                          <template v-slot:prepend>
@@ -158,13 +182,21 @@
 
       <AddChapterDialog
         :show="showAddChapterDialog"
-        :loading="submittingChapter"
-        :error="addChapterError"
-        :project-name="getProjectNameById(projectId)"
+        :loading="props.submittingChapter" 
+        :error="addChapterError" 
+        :project-name="getProjectNameById(props.projectId)"
         @close="handleAddChapterDialogClose"
         @save="handleAddChapterDialogSave"
       />
-      <EditChapterDialog :show="showEditChapterDialog" :loading="submittingChapter" :error="editChapterError" :initialTitle="editingChapter?.title || ''" @close="closeEditChapterDialog" @save="submitEditChapter" />
+      <EditChapterDialog 
+        :show="showEditChapterDialog" 
+        :loading="props.submittingChapter" 
+        :error="editChapterError" 
+        :initialTitle="editingChapter?.title || ''"
+        :initialSummary="editingChapter?.summary || ''" 
+        @close="closeEditChapterDialog" 
+        @save="submitEditChapter" 
+      />
       <ChapterAnalysisDialog
         :show="showChapterAnalysisDialog"
         :loading="loadingChapterAnalysis"
@@ -178,19 +210,19 @@
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref, watch, computed, nextTick, onMounted } from 'vue'; // Ajout de onMounted
+import { defineProps, defineEmits, ref, watch, computed, nextTick, onMounted } from 'vue';
 import draggable from 'vuedraggable';
 import {
-  VListGroup, VListItem, VListItemTitle, VListSubheader, VDivider,
+  VListGroup, VListItem, VListItemTitle, VListSubheader, VDivider, VIcon, VTooltip,
   VBtn, VProgressLinear, VAlert, VCheckboxBtn, VMenu, VProgressCircular, VList
 } from 'vuetify/components';
 import AddChapterDialog from './dialogs/AddChapterDialog.vue';
 import EditChapterDialog from './dialogs/EditChapterDialog.vue';
 import ChapterAnalysisDialog from './dialogs/ChapterAnalysisDialog.vue';
-import { useChapters } from '@/composables/useChapters.js';
+// import { useChapters } from '@/composables/useChapters.js'; // SUPPRIMÉ
 import { useAnalysis } from '@/composables/useAnalysis.js';
 import { useAIModels } from '@/composables/useAIModels.js';
-import { useProjects } from '@/composables/useProjects.js';
+import { useProjects } from '@/composables/useProjects.js'; 
 
 import {
   IconGripVertical, IconBook, IconDotsVertical, IconFileText, IconFileTypePdf,
@@ -198,158 +230,118 @@ import {
 } from '@tabler/icons-vue';
 
 const props = defineProps({
-  projectId: {
-    type: Number,
-    required: true,
-  },
-  chapters: {
-    type: Array,
-    default: () => [],
-  },
-  loadingChapters: {
-    type: Boolean,
-    default: false,
-  },
-  errorChapters: {
-    type: String,
-    default: null,
-  },
-  selectedChapterId: {
-    type: [Number, null],
-    default: null,
-  },
+  chapters: Array,
+  selectedChapterId: [Number, String, null],
+  projectId: [Number, String, null],
+  loading: Boolean, // Renommé en loadingChapters dans le template pour clarté
+  error: String,    // Renommé en errorChapters dans le template
   selectedChapterIds: {
     type: Array,
     default: () => []
   },
-  exportingChapterId: {
-    type: [Number, null],
-    default: null
+  exportingChapterId: { 
+    type: [Number, String, null],
+    default: null,
   },
-  exportingFormat: {
-    type: [String, null],
-    default: null
+  exportingFormat: { 
+      type: String,
+      default: null,
   },
-  // Props pour l'IA contextuelle
-  selectedAiProvider: String,
-  selectedAiModel: String,
-  selectedAiStyle: String,
-  customAiDescription: String,
+  showSnackbar: Function,
+  // NOUVELLES PROPS pour les états de chargement gérés par le parent
+  submittingChapter: Boolean,
+  generatingSummaryChapterId: [Number, String, null],
 });
-
-// Log pour vérifier la valeur de la prop exportingChapterId à la création/mise à jour
-onMounted(() => {
-  console.log(`ChapterList for project ${props.projectId} MOUNTED. exportingChapterId:`, props.exportingChapterId);
-});
-watch(() => props.exportingChapterId, (newValue) => {
-  console.log(`ChapterList for project ${props.projectId} exportingChapterId prop CHANGED to:`, newValue);
-});
-
 
 const emit = defineEmits([
-  'reordered',
   'select-chapter',
-  'toggle-selection',
-  'handle-export',
+  'reordered',
   'open-add-scene',
   'open-delete',
+  'toggle-selection',
+  'handle-export',
   'load-scenes-if-needed',
-  'apply-suggestion',
-  'add-chapter-requested',
-  'chapter-updated'
+  'apply-suggestion-to-editor',
+  // NOUVEAUX ÉVÉNEMENTS
+  'request-add-chapter',
+  'request-update-chapter',
+  'request-generate-summary',
 ]);
 
-const { getProjectById } = useProjects();
-const getProjectNameById = (id) => {
-  const project = getProjectById(id);
-  return project ? project.title : 'Projet inconnu';
-};
+// Utilisation du composable useChapters SUPPRIMÉE
+// const {
+//   chapterError: generalChapterError, // Sera géré par le parent ou passé en prop si nécessaire
+//   submittingChapter, // Sera une prop
+//   generatingSummaryChapterId, // Sera une prop
+//   fetchChaptersForProject, // Non utilisé directement ici
+//   addChapter, // Sera émis
+//   updateChapter, // Sera émis
+//   deleteChapter, // Déjà émis via open-delete
+//   generateChapterSummary, // Sera émis
+// } = useChapters(props.showSnackbar); 
 
 
-const localChapters = ref([]);
+// Dialogs state
 const showAddChapterDialog = ref(false);
-const showEditChapterDialog = ref(false);
-const editingChapter = ref(null);
-const addChapterError = ref(null); // Pour le dialogue d'ajout
-const editChapterError = ref(null); // Pour le dialogue d'édition
+const addChapterError = ref(null); // Peut être gardé localement pour le dialogue
 
-const { submittingChapter, addChapter, updateChapter } = useChapters();
-const {
-    chapterAnalysisResult, loadingChapterAnalysis, errorChapterAnalysis,
-    triggerChapterAnalysis, clearChapterAnalysisState
-} = useAnalysis();
+const showEditChapterDialog = ref(false);
+const editingChapter = ref(null); 
+const editChapterError = ref(null); // Peut être gardé localement
 
 const showChapterAnalysisDialog = ref(false);
 const analyzingChapterId = ref(null);
+const chapterAnalysisResult = ref(null);
+
+// Utilisation du composable useAnalysis
+const {
+    performChapterAnalysis,
+    loading: loadingChapterAnalysis, 
+    error: errorChapterAnalysis, 
+    applySuggestionToContent,
+} = useAnalysis(props.showSnackbar);
 
 
-const getChapterTitleById = (chapterId) => {
-  if (!chapterId || !localChapters.value) return 'Chapitre inconnu';
-  const chapter = localChapters.value.find(c => c.id === chapterId);
-  return chapter ? chapter.title : 'Chapitre inconnu';
-};
-
-
-const openChapterAnalysisDialog = (chapterId) => {
-  analyzingChapterId.value = chapterId;
-  clearChapterAnalysisState(); // Clear previous results
-  triggerChapterAnalysis(chapterId, props.selectedAiProvider, props.selectedAiModel);
-  showChapterAnalysisDialog.value = true;
-};
-
-const closeChapterAnalysisDialog = () => {
-  showChapterAnalysisDialog.value = false;
-  analyzingChapterId.value = null;
-};
-
-const handleApplySuggestion = (suggestion) => {
-  emit('apply-suggestion', suggestion);
-  closeChapterAnalysisDialog();
-};
-
+const localChapters = ref([]);
 
 watch(() => props.chapters, (newChapters) => {
-  // console.log(`DEBUG ChapterList WATCH props.chapters for project ${props.projectId}:`, newChapters ? newChapters.length : 0);
-  if (newChapters) {
-    localChapters.value = [...newChapters].sort((a, b) => a.order - b.order);
-  } else {
-    localChapters.value = [];
-  }
+  localChapters.value = newChapters ? [...newChapters] : [];
 }, { immediate: true, deep: true });
 
 
+const loadingChapters = computed(() => props.loading);
+const errorChapters = computed(() => props.error);
+
+
 const openAddChapterDialogInternal = () => {
-  addChapterError.value = null; // Réinitialiser l'erreur
+  addChapterError.value = null;
   showAddChapterDialog.value = true;
 };
 
 const handleAddChapterDialogClose = () => {
   showAddChapterDialog.value = false;
-  addChapterError.value = null;
 };
 
 const handleAddChapterDialogSave = async (title) => {
-  addChapterError.value = null;
-  // L'objet newChapterData n'est plus nécessaire ici car le composable attend projectId et title séparément.
-  // L'ordre sera géré par le backend ou par un rafraîchissement de la liste.
-  const result = await addChapter(props.projectId, title); // Appel corrigé
-  if (result) {
-    // Le composable useChapters devrait mettre à jour la liste globale des chapitres
-    // de manière réactive, ce qui devrait se refléter dans props.chapters.
-    // L'émission de 'add-chapter-requested' peut toujours être utile si ProjectManager
-    // a besoin de faire des actions supplémentaires (ex: sélectionner le nouveau chapitre).
-    emit('add-chapter-requested', title); 
-    showAddChapterDialog.value = false;
-  } else {
-    // L'erreur est gérée par le composable useChapters (via chapterError)
-    // et peut être affichée par une snackbar globale ou un message d'erreur dans ProjectManager.
-    // On peut aussi conserver une erreur locale pour le dialogue si nécessaire.
-    addChapterError.value = "Erreur lors de l'ajout du chapitre. Vérifiez la console ou les notifications.";
+  if (!props.projectId) {
+    addChapterError.value = "ID du projet non défini."; // Garder l'erreur locale au dialogue
+    if(props.showSnackbar) props.showSnackbar(addChapterError.value, 'error');
+    return;
   }
+  addChapterError.value = null;
+  // Émettre l'événement au lieu d'appeler addChapter directement
+  emit('request-add-chapter', { projectId: props.projectId, title: title });
+  // La fermeture du dialogue sera gérée par le parent ou après confirmation de succès
+  // Pour l'instant, on suppose que le parent gère la fermeture si l'ajout réussit.
+  // Si l'ajout échoue, le parent pourrait ne pas fermer, et addChapterError pourrait être mis à jour via une prop.
+  // Pour simplifier, on ferme ici et le parent peut rouvrir ou afficher une erreur globale.
+  // Alternative: attendre une confirmation de succès du parent.
+  // Pour l'instant, on ne ferme pas ici, on laisse le parent gérer.
+  // showAddChapterDialog.value = false; // Le parent décidera
 };
 
 const openEditChapterDialog = (chapter) => {
-  editingChapter.value = { ...chapter };
+  editingChapter.value = { ...chapter }; 
   editChapterError.value = null;
   showEditChapterDialog.value = true;
 };
@@ -357,81 +349,122 @@ const openEditChapterDialog = (chapter) => {
 const closeEditChapterDialog = () => {
   showEditChapterDialog.value = false;
   editingChapter.value = null;
-  editChapterError.value = null;
 };
 
-const submitEditChapter = async (newTitle) => {
-  if (!editingChapter.value) return;
+const submitEditChapter = async (dataToSave) => { // dataToSave est { title, summary }
+  if (!editingChapter.value || !editingChapter.value.id) return;
   editChapterError.value = null;
-  const updatedData = { title: newTitle };
-  const result = await updateChapter(editingChapter.value.id, updatedData);
-  if (result) {
-    // Le composable devrait mettre à jour la liste globale.
-    // Émettre avec projectId et chapterId pour que ProjectManager puisse rafraîchir correctement.
-    emit('chapter-updated', { projectId: props.projectId, chapterId: editingChapter.value.id }); 
-    closeEditChapterDialog();
-  } else {
-    editChapterError.value = "Erreur lors de la mise à jour du chapitre.";
-  }
+  
+  const updatePayload = { 
+    id: editingChapter.value.id,
+    title: dataToSave.title, 
+    summary: dataToSave.summary 
+  };
+  emit('request-update-chapter', updatePayload);
+  // La fermeture du dialogue sera gérée par le parent.
+  // showEditChapterDialog.value = false; 
+  // editingChapter.value = null;
 };
+
+const openChapterAnalysisDialog = async (chapterId) => {
+    analyzingChapterId.value = chapterId;
+    chapterAnalysisResult.value = null; 
+    showChapterAnalysisDialog.value = true;
+    const result = await performChapterAnalysis(chapterId);
+    if (result) {
+        chapterAnalysisResult.value = result;
+    }
+};
+
+const closeChapterAnalysisDialog = () => {
+    showChapterAnalysisDialog.value = false;
+    analyzingChapterId.value = null;
+};
+
+const handleApplySuggestion = (suggestion) => {
+    emit('apply-suggestion-to-editor', { chapterId: analyzingChapterId.value, suggestion });
+};
+
+const { getProjectById } = useProjects(); 
+const getProjectNameById = (pId) => {
+    if (!pId) return "Projet inconnu";
+    const project = getProjectById(pId); 
+    return project ? project.title : "Projet en chargement...";
+};
+
+const getChapterTitleById = (chapterId) => {
+    if (!chapterId || !localChapters.value) return "Chapitre inconnu";
+    const chapter = localChapters.value.find(c => c.id === chapterId);
+    return chapter ? chapter.title : "Chapitre inconnu";
+};
+
+// handleGenerateSummary est maintenant géré par un emit dans le template:
+// @click.stop="$emit('request-generate-summary', chapter.id)"
 
 </script>
 
 <style scoped>
 .chapters-container {
-  /* background-color: #f9f9f9; */
-  /* border-top: 1px solid #eee; */
-  /* border-bottom: 1px solid #eee; */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
 }
+
+.drag-handle {
+  cursor: grab;
+  opacity: 0.5;
+  margin-right: 8px; 
+}
+.drag-handle:hover {
+  opacity: 1;
+}
+
 .ghost-item {
   opacity: 0.5;
   background: #c8ebfb;
 }
-.drag-item {
-  background: #e0f7fa;
-  /* box-shadow: 0 2px 5px rgba(0,0,0,0.1); */
-}
-.drag-handle {
-  cursor: grab;
-  color: #757575;
-}
-.drag-handle:hover {
-  color: #333;
-}
-
-.chapter-group {
-  margin-bottom: 0px; /* Reduced margin */
-  border-radius: 4px;
-  /* overflow: hidden; */
-}
 
 .chapter-item {
-  /* background-color: white; */
-  /* border-bottom: 1px solid #f0f0f0; */
+  border-left: 3px solid transparent; 
   transition: background-color 0.1s ease-in-out;
 }
 .chapter-item:hover {
-  /* background-color: #f5f5f5; */
+  background-color: rgba(var(--v-theme-on-surface), 0.04);
 }
 
-.active-chapter {
-  /* background-color: rgba(var(--v-theme-primary), 0.08) !important; */
-  /* border-left: 3px solid rgb(var(--v-theme-primary)) !important; */
-  /* color: rgb(var(--v-theme-primary)) !important; */
+.v-list-item--active.active-chapter {
+  border-left-color: rgb(var(--v-theme-primary)) !important;
 }
-.active-chapter .v-list-item-title {
-  /* color: rgb(var(--v-theme-primary)) !important; */
-  /* font-weight: 500 !important; */
+.v-list-item--active.active-chapter .v-list-item-title {
+ font-weight: 500 !important; 
+ color: rgb(var(--v-theme-primary));
 }
 
+
+.list-item-hover-actions .action-btn,
 .list-item-hover-actions .action-menu-btn {
-    visibility: hidden;
-    opacity: 0;
-    transition: opacity 0.2s ease-in-out;
+  opacity: 0.3;
+  transition: opacity 0.2s ease-in-out;
 }
 
-.list-item-hover-actions:hover .action-menu-btn {
-    visibility: visible;
-    opacity: 1;
+.list-item-hover-actions:hover .action-btn,
+.list-item-hover-actions:hover .action-menu-btn,
+.list-item-hover-actions .v-menu--active .action-menu-btn 
+ {
+  opacity: 1;
+}
+.summary-preview {
+  font-size: 0.7rem; 
+  color: rgba(var(--v-theme-on-surface), 0.6); 
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90%; 
+  line-height: 1.2;
+  margin-top: 2px; /* Ajout d'un petit espace */
+}
+.action-btn { /* Style pour s'assurer que les boutons d'action sont bien alignés */
+  margin-left: 4px;
 }
 </style>

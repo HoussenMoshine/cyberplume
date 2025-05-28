@@ -164,14 +164,15 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyboardShortcuts);
 });
 
-const handleChapterSelection = (chapterId) => {
-  console.log("App.vue: handleChapterSelection", chapterId);
+const handleChapterSelection = (payload) => {
+  console.log("App.vue: handleChapterSelection payload:", payload);
   isSelectionEvent = true;
-  currentChapterId.value = chapterId ?? null;
+  currentChapterId.value = payload && payload.chapterId !== undefined ? payload.chapterId : null;
+console.log("App.vue: currentChapterId.value set to", currentChapterId.value);
   currentChapterTitle.value = null;
   currentSceneId.value = null;
   currentSceneTitle.value = null;
-  if (chapterId !== null) {
+  if (payload && payload.chapterId !== null) {
     activeTab.value = 'editor';
     if (isDistractionFree.value) {
         toggleDistractionFreeMode();

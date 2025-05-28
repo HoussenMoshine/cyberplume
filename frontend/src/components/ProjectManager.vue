@@ -32,16 +32,17 @@
           @chapters-requested="fetchChaptersForProject"
         >
           <template v-slot:chapter-list>
-            <!-- Log retiré -->
             <ChapterList
               :project-id="project.id"
               :chapters="chaptersByProjectId[project.id]"
-              :loadingChapters="loadingChapters[project.id]"
-              :errorChapters="errorChapters[project.id]"
+              :loading="loadingChapters[project.id]" 
+              :error="errorChapters[project.id]" 
               :selectedChapterId="selectedChapterId"
               :selectedChapterIds="selectedChapterIds"
-              :exportingChapterId="exportingChapterId"
+              :exportingChapterId="exportingChapterIdComposable" 
               :exportingFormat="exportingFormat"
+              :submittingChapter="submittingChapter" 
+              :generatingSummaryChapterId="generatingSummaryChapterId" 
               @reordered="(event) => onChapterDrop(project.id, event)"
               @load-scenes-if-needed="loadScenesIfNeeded"
               @select-chapter="(chapterId) => selectChapter(project.id, chapterId)"
@@ -50,12 +51,10 @@
               @open-add-scene="openAddSceneDialog"
               @open-delete="openDeleteConfirmDialog"
               @apply-suggestion="handleApplySuggestion"
-              @add-chapter-requested="(title) => handleAddChapterRequest(project.id, title)"
-              @chapter-updated="handleChapterUpdated"
-              :selected-ai-provider="props.currentAiProvider"
-              :selected-ai-model="props.currentAiModel"
-              :selected-ai-style="props.currentAiStyle"
-              :custom-ai-description="props.currentCustomAiDescription"
+              @request-add-chapter="handleChapterAddRequested"
+              @request-update-chapter="handleChapterUpdateRequested"
+              @request-generate-summary="handleChapterGenerateSummaryRequested"
+              :showSnackbar="showSnackbar" 
             >
               <template v-for="chapter in chaptersByProjectId[project.id]" :key="`scenes-${chapter.id}`" #[`scene-list-${chapter.id}`]>
                  <SceneList
@@ -83,11 +82,11 @@
     <AddProjectDialog :show="showAddProjectDialog" :loading="submittingProject" :error="addProjectError" @close="handleAddProjectDialogClose" @save="submitNewProject" />
     <DeleteConfirmDialog
       :show="showDeleteConfirmDialog"
-      :loading="!!deletingProjectItem?.id || deletingChapterItem.value || !!deletingSceneId"
+      :loading="!!deletingProjectItemState?.id || deletingChapterItem.value || !!deletingSceneId"
       :deleteTarget="deleteTarget"
       :targetCounts="{ projects: selectedProjectIds.length, chapters: selectedChapterIds.length }"
       @close="closeDeleteConfirmDialog"
-      @confirm="() => { console.log('[ProjectManager] @confirm event received via inline arrow function'); confirmDelete(); }"
+      @confirm="confirmDelete" 
     />
     <EditProjectDialog :show="showEditProjectDialog" :loading="submittingProject" :error="editProjectError" :initialTitle="editingProject?.title || ''" :initialDescription="editingProject?.description || ''" @close="closeEditProjectDialog" @save="submitEditProject" />
 
@@ -102,7 +101,7 @@
       :fetchModels="fetchModels"
       :selectDefaultModel="selectDefaultModel"
       :showSnackbar="showSnackbar"
-      :project-characters="allCharacters"
+      :project-characters="[]" 
       @close="showGenerateSceneDialog = false"
       @insert-content="handleInsertContent"
     />
@@ -136,7 +135,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, watch } from 'vue';
+import { ref, reactive, onMounted, computed, watch, toRefs } from 'vue';
 import axios from 'axios';
 import AddProjectDialog from './dialogs/AddProjectDialog.vue';
 import DeleteConfirmDialog from './dialogs/DeleteConfirmDialog.vue';
@@ -155,6 +154,7 @@ import { useChapters } from '@/composables/useChapters.js';
 import { useAIModels, writingStyles } from '@/composables/useAIModels.js';
 import { useAnalysis } from '@/composables/useAnalysis.js';
 import { useScenes } from '@/composables/useScenes.js';
+// import { useCharacters } from '@/composables/useCharacters.js'; // SUPPRIMÉ
 
 import {
   VNavigationDrawer, VToolbar, VToolbarTitle, VDivider, VList, VListItem, VListItemTitle, VListItemAction, VListSubheader,
@@ -164,6 +164,16 @@ import {
 } from 'vuetify/components';
 import { config } from '@/config.js';
 import { handleApiError } from '@/utils/errorHandler.js';
+
+const props = defineProps({
+  currentAiProvider: String,
+  currentAiModel: String,
+  currentAiStyle: String,
+  currentCustomAiDescription: String,
+});
+
+const emit = defineEmits(['active-chapter-content-changed', 'active-scene-content-changed', 'ai-action-insert-content', 'chapter-selected']);
+
 
 const snackbarVisible = ref(false);
 const snackbarText = ref('');
@@ -175,16 +185,23 @@ const showSnackbar = (text, color = 'success', timeout = 3000) => {
 };
 
 const {
-  projects, loadingProjects, errorProjects, submittingProject, deletingItem: deletingProjectItem,
+  projects, loadingProjects, errorProjects, submittingProject, deletingItem: deletingProjectItemState,
   exportingProjectId, exportingFormat, exportError,
-  fetchProjects: fetchProjectsComposable, addProject, updateProject, deleteProject: deleteProjectComposable,
+  fetchProjects: fetchProjectsComposable, addProject: addProjectComposable, 
+  updateProject: updateProjectComposable, deleteProject: deleteProjectInternalComposable,
   exportProject, getProjectById
 } = useProjects(showSnackbar);
 
 const {
-  chaptersByProjectId, loadingChapters, errorChapters, submittingChapter, deletingChapterItem, exportingChapterId,
-  fetchChaptersForProject, addChapter, updateChapter, deleteChapter: deleteChapterComposable, exportChapter, clearChaptersForProject,
-  reorderChapters
+  chaptersByProjectId, loadingChapters, errorChapters, 
+  submittingChapter, 
+  deletingChapterItem, 
+  exportingChapterId: exportingChapterIdComposable, 
+  generatingSummaryChapterId, 
+  fetchChaptersForProject, addChapter: addChapterComposable, 
+  updateChapter: updateChapterComposable, deleteChapter: deleteChapterInternalComposable, 
+  exportChapter, clearChaptersForProject,
+  reorderChapters, generateChapterSummary 
 } = useChapters(showSnackbar);
 
 const {
@@ -195,84 +212,57 @@ const {
 const {
     analysisResult, loadingAnalysis, errorAnalysis,
     triggerConsistencyAnalysis, clearConsistencyAnalysisState,
-    chapterAnalysisResult, loadingChapterAnalysis, errorChapterAnalysis,
-    triggerChapterAnalysis, clearChapterAnalysisState
 } = useAnalysis(showSnackbar);
 
 const {
   scenesByChapterId, loadingScenes, errorScenes, submittingScene, deletingSceneId,
-  fetchScenesForChapter, addScene, updateScene, deleteScene,
-  reorderScenes
+  fetchScenesForChapter, addScene, updateScene, deleteScene: deleteSceneComposable, reorderScenes
 } = useScenes(showSnackbar);
 
-const allCharacters = ref([]);
+// Utilisation de useCharacters SUPPRIMÉE
+// const {
+//     charactersByProjectId, fetchCharactersForProject, addCharacter, updateCharacter, deleteCharacter,
+//     loadingCharacters: loadingAllCharacters, errorCharacters: errorAllCharacters
+// } = useCharacters(showSnackbar);
 
+
+// --- Gestion de la sélection et de l'état actif ---
 const selectedProjectIds = ref([]);
-const selectedChapterIds = ref([]);
 const selectedChapterId = ref(null);
+const selectedChapterIds = ref([]);
+const activeProjectId = ref(null); 
+
 const selectedSceneId = ref(null);
 
+
+// --- Dialogs ---
 const showAddProjectDialog = ref(false);
 const addProjectError = ref(null);
-
-const showDeleteConfirmDialog = ref(false);
-const deleteTarget = ref({ type: '', name: '' });
-const itemToDelete = ref(null);
-
-const showEditProjectDialog = ref(false);
 const editingProject = ref(null);
+const showEditProjectDialog = ref(false);
 const editProjectError = ref(null);
 
+const showDeleteConfirmDialog = ref(false);
+const deleteTarget = ref(null); 
+
 const showGenerateSceneDialog = ref(false);
-const chapterForSceneGeneration = ref(null);
+const currentChapterIdForSceneGeneration = ref(null);
 
 const showAnalysisDialog = ref(false);
 
 
-const props = defineProps({
-  currentAiProvider: { type: String, default: null },
-  currentAiModel: { type: String, default: null },
-  currentAiStyle: { type: String, default: null },
-  currentCustomAiDescription: { type: String, default: null },
-});
-const emit = defineEmits(['chapter-selected', 'scene-selected', 'insert-generated-content', 'apply-suggestion-to-editor']);
+// --- Characters ---
+// const allCharacters = computed(() => { // SUPPRIMÉ pour l'instant
+//     if (activeProjectId.value && charactersByProjectId[activeProjectId.value]) {
+//         return charactersByProjectId[activeProjectId.value];
+//     }
+//     return [];
+// });
 
-
-const fetchAllCharactersForProject = async (projectId) => {
-  if (!projectId) {
-    allCharacters.value = [];
-    return;
-  }
-  try {
-    const response = await axios.get(`${config.apiUrl}/api/characters`, {
-      headers: { 'x-api-key': config.apiKey }
-    });
-    allCharacters.value = response.data.map(char => ({ id: char.id, name: char.name, description: char.description, backstory: char.backstory }));
-  } catch (error) {
-    console.error("Erreur lors de la récupération des personnages:", error);
-    showSnackbar(handleApiError(error, "récupération des personnages"), 'error');
-    allCharacters.value = [];
-  }
-};
-
-
-onMounted(async () => {
-  // console.log('ProjectManager: onMounted - Fetching projects...'); // Log retiré
+// --- Logique de Projet ---
+const fetchAllProjects = async () => {
   await fetchProjectsComposable();
-  // console.log('ProjectManager: onMounted - Projects fetched:', JSON.parse(JSON.stringify(projects.value))); // Log retiré
-  if (projects.value.length > 0) {
-    // console.log('ProjectManager: onMounted - Fetching chapters for all loaded projects...'); // Log retiré
-    for (const project of projects.value) {
-      // console.log(`ProjectManager: onMounted - Requesting chapters for project ID: ${project.id}`); // Log retiré
-      await fetchChaptersForProject(project.id);
-    }
-    // console.log('ProjectManager: onMounted - Finished fetching initial chapters.'); // Log retiré
-    await fetchAllCharactersForProject(projects.value[0].id);
-  }
-});
-
-// Fonction de log retirée
-// const logChapterData = (projectId) => { ... };
+};
 
 const handleAddProjectDialogClose = () => {
   showAddProjectDialog.value = false;
@@ -280,25 +270,17 @@ const handleAddProjectDialogClose = () => {
 };
 
 const submitNewProject = async (projectData) => {
-  const success = await addProject(projectData);
-  if (success) {
-    handleAddProjectDialogClose();
-    if (projects.value.find(p => p.title === projectData.title)) {
-        const newProject = projects.value.find(p => p.title === projectData.title); 
-        if (newProject) {
-            await fetchChaptersForProject(newProject.id);
-            if (projects.value.length === 1) {
-                 await fetchAllCharactersForProject(newProject.id);
-            }
-        }
-    }
+  addProjectError.value = null;
+  const newProject = await addProjectComposable(projectData);
+  if (newProject) {
+    showAddProjectDialog.value = false;
   } else {
-    addProjectError.value = "Erreur lors de l'ajout du projet.";
+    addProjectError.value = "Erreur lors de l'ajout du projet."; 
   }
 };
 
 const openEditProjectDialog = (project) => {
-  editingProject.value = project;
+  editingProject.value = { ...project };
   editProjectError.value = null;
   showEditProjectDialog.value = true;
 };
@@ -306,17 +288,57 @@ const openEditProjectDialog = (project) => {
 const closeEditProjectDialog = () => {
   showEditProjectDialog.value = false;
   editingProject.value = null;
-  editProjectError.value = null;
 };
 
 const submitEditProject = async (projectData) => {
-  if (!editingProject.value) return;
-  const success = await updateProject(editingProject.value.id, projectData);
+  if (!editingProject.value || !editingProject.value.id) return;
+  editProjectError.value = null;
+  const success = await updateProjectComposable(editingProject.value.id, projectData);
   if (success) {
-    closeEditProjectDialog();
+    showEditProjectDialog.value = false;
+    editingProject.value = null;
   } else {
     editProjectError.value = "Erreur lors de la mise à jour du projet.";
   }
+};
+
+const handleProjectExport = async ({ projectId, format }) => {
+  await exportProject(projectId, format);
+};
+
+
+// --- Logique de Chapitre ---
+const handleChapterAddRequested = async ({ projectId, title }) => {
+  const newChapter = await addChapterComposable(projectId, title);
+  if (newChapter) {
+    // La liste des chapitres est mise à jour par le re-fetch dans addChapterComposable.
+    // Fermer le dialogue AddChapterDialog dans ChapterList si ce n'est pas déjà fait par ChapterList.
+    // Pour l'instant, on assume que ChapterList gère la fermeture de son propre dialogue après l'emit.
+  } else {
+    showSnackbar("Erreur lors de l'ajout du chapitre.", "error");
+  }
+};
+
+const handleChapterUpdateRequested = async (updatePayload) => {
+  const success = await updateChapterComposable(updatePayload.id, { title: updatePayload.title, summary: updatePayload.summary });
+  if (success) {
+    // Le dialogue EditChapterDialog dans ChapterList devrait se fermer.
+  } else {
+    showSnackbar("Erreur lors de la mise à jour du chapitre.", "error");
+  }
+};
+
+const handleChapterGenerateSummaryRequested = async (chapterId) => {
+  await generateChapterSummary(chapterId); 
+};
+
+
+const selectChapter = (projectId, chapterId) => {
+  selectedChapterId.value = chapterId;
+  activeProjectId.value = projectId; 
+  emit('chapter-selected', { projectId, chapterId });
+  fetchScenesForChapter(chapterId); 
+  // fetchCharactersForProject(projectId); // SUPPRIMÉ pour l'instant
 };
 
 const toggleProjectSelection = (projectId) => {
@@ -326,19 +348,6 @@ const toggleProjectSelection = (projectId) => {
   } else {
     selectedProjectIds.value.push(projectId);
   }
-  if (selectedProjectIds.value.length === 1) {
-    fetchAllCharactersForProject(selectedProjectIds.value[0]);
-  } else {
-    allCharacters.value = [];
-  }
-};
-
-const selectChapter = (projectId, chapterId) => {
-  // console.log(`ProjectManager: selectChapter - projectId: ${projectId}, chapterId: ${chapterId}`); // Log retiré
-  selectedChapterId.value = chapterId;
-  selectedSceneId.value = null; 
-  emit('chapter-selected', chapterId);
-  fetchAllCharactersForProject(projectId);
 };
 
 const toggleChapterSelection = (chapterId) => {
@@ -350,202 +359,124 @@ const toggleChapterSelection = (chapterId) => {
   }
 };
 
-const handleAddChapterRequest = async (projectId, title) => {
-  await addChapter(projectId, title);
+const onChapterDrop = async (projectId, newOrderedChapters) => {
+  const orderedIds = newOrderedChapters.map(ch => ch.id);
+  await reorderChapters(projectId, orderedIds);
 };
 
-const handleChapterUpdated = async ({ projectId, chapterId }) => {
-  // console.log(`ProjectManager: Chapter ${chapterId} in project ${projectId} was updated. Refetching chapters.`); // Optionnel: log
-  await fetchChaptersForProject(projectId);
+const handleChapterExport = async ({ chapterId, format }) => {
+  await exportChapter(chapterId, format);
+};
+
+// --- Logique de Scène ---
+const openAddSceneDialog = (chapterId) => {
+  console.log("Ouvrir dialogue ajout scène pour chapitre:", chapterId);
 };
 
 const selectScene = (sceneId, chapterId) => {
-  // console.log(`ProjectManager: selectScene - sceneId: ${sceneId}, chapterId: ${chapterId}`); // Log retiré
   selectedSceneId.value = sceneId;
-  selectedChapterId.value = null; 
-  emit('scene-selected', sceneId);
-  const project = projects.value.find(p => chaptersByProjectId[p.id]?.some(c => c.id === chapterId));
-  if (project) {
-    fetchAllCharactersForProject(project.id);
-  }
-};
-
-const openAddSceneDialog = (chapterId) => {
-  console.log("Ouvrir dialogue ajout scène pour chapitre:", chapterId);
-  showSnackbar("Fonctionnalité d'ajout de scène pas encore implémentée.", "info");
+  emit('active-scene-content-changed', { sceneId, chapterId });
 };
 
 const openEditSceneDialog = (scene) => {
   console.log("Ouvrir dialogue édition scène:", scene);
-  showSnackbar("Fonctionnalité d'édition de scène pas encore implémentée.", "info");
 };
 
-const loadScenesIfNeeded = async (chapterId) => {
-    if (chapterId && (!scenesByChapterId[chapterId] || scenesByChapterId[chapterId].length === 0)) {
-        // console.log(`ProjectManager: loadScenesIfNeeded for chapter ${chapterId}`); // Log retiré
+const onSceneDrop = async (chapterId, newOrderedScenes) => {
+  const orderedIds = newOrderedScenes.map(s => s.id);
+  await reorderScenes(chapterId, orderedIds);
+};
+
+const loadScenesIfNeeded = async (chapterId, isOpen) => {
+    if (isOpen && chapterId && (!scenesByChapterId[chapterId] || scenesByChapterId[chapterId].length === 0)) {
         await fetchScenesForChapter(chapterId);
     }
 };
 
-const onChapterDrop = async (projectId, event) => {
-  if (event.moved) {
-    const { newIndex, oldIndex } = event.moved;
-    const chaptersOfProject = chaptersByProjectId[projectId];
-    if (chaptersOfProject && chaptersOfProject[oldIndex]) {
-        const chapterId = chaptersOfProject[oldIndex].id;
-        await reorderChapters(projectId, chapterId, newIndex);
-    } else {
-        console.error(`ProjectManager: onChapterDrop - Impossible de trouver le chapitre à l'index ${oldIndex} pour le projet ${projectId}`);
-    }
-  }
-};
-
-const onSceneDrop = async (chapterId, event) => {
-  if (event.moved) {
-    const { newIndex, oldIndex } = event.moved;
-    const scenesOfChapter = scenesByChapterId[chapterId];
-    if (scenesOfChapter && scenesOfChapter[oldIndex]) {
-        const sceneId = scenesOfChapter[oldIndex].id;
-        await reorderScenes(chapterId, sceneId, newIndex);
-    } else {
-        console.error(`ProjectManager: onSceneDrop - Impossible de trouver la scène à l'index ${oldIndex} pour le chapitre ${chapterId}`);
-    }
-  }
-};
-
+// --- Logique de Suppression ---
 const openDeleteConfirmDialog = (item, type) => {
-console.log('[ProjectManager] openDeleteConfirmDialog called with item:', JSON.parse(JSON.stringify(item)), 'type:', type);
-  itemToDelete.value = { item, type };
-  if (type === 'project') {
-    deleteTarget.value = { type: 'projet', name: item.title };
-  } else if (type === 'chapter') {
-    deleteTarget.value = { type: 'chapitre', name: item.title };
-  } else if (type === 'scene') {
-     deleteTarget.value = { type: 'scène', name: item.title || `Scène ID ${item.id}` };
-  } else if (type === 'bulkProjects') {
-    deleteTarget.value = { type: 'projets sélectionnés', name: `${selectedProjectIds.value.length} projet(s)`};
-  } else if (type === 'bulkChapters') {
-    deleteTarget.value = { type: 'chapitres sélectionnés', name: `${selectedChapterIds.value.length} chapitre(s)`};
-  }
+  deleteTarget.value = { item, type, id: item.id };
   showDeleteConfirmDialog.value = true;
 };
 
 const closeDeleteConfirmDialog = () => {
   showDeleteConfirmDialog.value = false;
-  itemToDelete.value = null;
+  deleteTarget.value = null;
 };
 
-
 const confirmDelete = async () => {
-  console.log('[ProjectManager] confirmDelete function has been entered');
-  console.log('[ProjectManager] confirmDelete - current itemToDelete.value:', itemToDelete.value ? JSON.parse(JSON.stringify(itemToDelete.value)) : null);
-  if (!itemToDelete.value) {
-    console.log('[ProjectManager] confirmDelete: itemToDelete.value was falsy (e.g., null/undefined), returning early.');
-    return;
-  }
-  const { item, type } = itemToDelete.value;
+  if (!deleteTarget.value) return;
+  const { type, id, item } = deleteTarget.value;
   let success = false;
 
   if (type === 'project') {
-console.log('[ProjectManager] Attempting to delete project with ID (from confirmDelete):', item.id);
-    success = await deleteProjectComposable(item.id);
+    success = await deleteProjectInternalComposable(id);
+    if (success) selectedProjectIds.value = selectedProjectIds.value.filter(pid => pid !== id);
   } else if (type === 'chapter') {
-    const deleteResult = await deleteChapterComposable(item.id); success = deleteResult.success;
+    success = await deleteChapterInternalComposable(id);
+    if (success) selectedChapterIds.value = selectedChapterIds.value.filter(cid => cid !== id);
   } else if (type === 'scene') {
-    success = await deleteScene(item.chapter_id, item.id);
-  } else if (type === 'bulkProjects') {
-    for (const projectId of selectedProjectIds.value) {
-      await deleteProjectComposable(projectId); 
-    }
-    selectedProjectIds.value = []; 
-    success = true; 
-  } else if (type === 'bulkChapters') {
-    console.warn("La suppression en masse de chapitres de projets différents n'est pas entièrement gérée pour trouver le projectId.");
-    for (const chapterId of selectedChapterIds.value) {
-        const chapterToDelete = findChapterById(chapterId); 
-        if (chapterToDelete) {
-            await deleteChapterComposable(chapterToDelete.project_id, chapterId);
-        }
-    }
-    selectedChapterIds.value = [];
-    success = true;
+    success = await deleteSceneComposable(id);
   }
 
   if (success) {
-    showSnackbar(`${deleteTarget.value.type} "${deleteTarget.value.name}" supprimé(e).`, 'success');
+    showSnackbar(`${type.charAt(0).toUpperCase() + type.slice(1)} supprimé(e) avec succès.`);
+  } else {
+    showSnackbar(`Erreur lors de la suppression.`, 'error');
   }
   closeDeleteConfirmDialog();
 };
 
-const findChapterById = (chapterId) => {
-  for (const projectId in chaptersByProjectId) {
-    const chapters = chaptersByProjectId[projectId];
-    if (Array.isArray(chapters)) {
-        const chapter = chapters.find(c => c.id === chapterId);
-        if (chapter) return chapter;
-    }
-  }
-  return null;
-};
 
-const handleProjectExport = async ({ projectId, format }) => {
-  await exportProject(projectId, format);
-};
-
-const handleChapterExport = async ({ chapterId, format }) => {
-  // La fonction exportChapter dans useChapters attend chapterId et format.
-  // project_id n'est pas nécessaire pour l'appel API d'export de chapitre.
-  if (chapterId && format) {
-    await exportChapter(chapterId, format);
-  } else {
-    showSnackbar(`Informations manquantes pour l'export du chapitre (ID: ${chapterId}, Format: ${format}).`, 'error');
-  }
-};
-
+// --- Génération de Scène ---
 const openGenerateSceneDialog = (chapterId) => {
-  chapterForSceneGeneration.value = chapterId; 
-  const chapter = findChapterById(chapterId);
-  if (chapter) {
-      fetchAllCharactersForProject(chapter.project_id);
-  }
-  showGenerateSceneDialog.value = true;
+    currentChapterIdForSceneGeneration.value = chapterId;
+    // if (activeProjectId.value) { // SUPPRIMÉ pour l'instant
+    //     fetchCharactersForProject(activeProjectId.value);
+    // }
+    showGenerateSceneDialog.value = true;
 };
 
 const handleInsertContent = (content) => {
-  emit('insert-generated-content', content);
-  showGenerateSceneDialog.value = false; 
+    emit('ai-action-insert-content', content);
+    showGenerateSceneDialog.value = false; 
 };
 
-const openAnalysisDialog = async (projectId) => {
-    const project = getProjectById(projectId);
-    if (project) {
-        deleteTarget.value = { type: 'Analyse de Cohérence', name: project.title };
-        await triggerConsistencyAnalysis(projectId);
-        showAnalysisDialog.value = true;
-    } else {
-        showSnackbar(`Projet avec ID ${projectId} non trouvé pour l'analyse.`, 'error');
-    }
+// --- Analyse ---
+const openAnalysisDialog = async (project) => {
+    analysisResult.value = null; 
+    showAnalysisDialog.value = true;
+    await triggerConsistencyAnalysis(project.id);
 };
 const closeAnalysisDialog = () => {
     showAnalysisDialog.value = false;
     clearConsistencyAnalysisState();
 };
 
-const handleApplySuggestion = (suggestionData) => {
-  emit('apply-suggestion-to-editor', suggestionData);
+const handleApplySuggestion = (payload) => { 
+  emit('active-chapter-content-changed', { 
+    projectId: activeProjectId.value, 
+    chapterId: payload.chapterId, 
+    applySuggestion: payload.suggestion 
+  });
 };
 
-// Watchers retirés
-// watch(selectedProjectIds, (newVal) => { ... });
-// watch(selectedChapterIds, (newVal) => { ... });
+
+// --- Cycle de vie ---
+onMounted(() => {
+  fetchAllProjects();
+  fetchModels(); 
+});
+
+defineExpose({
+  fetchChaptersForProject, 
+});
 
 </script>
 
 <style scoped>
 .v-navigation-drawer {
-  border-right: 1px solid #e0e0e0; 
+  border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-.v-list-item-title.text-disabled {
-  white-space: normal; 
-}
+/* Autres styles si nécessaire */
 </style>

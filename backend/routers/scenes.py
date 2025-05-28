@@ -12,7 +12,7 @@ from ..models import ReorderItemsSchema
 
 
 router = APIRouter(
-    prefix="/api", # Préfixe commun
+    # prefix="/api", # Préfixe commun -- Supprimé car géré par le proxy Vite
     tags=["Scenes"],
     responses={404: {"description": "Not found"}},
 )

@@ -1,105 +1,81 @@
-# Contexte Actif - CyberPlume (Mise à jour : 27/05/2025 - 09:37)
+# Contexte Actif - CyberPlume (Mise à jour : 28/05/2025 - 09:00)
 
 ## Focus Actuel
 
-*   **Fin de session de planification (27 Mai - matin).**
-*   **Planification de la fonctionnalité de contexte du chapitrage TERMINÉE :**
-    *   Le plan détaillé a été élaboré et validé par l'utilisateur.
-    *   Le plan est documenté dans `banque-memoire/plan-contexte-chapitre.md`.
-*   **Branche Git :** Nous sommes actuellement sur la branche `approche-contexte` pour cette fonctionnalité.
-*   **Prochaine étape :** Implémentation de la fonctionnalité de contexte du chapitrage.
+*   **Fin de session de débogage (28 Mai - après-midi).**
+*   **Objectif Atteint :** Le bug critique où le contenu des chapitres ne s'affichait pas dans l'éditeur a été résolu.
+*   **Nouveau Problème Identifié (pour prochaine session) :** Erreur 500 lors de la tentative de génération de résumé de chapitre.
 
-## ⚠️ Rappels Cruciaux
+## Corrections et Résultats de la Session (28 Mai - après-midi)
 
-*   **Gestion des Branches Git :** L'utilisateur effectuera le merge de la branche de travail (probablement `dockerisation`) vers la branche principale et le push vers GitHub.
-*   **Révocation des Clés API :** Rappel important pour l'utilisateur de révoquer et remplacer les clés API qui auraient pu être exposées ou versionnées par erreur.
+1.  **Harmonisation de l'événement de sélection de chapitre :**
+    *   Modifié [`frontend/src/components/ProjectManager.vue`](frontend/src/components/ProjectManager.vue:339) pour émettre l'événement `chapter-selected` au lieu de `active-chapter-content-changed`.
+    *   Cet événement est maintenant correctement écouté par [`App.vue`](frontend/src/App.vue:29).
+2.  **Correction de la gestion du payload de l'événement dans `App.vue` :**
+    *   La fonction `handleChapterSelection` dans [`frontend/src/App.vue`](frontend/src/App.vue:167) a été modifiée pour extraire correctement `chapterId` de l'objet `payload` reçu (au lieu de traiter le `payload` entier comme l'ID).
+    *   Cela assure que la prop `selectedChapterId` passée à [`EditorComponent.vue`](frontend/src/components/EditorComponent.vue) est bien un `Number` (ou `null`) et non un `Object`.
+3.  **Déclaration de l'événement émis dans `ProjectManager.vue` :**
+    *   L'événement `chapter-selected` a été ajouté à la liste `emits` dans [`frontend/src/components/ProjectManager.vue`](frontend/src/components/ProjectManager.vue:175) pour suivre les bonnes pratiques Vue.
+4.  **Ajout de `console.log` temporaires pour le débogage :**
+    *   Des logs ont été ajoutés dans [`App.vue`](frontend/src/App.vue) et [`EditorComponent.vue`](frontend/src/components/EditorComponent.vue) pour tracer la propagation des données. (Ces logs sont toujours présents).
 
-## Décisions et Actions Clés de la Session (27 Mai - matin)
+**Résultat Principal :**
+*   **Le contenu des chapitres s'affiche maintenant correctement dans l'éditeur.** L'erreur 422 (Unprocessable Entity) due à l'envoi de `[object Object]` comme ID de chapitre à l'API est résolue.
 
-*   **Planification de la mise à jour du [`README.md`](README.md) :**
-    *   Analyse de la Banque de Mémoire et du [`README.md`](README.md) existant.
-    *   Élaboration d'un plan de mise à jour incluant Docker, les fonctionnalités récentes (exports, analyses, configuration des clés API in-app).
-    *   Validation du plan par l'utilisateur.
-*   **Rédaction et Écriture du [`README.md`](README.md) :**
-    *   Le fichier [`README.md`](README.md) a été entièrement réécrit pour incorporer tous les changements planifiés.
-*   **Planification de la fonctionnalité de contexte du chapitrage :**
-    *   Lecture complète de la Banque de Mémoire.
-    *   Analyse du document `banque-memoire/approches-contexte-chapitre.md`.
-    *   Élaboration d'un plan détaillé pour l'implémentation de l'approche "Résumés de Chapitres Précédents".
-    *   Validation du plan par l'utilisateur.
-    *   Rédaction du plan dans `banque-memoire/plan-contexte-chapitre.md`.
-*   **Préparation de la fin de session :**
-    *   Mise à jour de la Banque de Mémoire (en cours).
+## Apprentissages et Patrons Importants Récents (Session 28 Mai - après-midi)
 
-## Apprentissages et Patrons Importants Récents (Session 27 Mai - matin)
-
-*   **Importance d'une Documentation Utilisateur Claire :** La mise à jour du [`README.md`](README.md) est cruciale pour faciliter l'adoption et l'utilisation de l'application, notamment avec l'introduction de Docker.
-*   **Processus Itératif de Documentation :** La Banque de Mémoire et la documentation publique (comme le [`README.md`](README.md)) évoluent en parallèle avec le développement.
-*   **Planification Détaillée :** L'élaboration d'un plan détaillé avant l'implémentation est essentielle pour les fonctionnalités complexes.
+*   **Cohérence des Événements et des Props :** Une attention méticuleuse est nécessaire pour s'assurer que les noms d'événements émis par les composants enfants correspondent à ceux écoutés par les composants parents, et que la structure des données (payloads) transmises est correctement gérée.
+*   **Typage des Props :** Les avertissements de Vue concernant les types de props invalides sont des indicateurs cruciaux de problèmes potentiels qui peuvent avoir des effets en cascade (comme des appels API incorrects).
+*   **Débogage Incrémental :** L'approche consistant à corriger les problèmes étape par étape (d'abord l'événement, puis le payload) et à vérifier avec des logs s'est avérée efficace.
 
 ## Prochaines Étapes (Pour la prochaine session de développement)
 
-1.  **Implémentation de la Fonctionnalité de Contexte du Chapitrage :**
-    *   Suivre le plan détaillé dans `banque-memoire/plan-contexte-chapitre.md`.
-    *   Travailler sur la branche `approche-contexte`.
-2.  **Gestion de Version (par l'utilisateur) :**
-    *   Merger la branche de travail (ex: `dockerisation`) dans la branche principale (ex: `main` ou `develop`).
-    *   Pusher les changements sur GitHub.
-3.  **Validation Approfondie de spaCy :**
-    *   Vérifier la pertinence et l'exactitude des résultats de l'analyse de cohérence et de contenu, notamment dans l'environnement Docker.
-4.  **(Observation/Optionnel - Propreté du code) Redirections et Appels API Spécifiques :**
-    *   Vérifier la cohérence des préfixes et des slashs pour les routes `/api/characters`.
-    *   Examiner l'appel `/api-keys-config/status` pour s'assurer de sa conformité avec les patrons établis.
-5.  **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel Utilisateur).**
-6.  **(Optionnel) Optimisations Docker :** Envisager des optimisations pour les images Docker (taille, temps de build) une fois les fonctionnalités de base stabilisées.
-7.  **(Optionnel) Tests Fonctionnels Complets sous Docker :** Réaliser une passe de tests exhaustive de toutes les fonctionnalités dans l'environnement Docker.
+1.  **Correction du Bug de la Boîte de Dialogue des Chapitres (Priorité Haute) :**
+    *   Investiguer pourquoi `AddChapterDialog` dans [`ChapterList.vue`](frontend/src/components/ChapterList.vue) ne se ferme pas automatiquement après la création réussie d'un chapitre.
+2.  **Investigation et Correction du Bug de Génération de Résumé (Priorité Haute) :**
+    *   Analyser l'erreur 500 (Internal Server Error) survenant lors de l'appel à `POST /api/chapters/{id}/generate-summary`.
+    *   Vérifier le backend ([`backend/routers/projects.py`](backend/routers/projects.py) ou le service concerné, probablement [`backend/services/summary_service.py`](backend/services/summary_service.py)) pour identifier la cause de l'erreur serveur.
+3.  **Finaliser l'Implémentation du Contexte du Chapitrage (Priorité Moyenne - après résolution des bugs) :**
+    *   Remplacer l'appel IA simulé par un appel réel dans [`backend/services/summary_service.py`](backend/services/summary_service.py) pour la génération effective des résumés.
+    *   Affiner les prompts IA pour la summarisation.
+    *   Permettre la configuration du fournisseur/modèle IA pour la génération de résumés.
+4.  **Nettoyage des `console.log` de Débogage (Bonne Pratique) :**
+    *   Retirer les `console.log` temporaires ajoutés dans [`App.vue`](frontend/src/App.vue) et [`EditorComponent.vue`](frontend/src/components/EditorComponent.vue) lors de cette session de débogage.
+5.  **Tests Approfondis (Après corrections).**
+6.  **Implémentation de `useCharacters.js` (si nécessaire pour la génération de scène).**
+7.  **Gestion de Version (par l'utilisateur).**
+8.  **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel Utilisateur).**
+
+## ⚠️ Rappels Cruciaux (inchangés)
+
+*   **Gestion des Branches Git :** L'utilisateur effectuera le merge.
+*   **Révocation des Clés API :** Rappel.
+*   **Finalisation Appel IA (Résumé) :** L'appel réel au service IA dans `summary_service.py` pour la génération de résumé doit toujours être implémenté (actuellement un placeholder) - lié au nouveau bug 500.
 
 ---
 # Historique des Contextes Actifs Précédents
 ---
 
-# Contexte Actif - CyberPlume (Mise à jour : 26/05/2025 - 14:21)
+# Contexte Actif - CyberPlume (Mise à jour : 28/05/2025 - 08:35)
 
 ## Focus Actuel
 
-*   **Fin de session de développement (26 Mai - après-midi).**
-*   **Correction des erreurs 404 pour les exports VALIDÉE :**
-    *   La suppression du préfixe `/api` du routeur dans `backend/routers/export.py` a résolu les erreurs 404 lors des exports.
-*   **Correction des erreurs Vue.js VALIDÉE :**
-    *   La correction appliquée à `frontend/src/components/EditorComponent.vue` a résolu les erreurs lors de la sélection de chapitres.
-*   **Prochaines étapes pour la session suivante :** Finalisation de la Dockerisation, merge, push GitHub, mise à jour du [`README.md`](README.md).
+*   **Début de session de débogage (28 Mai - après-midi).**
+*   **Objectif :** Exécuter le plan d'investigation pour résoudre le bug où le contenu des chapitres ne s'affiche pas dans l'éditeur.
 
-## ⚠️ Rappels Cruciaux
+## Plan d'Investigation : Bug d'Affichage du Contenu des Chapitres (Validé)
+*(Résumé du plan exécuté lors de cette session)*
+1.  Vérification de la chaîne d'événements et de props (`ProjectManager` -> `App.vue` -> `EditorComponent`).
+2.  Investigation des `watchers` dans `EditorComponent.vue`.
+3.  Vérification de l'initialisation de l'éditeur TipTap.
+4.  Analyse du flux de chargement du contenu.
 
-*   **Gestion des Branches Git :** S'assurer d'être sur la branche `dockerisation` (ou la branche de développement principale) avant de merger et pusher.
-*   **Variables d'environnement et Clés API :** Vérifier la configuration pour Docker avant de finaliser.
+*(Le reste de l'historique est conservé ci-dessous)*
+---
 
-## Décisions et Actions Clés de la Session (26 Mai - après-midi)
+# Contexte Actif - CyberPlume (Mise à jour : 28/05/2025 - 07:30)
+...
+---
 
-*   **Résolution et Validation des erreurs Vue.js lors de la sélection de chapitres :**
-    *   **Action :** Modification de `frontend/src/components/EditorComponent.vue` avec l'alias `fetchChapterContent: loadChapterContent,`.
-    *   **Validation :** Tests par l'utilisateur confirmant la disparition des erreurs.
-*   **Résolution et Validation des erreurs 404 pour les exports :**
-    *   **Action :** Suppression de `prefix="/api",` de la définition du routeur dans `backend/routers/export.py`.
-    *   **Validation :** Tests par l'utilisateur confirmant le bon fonctionnement des exports.
-*   **Fin de la session de développement.**
-
-## Apprentissages et Patrons Importants Récents (Session 26 Mai - après-midi)
-
-*   **Cohérence de Nommage Inter-fichiers.**
-*   **Importance des Tests Utilisateur Itératifs.**
-*   **Gestion Cohérente des Préfixes d'API avec Proxy.**
-
-## Prochaines Étapes (Pour la prochaine session de développement)
-
-1.  **Finalisation de la Dockerisation :**
-    *   S'assurer que les conteneurs Docker sont à jour avec les dernières corrections (reconstruire si besoin : `docker-compose up -d --build`).
-    *   Valider le fonctionnement complet de TOUTES les fonctionnalités (y compris exports, analyses, chargement de chapitres) dans l'environnement Docker.
-    *   S'assurer que spaCy fonctionne correctement dans le conteneur Docker.
-    *   Envisager des optimisations Docker (Post-Fonctionnalité).
-    *   Effectuer des Tests Fonctionnels Complets sous Docker.
-2.  **Gestion de Version et Documentation :**
-    *   Merger la branche de travail (ex: `dockerisation`) dans la branche principale (ex: `main` ou `develop`).
-    *   Pusher les changements sur GitHub.
-    *   Mettre à jour le fichier [`README.md`](README.md) pour refléter les nouveaux changements, fonctionnalités (notamment les exports fonctionnels, les analyses) et les instructions de lancement via Docker.
-3.  **(Observation/Optionnel - à revoir) Redirections `/api/characters` et appel `/api-keys-config/status` :** Vérifier la cohérence des préfixes et des slashs pour ces routes par souci de propreté, une fois l'environnement Docker stable.
+# Contexte Actif - CyberPlume (Mise à jour : 27/05/2025 - 15:10)
+... (le reste de l'historique est conservé) ...

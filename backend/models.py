@@ -9,10 +9,22 @@ from .database import Base
 
 # --- Forward declaration pour les types dans les schémas ---
 # Nécessaire car SceneRead utilise CharacterRead et vice-versa (potentiellement)
-class CharacterRead(BaseModel):
-    pass
-class SceneRead(BaseModel):
-    pass
+class CharacterRead(BaseModel): # Forward declaration
+    id: int # Ajout d'un champ minimal pour que Pydantic ne se plaigne pas trop tôt
+    name: str
+    # scenes: List['SceneRead'] = [] # Commenté pour éviter une dépendance circulaire trop complexe au stade de la forward declaration
+
+    class Config:
+        from_attributes = True
+
+class SceneRead(BaseModel): # Forward declaration
+    id: int # Ajout d'un champ minimal
+    title: str
+    # characters: List[CharacterRead] = [] # Commenté pour la même raison
+
+    class Config:
+        from_attributes = True
+
 
 # --- Schémas Pydantic pour la création ---
 
@@ -25,6 +37,7 @@ class ChapterBase(BaseModel):
     content: Optional[str] = None
     pov_character_id: Optional[int] = None
     order: Optional[int] = None # NOUVEAU: Ordre du chapitre dans le projet
+    summary: Optional[str] = None # NOUVEAU: Résumé du chapitre
 
 class ChapterCreate(ChapterBase):
     project_id: int
@@ -53,6 +66,7 @@ class ChapterUpdate(BaseModel):
     content: Optional[str] = None
     pov_character_id: Optional[int] = None
     order: Optional[int] = None # NOUVEAU: Permettre la mise à jour de l'ordre
+    summary: Optional[str] = None # NOUVEAU: Permettre la mise à jour du résumé
 
 # NOUVEAU: Schéma Pydantic pour Scene Update
 class SceneUpdate(BaseModel):
@@ -73,11 +87,12 @@ class CharacterCreate(CharacterBase):
     pass
 
 # MODIFICATION: CharacterRead inclut maintenant les IDs des scènes liées
-class CharacterRead(CharacterBase):
+# Mise à jour de la forward declaration pour CharacterRead
+CharacterRead.model_fields.update(SceneRead.model_fields) # Simule une mise à jour, Pydantic gère mieux avec `model_rebuild`
+
+class CharacterRead(CharacterBase): # Redéfinition complète après que SceneRead soit connu (ou du moins sa forward declaration)
     id: int
-    # scene_ids: List[int] = [] # Option 1: Juste les IDs
-    scenes: List[SceneRead] = [] # Option 2: Les objets SceneRead complets (attention aux refs circulaires si SceneRead inclut CharacterRead)
-                                 # Pour l'instant, on va garder les objets complets, mais on pourrait simplifier si besoin
+    scenes: List[SceneRead] = [] 
 
     class Config:
         from_attributes = True
@@ -108,10 +123,13 @@ class ApiKeyRead(ApiKeyBase):
 # --- Schémas Pydantic pour la lecture (Réponses API) ---
 
 # MODIFICATION: SceneRead inclut maintenant les personnages liés
-class SceneRead(SceneBase):
+# Mise à jour de la forward declaration pour SceneRead
+SceneRead.model_fields.update(CharacterRead.model_fields) # Simule une mise à jour
+
+class SceneRead(SceneBase): # Redéfinition complète
     id: int
     chapter_id: int
-    characters: List[CharacterRead] = [] # Liste des personnages liés
+    characters: List[CharacterRead] = [] 
 
     class Config:
         from_attributes = True
@@ -122,8 +140,7 @@ class ChapterReadBasic(BaseModel): # Utilisé dans ProjectRead
     title: str
     project_id: int
     order: int # NOUVEAU: Inclure l'ordre
-    # Optionnel: Ajouter les scènes ici si nécessaire dans la vue projet
-    # scenes: List[SceneRead] = []
+    scenes: List[SceneRead] = [] # Ajouté pour afficher les scènes dans la liste des chapitres
 
     class Config:
         from_attributes = True
@@ -144,6 +161,7 @@ class ChapterRead(BaseModel): # Pour lire un chapitre complet
     project_id: int
     pov_character_id: Optional[int] = None
     order: int # NOUVEAU: Inclure l'ordre
+    summary: Optional[str] = None # NOUVEAU: Inclure le résumé
     scenes: List[SceneRead] = [] # Inclure les scènes lors de la lecture d'un chapitre (déjà triées par Scene.order)
 
     class Config:
@@ -193,141 +211,55 @@ class DeleteBatchSchema(BaseModel):
 class ReorderItemsSchema(BaseModel):
     ordered_ids: List[int]
 
-# --- Modèles SQLAlchemy ---
+# --- Schémas pour l'analyse ---
+class StyleAnalysisRequest(BaseModel):
+    text_to_analyze: str
+    # Ajoutez d'autres champs si nécessaire (ex: style de référence)
 
-# NOUVEAU: Table d'association Scene <-> Character
-scene_characters = Table(
-    'scene_characters',
-    Base.metadata,
-    Column('scene_id', Integer, ForeignKey('scenes.id'), primary_key=True),
-    Column('character_id', Integer, ForeignKey('characters.id'), primary_key=True)
-)
+class StyleAnalysisResponse(BaseModel):
+    analysis_id: str # Un identifiant pour cette analyse
+    # Ajoutez les résultats de l'analyse de style ici
+    # Par exemple:
+    # dominant_style: Optional[str] = None
+    # tone: Optional[str] = None
+    # suggestions: List[str] = []
+    raw_response: Optional[str] = None
 
-class Project(Base):
-    __tablename__ = 'projects'
+class ContentAnalysisRequest(BaseModel):
+    text_to_analyze: str
+    # chapter_context: Optional[str] = None # Contexte du chapitre si différent du texte analysé
 
-    id = Column(Integer, primary_key=True)
-    title = Column(String(100), nullable=False)
-    description = Column(Text, nullable=True)
-
-    # Relations définies plus bas
-
-class Chapter(Base):
-    __tablename__ = 'chapters'
-
-    id = Column(Integer, primary_key=True)
-    title = Column(String(100), nullable=False)
-    content = Column(Text, nullable=True)
-    order = Column(Integer, nullable=False, default=0) # NOUVEAU: Ordre dans le projet
-    project_id = Column(Integer, ForeignKey('projects.id'))
-    pov_character_id = Column(Integer, ForeignKey('characters.id'), nullable=True)
-
-    project = relationship("Project", back_populates="chapters")
-    pov_character = relationship("Character", back_populates="chapters_pov") # Renommé back_populates
-
-    # Relation vers les scènes
-    scenes = relationship(
-        "Scene",
-        back_populates="chapter",
-        cascade="all, delete-orphan",
-        order_by="Scene.order" # Ordonner par le champ 'order' (déjà présent)
-    )
-
-# Modèle SQLAlchemy pour Scene
-class Scene(Base):
-    __tablename__ = 'scenes'
-
-    id = Column(Integer, primary_key=True)
-    title = Column(String(200), nullable=False) # Titre un peu plus long ?
-    content = Column(Text, nullable=True)
-    order = Column(Integer, nullable=False, default=0) # Ordre dans le chapitre, non nullable avec défaut
-    chapter_id = Column(Integer, ForeignKey('chapters.id'))
-
-    chapter = relationship("Chapter", back_populates="scenes")
-
-    # NOUVEAU: Relation many-to-many vers les personnages
-    characters = relationship(
-        "Character",
-        secondary=scene_characters,
-        back_populates="scenes"
-    )
-
-
-class Character(Base):
-    __tablename__ = 'characters'
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String(100), nullable=False)
-    description = Column(Text, nullable=True)
-    backstory = Column(Text, nullable=True)
-
-    # Relations
-    chapters_pov = relationship('Chapter', back_populates='pov_character') # Renommé back_populates
-    # Relation many-to-many avec Project définie plus bas
-    # NOUVEAU: Relation many-to-many vers les scènes
-    scenes = relationship(
-        "Scene",
-        secondary=scene_characters,
-        back_populates="characters"
-    )
-
-# NOUVEAU: Modèle SQLAlchemy pour les Clés API
-class ApiKey(Base):
-    __tablename__ = 'api_keys'
-
-    id = Column(Integer, primary_key=True, index=True)
-    provider_name = Column(String(50), unique=True, nullable=False, index=True)
-    encrypted_api_key = Column(String(512), nullable=False) # Assez long pour une clé chiffrée avec Fernet
-
-# Table d'association pour la relation many-to-many Project <-> Character
-project_characters = Table(
-    'project_characters',
-    Base.metadata,
-    Column('project_id', Integer, ForeignKey('projects.id'), primary_key=True),
-    Column('character_id', Integer, ForeignKey('characters.id'), primary_key=True)
-)
-
-# Définir les relations après la définition de toutes les classes et tables
-Project.chapters = relationship(
-    'Chapter',
-    back_populates='project',
-    cascade="all, delete-orphan",
-    order_by='Chapter.order' # MODIFIÉ: Trier par le nouveau champ 'order'
-)
-Project.characters = relationship('Character', secondary=project_characters, back_populates='projects', cascade="all, delete")
-Character.projects = relationship('Project', secondary=project_characters, back_populates='characters')
-
-
-# --- Schéma pour le contexte personnage ---
-# NOUVEAU: Schéma pour passer les infos personnages à l'IA
 class CharacterContext(BaseModel):
-    id: int
     name: str
     description: Optional[str] = None
-    backstory: Optional[str] = None
+    # Ajoutez d'autres champs pertinents pour le contexte du personnage si nécessaire
 
-# --- Autres Schémas ---
-
-# MODIFIÉ: Ajout des champs optionnels pour la génération de scène, style personnalisé ET contexte personnages
 class GenerationRequest(BaseModel):
     provider: str
-    prompt: str # Description générale ou contexte
     model: Optional[str] = None
-    action: Optional[str] = None # Ex: 'continue', 'suggest', 'dialogue', 'generate_scene'
-    style: Optional[str] = None
-    # Champs pour enrichir la génération de scène (utilisés par action='generate_scene')
-    characters: Optional[List[str]] = Field(None, description="Noms des personnages présents dans la scène")
-    scene_goal: Optional[str] = Field(None, description="Objectif principal de la scène")
-    key_elements: Optional[str] = Field(None, description="Éléments ou détails clés à inclure dans la scène")
-    # Champ pour le style personnalisé analysé
-    custom_style_description: Optional[str] = Field(None, description="Description du style personnalisé analysé à utiliser à la place du style standard")
-    # NOUVEAU: Champ pour le contexte des personnages pertinents (utilisé par 'continue', 'suggest', 'dialogue')
-    character_context: Optional[List[CharacterContext]] = Field(None, description="Informations sur les personnages pertinents pour le contexte actuel")
+    style: Optional[str] = None # Style d'écriture souhaité
+    prompt: str # Le prompt principal pour la génération
+    action: str # Action spécifique (ex: "continue", "reformulate", "generer_scene")
+    
+    # Champs optionnels pour différentes actions et contextes
+    current_text: Optional[str] = None # Texte actuel de l'éditeur (peut être utilisé pour "continue", "reformulate")
+    custom_style_description: Optional[str] = None # Description de style personnalisée si 'style' est 'custom'
+    
+    # Contexte pour la génération de scène ou actions liées aux personnages
+    character_context: Optional[List[CharacterContext]] = None 
+    scene_goal: Optional[str] = None # Objectif de la scène à générer
+    characters: Optional[List[str]] = None # Noms ou IDs des personnages impliqués dans la scène
+    key_elements: Optional[str] = None # Éléments clés à inclure dans la scène
+    
+    # Contexte plus large
+    plot_context: Optional[str] = None # Contexte de l'intrigue
+    previous_summary: Optional[str] = None # Résumé du chapitre/scène précédent
 
+class GenerationResponse(BaseModel):
+    generated_text: str
+    raw_response: Optional[str] = None
 
-class ConsistencyAnalysisRequest(BaseModel):
-    project_id: int
-
+# --- Schémas pour l'analyse de cohérence et de chapitre ---
 class EntityInfo(BaseModel):
     text: str
     label: str
@@ -340,35 +272,105 @@ class ConsistencyAnalysisResponse(BaseModel):
     entities: List[EntityInfo] = []
     warnings: List[str] = []
 
-# --- NOUVEAU: Schémas pour l'analyse de contenu de chapitre ---
-
 class Suggestion(BaseModel):
-    """Représente une suggestion d'amélioration pour une partie du texte."""
-    original_text: str = Field(..., description="Le segment de texte original concerné.")
-    suggested_text: str = Field(..., description="Le texte suggéré en remplacement.")
-    suggestion_type: str = Field(..., description="Type de suggestion (ex: 'orthographe', 'grammaire', 'style', 'répétition', 'clarté', 'rythme').")
-    explanation: Optional[str] = Field(None, description="Explication facultative de la suggestion.")
-    # AJOUT: Indices de début et de fin pour l'application dans l'éditeur
-    start_index: int = Field(..., description="Index de début (basé sur 0) du segment original_text dans le contenu complet.")
-    end_index: int = Field(..., description="Index de fin (exclusif, basé sur 0) du segment original_text dans le contenu complet.")
-
+    original_text: str
+    suggested_text: str
+    start_index: int
+    end_index: int
+    comment: Optional[str] = None
 
 class ChapterAnalysisStats(BaseModel):
-    """Statistiques calculées sur le contenu du chapitre."""
-    word_count: int = Field(..., description="Nombre total de mots dans le chapitre.")
-    character_count: Optional[int] = Field(None, description="Nombre total de caractères.")
-    sentence_count: Optional[int] = Field(None, description="Nombre total de phrases.")
-    readability_score: Optional[float] = Field(None, description="Score de lisibilité (ex: Flesch-Kincaid).")
-    estimated_reading_time_minutes: Optional[float] = Field(None, description="Temps de lecture estimé en minutes.")
+    word_count: int
+    # sentence_count: Optional[int] = None
+    # average_sentence_length: Optional[float] = None
+    # flesch_reading_ease: Optional[float] = None # Exemple de métrique
 
 class ChapterAnalysisResponse(BaseModel):
-    """Réponse de l'API d'analyse de contenu de chapitre."""
     chapter_id: int
     stats: ChapterAnalysisStats
     suggestions: List[Suggestion] = []
+    raw_response: Optional[str] = None # Réponse brute de l'IA si utile
 
 
-# --- Résolution des forward references pour Pydantic ---
-# Nécessaire si les schémas s'utilisent mutuellement avant d'être complètement définis
+# --- Modèles SQLAlchemy ---
+
+# Table d'association pour la relation Many-to-Many entre Scene et Character
+scene_character_association = Table(
+    'scene_character_association', Base.metadata,
+    Column('scene_id', Integer, ForeignKey('scenes.id'), primary_key=True),
+    Column('character_id', Integer, ForeignKey('characters.id'), primary_key=True)
+)
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    description = Column(Text, nullable=True)
+
+    chapters = relationship("Chapter", back_populates="project", cascade="all, delete-orphan", order_by="Chapter.order") # Ajout order_by
+
+class Chapter(Base):
+    __tablename__ = "chapters"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    content = Column(Text, nullable=True)
+    project_id = Column(Integer, ForeignKey("projects.id"))
+    pov_character_id = Column(Integer, ForeignKey("characters.id"), nullable=True) # NOUVEAU
+    order = Column(Integer, default=0)  # NOUVEAU: Ordre du chapitre
+    summary = Column(Text, nullable=True) # NOUVEAU: Résumé du chapitre
+
+    project = relationship("Project", back_populates="chapters")
+    pov_character = relationship("Character", foreign_keys=[pov_character_id]) # NOUVEAU
+    scenes = relationship("Scene", back_populates="chapter", cascade="all, delete-orphan", order_by="Scene.order") # Ajout order_by
+
+# NOUVEAU: Modèle SQLAlchemy pour Scene
+class Scene(Base):
+    __tablename__ = "scenes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, index=True)
+    content = Column(Text, nullable=True)
+    order = Column(Integer, default=0) # Ordre de la scène dans le chapitre
+    chapter_id = Column(Integer, ForeignKey("chapters.id"))
+
+    chapter = relationship("Chapter", back_populates="scenes")
+    # Relation Many-to-Many avec Character
+    characters = relationship("Character", secondary=scene_character_association, back_populates="scenes")
+
+
+class Character(Base):
+    __tablename__ = "characters"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    description = Column(Text, nullable=True)
+    backstory = Column(Text, nullable=True)
+    # project_id = Column(Integer, ForeignKey("projects.id")) # Un personnage peut appartenir à un projet
+
+    # project = relationship("Project") # Relation avec Project
+    # Relation Many-to-Many avec Scene
+    scenes = relationship("Scene", secondary=scene_character_association, back_populates="characters")
+
+
+# NOUVEAU: Modèle SQLAlchemy pour les Clés API
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+
+    id = Column(Integer, primary_key=True, index=True)
+    provider_name = Column(String, unique=True, index=True, nullable=False) # ex: "gemini", "mistral"
+    encrypted_api_key = Column(String, nullable=False) # Clé API chiffrée
+    # iv = Column(String, nullable=False) # Vecteur d'initialisation pour le chiffrement (si AES en mode CBC/CTR etc.)
+    # salt = Column(String, nullable=False) # Sel pour la dérivation de clé (si KDF est utilisé)
+    # Pour Fernet, le token contient tout
+
+
+# Appel pour reconstruire les modèles Pydantic qui ont des références forward
+# Cela doit être fait après que toutes les classes référencées soient définies.
 CharacterRead.model_rebuild()
 SceneRead.model_rebuild()
+ChapterReadBasic.model_rebuild()
+ProjectRead.model_rebuild()
+ChapterRead.model_rebuild()
+# Ajoutez d'autres modèles qui utilisent des forward references si nécessaire

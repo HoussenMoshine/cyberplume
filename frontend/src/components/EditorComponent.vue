@@ -311,11 +311,31 @@ const hasUnsavedChanges = computed(() => chapterHasUnsavedChanges.value || scene
 
 // --- Watchers ---
 watch(() => props.selectedChapterId, (newId, oldId) => {
+console.log(`EditorComponent: watch props.selectedChapterId triggered. NewId: ${newId}, OldId: ${oldId}`);
   if (newId !== oldId && newId !== null) {
-    console.log(`EditorComponent: Watching chapter change. New ID: ${newId}`);
-    loadChapterContent(newId);
+    if (editor.value) { // CONDITION AJOUTÉE : vérifier si l'éditeur est prêt
+      console.log(`EditorComponent: selectedChapterId changed to ${newId}. Editor is ready. Loading content.`);
+      loadChapterContent(newId);
+    } else {
+      console.warn(`EditorComponent: selectedChapterId changed to ${newId}, but editor is NOT ready yet.`);
+      // Le contenu sera chargé par le watch sur 'editor' ci-dessous quand il sera prêt
+    }
+watch(editor, (newEditorInstance) => {
+  if (newEditorInstance && props.selectedChapterId !== null) {
+    // Si l'éditeur devient prêt ET qu'un chapitre est déjà sélectionné (ex: au chargement initial ou si l'ID a changé avant que l'éditeur soit prêt)
+    console.log(`EditorComponent: Editor is now ready. Loading content for already selected chapter ${props.selectedChapterId}`);
+    loadChapterContent(props.selectedChapterId);
+  } else if (newEditorInstance && props.selectedChapterId === null && props.selectedSceneId === null) {
+    // Si l'éditeur devient prêt et qu'aucun contenu n'est sélectionné, afficher le message par défaut
+    console.log(`EditorComponent: Editor is now ready. No chapter/scene selected. Displaying default message.`);
+    newEditorInstance.commands.setContent('<p style="color: grey; text-align: center;">Sélectionnez un chapitre ou une scène pour commencer l\'édition.</p>');
+  }
+}, { immediate: true }); // Exécuter immédiatement pour gérer le cas où l'éditeur est prêt dès le montage et un ID est déjà là
   } else if (newId === null && props.selectedSceneId === null) {
-    editor.value?.commands.setContent('<p style="color: grey; text-align: center;">Sélectionnez un chapitre ou une scène pour commencer l\'édition.</p>'); // Message par défaut
+    // Si on désélectionne tout, et que l'éditeur est prêt, afficher le message par défaut
+    if (editor.value) {
+      editor.value.commands.setContent('<p style="color: grey; text-align: center;">Sélectionnez un chapitre ou une scène pour commencer l\'édition.</p>');
+    }
   }
 });
 
