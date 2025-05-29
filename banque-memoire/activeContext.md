@@ -1,81 +1,65 @@
-# Contexte Actif - CyberPlume (Mise à jour : 28/05/2025 - 09:00)
+# Contexte Actif - CyberPlume (Mise à jour : 28/05/2025 - 14:28)
 
-## Focus Actuel
+## Fin de Session de Débogage (28 Mai - Après-midi Suite)
 
-*   **Fin de session de débogage (28 Mai - après-midi).**
-*   **Objectif Atteint :** Le bug critique où le contenu des chapitres ne s'affichait pas dans l'éditeur a été résolu.
-*   **Nouveau Problème Identifié (pour prochaine session) :** Erreur 500 lors de la tentative de génération de résumé de chapitre.
+*   **Objectif de la session :** Résoudre les bugs liés à la génération de résumé de chapitre.
+*   **Corrections Apportées durant la session :**
+    1.  **Bug Boîte de Dialogue Chapitre :** Corrigé dans [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:340). La boîte de dialogue se ferme maintenant correctement.
+    2.  **Gestion Clé API pour Service de Résumé :** Modifié [`backend/services/summary_service.py`](backend/services/summary_service.py:1) pour utiliser `get_decrypted_api_key` (DB puis `.env` fallback). L'erreur 500 initiale (si due à une clé non trouvée) est résolue, le backend retourne `200 OK` pour la requête de génération.
+    3.  **Bug de Copie de Contenu (Tentative de Correction) :** Modifié [`frontend/src/composables/useChapters.js`](frontend/src/composables/useChapters.js:252) pour ne mettre à jour que le champ `summary` dans le cas du fallback de la mise à jour d'état local.
 
-## Corrections et Résultats de la Session (28 Mai - après-midi)
-
-1.  **Harmonisation de l'événement de sélection de chapitre :**
-    *   Modifié [`frontend/src/components/ProjectManager.vue`](frontend/src/components/ProjectManager.vue:339) pour émettre l'événement `chapter-selected` au lieu de `active-chapter-content-changed`.
-    *   Cet événement est maintenant correctement écouté par [`App.vue`](frontend/src/App.vue:29).
-2.  **Correction de la gestion du payload de l'événement dans `App.vue` :**
-    *   La fonction `handleChapterSelection` dans [`frontend/src/App.vue`](frontend/src/App.vue:167) a été modifiée pour extraire correctement `chapterId` de l'objet `payload` reçu (au lieu de traiter le `payload` entier comme l'ID).
-    *   Cela assure que la prop `selectedChapterId` passée à [`EditorComponent.vue`](frontend/src/components/EditorComponent.vue) est bien un `Number` (ou `null`) et non un `Object`.
-3.  **Déclaration de l'événement émis dans `ProjectManager.vue` :**
-    *   L'événement `chapter-selected` a été ajouté à la liste `emits` dans [`frontend/src/components/ProjectManager.vue`](frontend/src/components/ProjectManager.vue:175) pour suivre les bonnes pratiques Vue.
-4.  **Ajout de `console.log` temporaires pour le débogage :**
-    *   Des logs ont été ajoutés dans [`App.vue`](frontend/src/App.vue) et [`EditorComponent.vue`](frontend/src/components/EditorComponent.vue) pour tracer la propagation des données. (Ces logs sont toujours présents).
-
-**Résultat Principal :**
-*   **Le contenu des chapitres s'affiche maintenant correctement dans l'éditeur.** L'erreur 422 (Unprocessable Entity) due à l'envoi de `[object Object]` comme ID de chapitre à l'API est résolue.
-
-## Apprentissages et Patrons Importants Récents (Session 28 Mai - après-midi)
-
-*   **Cohérence des Événements et des Props :** Une attention méticuleuse est nécessaire pour s'assurer que les noms d'événements émis par les composants enfants correspondent à ceux écoutés par les composants parents, et que la structure des données (payloads) transmises est correctement gérée.
-*   **Typage des Props :** Les avertissements de Vue concernant les types de props invalides sont des indicateurs cruciaux de problèmes potentiels qui peuvent avoir des effets en cascade (comme des appels API incorrects).
-*   **Débogage Incrémental :** L'approche consistant à corriger les problèmes étape par étape (d'abord l'événement, puis le payload) et à vérifier avec des logs s'est avérée efficace.
+*   **Résultat du Dernier Test (Génération de Résumé) :**
+    *   Le bug de "copie de contenu" n'a pas été explicitement reconfirmé comme résolu ou non par l'utilisateur lors de ce test.
+    *   **Un problème de "boucle" de requêtes persiste :** Après avoir cliqué sur "générer le résumé", de multiples requêtes `GET /chapters/{id}`, `GET /chapters/{id}/scenes/` et `PUT /chapters/{id}` sont observées dans les logs du backend. L'utilisateur a noté que les scènes semblent intervenir.
+    *   La session de débogage s'arrête ici à la demande de l'utilisateur.
 
 ## Prochaines Étapes (Pour la prochaine session de développement)
 
-1.  **Correction du Bug de la Boîte de Dialogue des Chapitres (Priorité Haute) :**
-    *   Investiguer pourquoi `AddChapterDialog` dans [`ChapterList.vue`](frontend/src/components/ChapterList.vue) ne se ferme pas automatiquement après la création réussie d'un chapitre.
-2.  **Investigation et Correction du Bug de Génération de Résumé (Priorité Haute) :**
-    *   Analyser l'erreur 500 (Internal Server Error) survenant lors de l'appel à `POST /api/chapters/{id}/generate-summary`.
-    *   Vérifier le backend ([`backend/routers/projects.py`](backend/routers/projects.py) ou le service concerné, probablement [`backend/services/summary_service.py`](backend/services/summary_service.py)) pour identifier la cause de l'erreur serveur.
-3.  **Finaliser l'Implémentation du Contexte du Chapitrage (Priorité Moyenne - après résolution des bugs) :**
-    *   Remplacer l'appel IA simulé par un appel réel dans [`backend/services/summary_service.py`](backend/services/summary_service.py) pour la génération effective des résumés.
-    *   Affiner les prompts IA pour la summarisation.
-    *   Permettre la configuration du fournisseur/modèle IA pour la génération de résumés.
-4.  **Nettoyage des `console.log` de Débogage (Bonne Pratique) :**
-    *   Retirer les `console.log` temporaires ajoutés dans [`App.vue`](frontend/src/App.vue) et [`EditorComponent.vue`](frontend/src/components/EditorComponent.vue) lors de cette session de débogage.
-5.  **Tests Approfondis (Après corrections).**
-6.  **Implémentation de `useCharacters.js` (si nécessaire pour la génération de scène).**
-7.  **Gestion de Version (par l'utilisateur).**
-8.  **Révocation et Remplacement des Clés API Exposées (Action Externe Critique - Rappel Utilisateur).**
+1.  **Investigation de la Boucle de Requêtes Post-Résumé (Priorité Haute) :**
+    *   Analyser en détail la séquence des événements et des mises à jour d'état dans le frontend après un appel réussi à `generateChapterSummary` dans [`frontend/src/composables/useChapters.js`](frontend/src/composables/useChapters.js:1).
+    *   Examiner comment `fetchChaptersForProject` et la mise à jour de `chaptersByProjectId` interagissent avec les composants `ProjectManager`, `ChapterList`, `SceneList` et `EditorComponent`.
+    *   Identifier ce qui déclenche les multiples requêtes `GET` et surtout les `PUT` sur différents chapitres.
+    *   Prendre en compte l'observation de l'utilisateur sur l'implication possible des scènes (ex: chargement des scènes, état des scènes).
+2.  **Vérification de la Correction du Bug de Copie de Contenu :** S'assurer que la modification apportée à [`frontend/src/composables/useChapters.js`](frontend/src/composables/useChapters.js:252) a bien empêché la copie de contenu, même si la boucle de requêtes masque ce résultat.
+3.  **Finaliser l'Implémentation du Service de Résumé (si la génération de résumé de base fonctionne après résolution de la boucle) :**
+    *   Remplacer l'appel IA simulé/placeholder dans [`backend/services/summary_service.py`](backend/services/summary_service.py:1) par un appel réel et robuste.
+    *   Affiner les prompts IA.
+    *   Rendre configurable le fournisseur et le modèle IA.
+4.  **Nettoyage des `console.log` de Débogage.**
+5.  **Tests Approfondis.**
+... (autres étapes précédentes peuvent suivre)
+
+## Apprentissages et Patrons Importants Récents (Session 28 Mai - après-midi complète)
+*   **Gestion Centralisée vs. Locale des Clés API :** Importance d'une stratégie cohérente.
+*   **Mise à jour d'état réactif :** Attention à la propagation des objets lors de la mise à jour de l'état pour éviter des effets de bord. Préférer des mises à jour ciblées.
+*   **Importance du re-fetch vs. mise à jour locale :** Le re-fetch est plus sûr. Les mises à jour locales optimistes doivent être maniées avec soin.
+*   **Effets en cascade des mises à jour d'état :** Une mise à jour d'état (ex: après `generateChapterSummary`) peut déclencher une chaîne de réactions (watchers, re-renders, chargement de données associées comme les scènes) qui peuvent conduire à des comportements inattendus ou des boucles si la logique n'est pas parfaitement maîtrisée.
 
 ## ⚠️ Rappels Cruciaux (inchangés)
 
 *   **Gestion des Branches Git :** L'utilisateur effectuera le merge.
 *   **Révocation des Clés API :** Rappel.
-*   **Finalisation Appel IA (Résumé) :** L'appel réel au service IA dans `summary_service.py` pour la génération de résumé doit toujours être implémenté (actuellement un placeholder) - lié au nouveau bug 500.
+*   **Finalisation Appel IA (Résumé) :** L'appel réel au service IA dans `summary_service.py` pour la génération de résumé doit toujours être implémenté.
 
 ---
 # Historique des Contextes Actifs Précédents
 ---
+*(L'historique précédent est conservé ci-dessous, commençant par la version du 28/05/2025 - 14:22, puis 14:01, etc.)*
 
-# Contexte Actif - CyberPlume (Mise à jour : 28/05/2025 - 08:35)
+# Contexte Actif - CyberPlume (Mise à jour : 28/05/2025 - 14:22)
 
-## Focus Actuel
+## Focus Actuel et Corrections (Session 28 Mai - Après-midi Suite)
 
-*   **Début de session de débogage (28 Mai - après-midi).**
-*   **Objectif :** Exécuter le plan d'investigation pour résoudre le bug où le contenu des chapitres ne s'affiche pas dans l'éditeur.
+*   **Objectif en cours :** Résolution des bugs liés à la génération de résumé.
+*   **Correction Apportée (Bug Boîte de Dialogue Chapitre) :**
+    *   Modifié [`frontend/src/components/ChapterList.vue`](frontend/src/components/ChapterList.vue:340) : la boîte de dialogue d'ajout de chapitre se ferme maintenant correctement.
+*   **Modification (Gestion Clé API pour Service de Résumé) :**
+    *   Modifié [`backend/services/summary_service.py`](backend/services/summary_service.py:1) pour utiliser `get_decrypted_api_key` (DB puis `.env` fallback).
+    *   **Impact :** L'erreur 500 initiale lors de la génération de résumé (si due à une clé API non trouvée) est résolue. Le backend retourne maintenant 200 OK.
+*   **Nouveau Bug Identifié (et Correction Apportée) : Copie de contenu lors de la mise à jour du résumé.**
+    *   **Symptôme :** Après la génération réussie du résumé pour un chapitre, le contenu de ce chapitre était copié sur d'autres chapitres dans l'interface, et des requêtes `PUT` multiples étaient envoyées.
+    *   **Cause :** Logique de mise à jour de l'état local (fallback) dans [`frontend/src/composables/useChapters.js`](frontend/src/composables/useChapters.js:252) qui propageait l'intégralité de l'objet chapitre reçu (`summaryData`) au lieu de seulement son champ `summary`.
+    *   **Correction :** Modifié la ligne 252 de [`frontend/src/composables/useChapters.js`](frontend/src/composables/useChapters.js:252) pour ne mettre à jour que le champ `summary` : `chaptersByProjectId[projectId_loop][index] = { ...chaptersByProjectId[projectId_loop][index], summary: summaryData.summary };`.
+    *   **Impact Attendu :** Le bug de copie de contenu devrait être résolu.
 
-## Plan d'Investigation : Bug d'Affichage du Contenu des Chapitres (Validé)
-*(Résumé du plan exécuté lors de cette session)*
-1.  Vérification de la chaîne d'événements et de props (`ProjectManager` -> `App.vue` -> `EditorComponent`).
-2.  Investigation des `watchers` dans `EditorComponent.vue`.
-3.  Vérification de l'initialisation de l'éditeur TipTap.
-4.  Analyse du flux de chargement du contenu.
-
-*(Le reste de l'historique est conservé ci-dessous)*
----
-
-# Contexte Actif - CyberPlume (Mise à jour : 28/05/2025 - 07:30)
-...
----
-
-# Contexte Actif - CyberPlume (Mise à jour : 27/05/2025 - 15:10)
-... (le reste de l'historique est conservé) ...
+... (le reste de l'historique précédent suit)

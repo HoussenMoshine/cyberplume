@@ -337,7 +337,7 @@ const handleAddChapterDialogSave = async (title) => {
   // Pour simplifier, on ferme ici et le parent peut rouvrir ou afficher une erreur globale.
   // Alternative: attendre une confirmation de succès du parent.
   // Pour l'instant, on ne ferme pas ici, on laisse le parent gérer.
-  // showAddChapterDialog.value = false; // Le parent décidera
+  showAddChapterDialog.value = false; // Fermé après émission de la requête. Le parent gère la suite (ex: erreurs).
 };
 
 const openEditChapterDialog = (chapter) => {

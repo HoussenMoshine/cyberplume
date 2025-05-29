@@ -249,7 +249,7 @@ export function useChapters(showSnackbar) {
             const index = chaptersByProjectId[projectId_loop]?.findIndex(c => c.id === chapterId);
             if (index !== -1 && chaptersByProjectId[projectId_loop] && summaryData) {
                 // Assumer que summaryData est le chapitre mis à jour
-                chaptersByProjectId[projectId_loop][index] = { ...chaptersByProjectId[projectId_loop][index], ...summaryData };
+                chaptersByProjectId[projectId_loop][index] = { ...chaptersByProjectId[projectId_loop][index], summary: summaryData.summary }; // Ne propager que le résumé pour éviter la copie de contenu
                 break;
             }
         }
