@@ -12,15 +12,11 @@
         <span v-else-if="deleteTarget.type === 'chapter'">
           Êtes-vous sûr de vouloir supprimer le chapitre "<strong>{{ deleteTarget.item?.title }}</strong>" ?
         </span>
-         <span v-else-if="deleteTarget.type === 'scene'"> <!-- Ajout cas pour scène -->
-          Êtes-vous sûr de vouloir supprimer la scène "<strong>{{ deleteTarget.item?.title || 'sans titre' }}</strong>" ?
-        </span>
         <span v-else-if="deleteTarget.type === 'multiple-projects' || deleteTarget.type === 'multiple-chapters'"> <!-- Renommage 'batch' -->
           Êtes-vous sûr de vouloir supprimer :
           <ul>
-            <li v-if="targetCounts.projects > 0">{{ targetCounts.projects }} projet(s) (et leurs chapitres/scènes)</li>
-            <li v-if="targetCounts.chapters > 0">{{ targetCounts.chapters }} chapitre(s) (et leurs scènes)</li>
-             <!-- Ajouter cas pour scènes multiples si nécessaire -->
+            <li v-if="targetCounts.projects > 0">{{ targetCounts.projects }} projet(s) (et leurs chapitres)</li>
+            <li v-if="targetCounts.chapters > 0">{{ targetCounts.chapters }} chapitre(s)</li>
           </ul>
         </span>
         <br>
@@ -50,7 +46,7 @@
 
 <script setup>
 import { IconAlertTriangle } from '@tabler/icons-vue';
-import { VDialog, VCard, VCardTitle, VCardText, VCardActions, VBtn, VSpacer, VIcon } from 'vuetify/components'; // VIcon est utilisé implicitement par l'ancienne icône, mais peut être retiré si plus aucune mdi-icon n'est présente
+import { VDialog, VCard, VCardTitle, VCardText, VCardActions, VBtn, VSpacer } from 'vuetify/components';
 
 const props = defineProps({
   show: {
@@ -63,8 +59,7 @@ const props = defineProps({
   },
   deleteTarget: {
     type: [Object, null], // Autoriser null
-    // required: true, // Ne peut plus être requis si null est autorisé
-    default: null // Définir une valeur par défaut
+    default: null 
   },
   // Pour l'affichage de la suppression multiple
   targetCounts: {

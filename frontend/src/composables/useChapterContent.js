@@ -17,8 +17,7 @@ export function useChapterContent(selectedChapterIdRef, editorRef) {
   const loadingError = ref(null);
   const savingError = ref(null);
   const lastLoadedChapterId = ref(null); // Pour gérer la sauvegarde avant changement
-  // NOUVEAU: State pour stocker les personnages de toutes les scènes du chapitre chargé
-  const loadedChapterCharacters = ref([]);
+  const loadedChapterCharacters = ref([]); // Gardé, mais ne sera plus peuplé par les scènes
 
 
   const hasUnsavedChanges = computed(() => {
@@ -77,22 +76,16 @@ export function useChapterContent(selectedChapterIdRef, editorRef) {
       currentChapterProjectId.value = chapterData.project_id;
       lastLoadedChapterId.value = chapterId; // Mémoriser l'ID chargé
 
-      // NOUVEAU: Extraire les personnages de toutes les scènes du chapitre
-      const charactersFromScenes = new Map(); // Utiliser une Map pour garantir l'unicité par ID
-      if (chapterData.scenes && Array.isArray(chapterData.scenes)) {
-          chapterData.scenes.forEach(scene => {
-              if (scene.characters && Array.isArray(scene.characters)) {
-                  scene.characters.forEach(char => {
-                      if (!charactersFromScenes.has(char.id)) {
-                          charactersFromScenes.set(char.id, char);
-                      }
-                  });
-              }
-          });
+      // La logique d'extraction des personnages des scènes a été supprimée ici.
+      // Si les personnages sont directement liés aux chapitres dans le backend,
+      // cette partie devrait être adaptée pour les charger depuis chapterData.characters (par exemple).
+      // Pour l'instant, loadedChapterCharacters restera vide ou sera peuplé par une autre source.
+      if (chapterData.characters && Array.isArray(chapterData.characters)) {
+        loadedChapterCharacters.value = chapterData.characters;
+      } else {
+        loadedChapterCharacters.value = [];
       }
-      loadedChapterCharacters.value = Array.from(charactersFromScenes.values()); // Convertir la Map en tableau
       
-
 
       
       return chapterData; // Retourner les données chargées
@@ -198,103 +191,71 @@ export function useChapterContent(selectedChapterIdRef, editorRef) {
     // --- DEBUG LOG ---
     
     // --- END DEBUG LOG ---
-
-    // 1. Sauvegarder l'ancien chapitre si nécessaire (et s'il était chargé par ce composable)
-    if (oldId && oldId === lastLoadedChapterId.value) { // S'assurer qu'on sauvegarde le bon
+    if (newId === oldId) {
       
-      const saved = await saveCurrentChapterIfNeeded(); // Tenter de sauvegarder
-      if (!saved) {
-        // Gérer l'échec de la sauvegarde si nécessaire (ex: notifier l'utilisateur)
-        console.warn(`useChapterContent: Failed to save chapter ${oldId} before switching. Changes might be lost.`);
-        // Optionnel: Demander confirmation avant de changer si la sauvegarde échoue ?
+      return; // Ne rien faire si l'ID n'a pas changé
+    }
+
+    // Sauvegarder l'ancien contenu avant de charger le nouveau, s'il y a des changements non sauvegardés
+    if (oldId !== null && editorRef.value && hasUnsavedChanges.value) {
+      
+      const success = await saveCurrentChapterIfNeeded(false); // false car ce n'est pas une sauvegarde manuelle forcée
+      if (!success) {
+        // Gérer l'échec de la sauvegarde ? Peut-être afficher un message à l'utilisateur.
+        // Pour l'instant, on continue le chargement du nouveau chapitre.
+        console.warn(`useChapterContent: Failed to auto-save chapter ${oldId} before switching.`);
       }
     }
+    
+    // Charger le nouveau contenu
+    await fetchChapterContent(newId);
+  }, { immediate: false }); // immediate: false car le chargement initial est géré par EditorComponent via onMounted
 
-    // 2. Charger le nouveau chapitre
-    if (newId) {
-      await fetchChapterContent(newId);
-    } else {
-      // Si newId est null (aucun chapitre sélectionné), effacer l'éditeur
-      fetchChapterContent(null); // Appeler avec null pour réinitialiser
-    }
-  }, { immediate: false }); // Ne pas exécuter immédiatement au montage, attendre une sélection
 
-  // NOUVEAU: Fonction pour appliquer une suggestion au contenu du chapitre
-  // (Cette fonction est un exemple et pourrait nécessiter des ajustements)
+  // --- Helper pour effacer l'erreur de chargement ---
+  const clearLoadingError = () => {
+    loadingError.value = null;
+  };
+
+  // --- Fonction pour appliquer une suggestion ---
+  // Modifiée pour mettre à jour directement le contenu de l'éditeur et marquer comme non sauvegardé
   function applySuggestionToChapter(chapterId, suggestionData) {
-  if (selectedChapterIdRef.value !== chapterId || !editorRef.value) {
-    console.warn("Tentative d'appliquer une suggestion à un chapitre non sélectionné ou éditeur non prêt.");
-    return;
-  }
-
-  // Vérifier que les données de suggestion nécessaires sont présentes et valides
-  if (
-    suggestionData &&
-    typeof suggestionData.startIndex === 'number' &&
-    typeof suggestionData.endIndex === 'number' &&
-    suggestionData.startIndex <= suggestionData.endIndex && // endIndex peut être égal à startIndex pour une simple insertion
-    suggestionData.suggestedText !== undefined // suggestedText peut être une chaîne vide (pour une suppression)
-  ) {
-    try {
-      const editor = editorRef.value;
-      const docSize = editor.state.doc.content.size;
-
-      // S'assurer que les indices sont dans les limites du document.
-      // TipTap clamp généralement les positions, mais une vérification explicite est plus sûre.
-      const from = Math.max(0, Math.min(suggestionData.startIndex, docSize));
-      // 'to' doit être >= 'from' et aussi dans les limites.
-      const to = Math.max(from, Math.min(suggestionData.endIndex, docSize));
-
-      if (from > docSize || to > docSize || from > to) { // Vérification supplémentaire
-          console.warn("Les indices de la suggestion sont invalides ou dépassent la taille du document.", {suggestionData, docSize, from, to});
-          // Idéalement, informer l'utilisateur ici.
-          return;
-      }
-      
-      // Utiliser insertContentAt pour remplacer la plage.
-      // Si startIndex et endIndex sont identiques, cela insère à cette position.
-      // Si suggestedText est une chaîne vide, cela supprime la plage.
-      editor.chain().focus().insertContentAt({ from, to }, suggestionData.suggestedText).run();
-      
-      // TRÈS IMPORTANT: Mettre à jour lastSavedContent pour refléter le changement.
-      // Sinon, hasUnsavedChanges ne fonctionnera pas correctement et la sauvegarde pourrait ne pas se déclencher.
-      // Il est préférable de le faire après que TipTap ait traité la transaction.
-      // Utiliser requestAnimationFrame pour s'assurer que l'état de l'éditeur est mis à jour.
-      requestAnimationFrame(() => {
-        if (editorRef.value) { // Vérifier à nouveau car c'est asynchrone
-            lastSavedContent.value = editorRef.value.getHTML();
-            console.log("Suggestion appliquée et lastSavedContent mis à jour.");
-        }
-      });
-
-      // Optionnel: Sauvegarder immédiatement après l'application (peut être redondant si la sauvegarde auto est active)
-      // saveCurrentChapterIfNeeded(true); 
-
-    } catch (error) {
-      console.error("Erreur lors de l'application de la suggestion à l'éditeur TipTap:", error, suggestionData);
+    if (selectedChapterIdRef.value === chapterId && editorRef.value) {
+        const currentPosition = editorRef.value.state.selection.to;
+        
+        // Insérer la suggestion. Si du texte est sélectionné, il sera remplacé.
+        // Sinon, la suggestion est insérée à la position du curseur.
+        editorRef.value.chain().focus().insertContentAt(currentPosition, suggestionData).run();
+        
+        // Mettre à jour lastSavedContent pour refléter que le contenu a changé et nécessite une sauvegarde.
+        // On ne met PAS à jour lastSavedContent avec le nouveau contenu, car cela indiquerait faussement
+        // que le contenu est "sauvegardé" alors qu'il vient d'être modifié par la suggestion.
+        // hasUnsavedChanges deviendra true.
+        // La sauvegarde se fera via le mécanisme normal (blur, manuel, changement de chapitre).
+        
+        // Optionnel: forcer la détection de changement si TipTap ne le fait pas assez vite
+        // editorRef.value.emit('update'); 
+        return true;
     }
-  } else {
-    // Ce log est celui que vous voyez actuellement si la structure de suggestionData n'est pas celle attendue par cette nouvelle logique.
-    console.warn("Données de suggestion invalides ou manquantes pour l'application (vérification initiale).", suggestionData);
+    return false;
   }
-}
 
 
-  // --- Return ---
+  // --- Retourner les refs et fonctions ---
   return {
-    currentChapterTitle,
-    currentChapterProjectId,
-    lastSavedContent,
-    isLoading,
-    isSaving,
-    loadingError,
-    savingError,
+    currentChapterTitle: computed(() => currentChapterTitle.value),
+    currentChapterProjectId: computed(() => currentChapterProjectId.value),
+    content: lastSavedContent, // Exposer le contenu sauvegardé (ou le contenu actuel si on le souhaite)
+    isLoading: computed(() => isLoading.value),
+    isSaving: computed(() => isSaving.value),
+    loadingError: computed(() => loadingError.value),
+    savingError: computed(() => savingError.value),
     hasUnsavedChanges,
-    loadedChapterCharacters, // Exposer les personnages chargés
+    loadedChapterCharacters: computed(() => loadedChapterCharacters.value), // Personnages du chapitre
 
-    fetchChapterContent,
-    saveChapterContent,
+    loadChapterContent: fetchChapterContent,
     saveCurrentChapterIfNeeded,
-    applySuggestionToChapter, // Exposer la nouvelle fonction
+    applySuggestionToChapter, // Exposer la fonction modifiée
+    clearLoadingError,
   };
 }

@@ -16,152 +16,136 @@
         drag-class="drag-item"
       >
         <template #item="{ element: chapter }">
-          <v-list-group
-            :key="chapter.id"
-            :value="chapter.id"
-            @update:modelValue="(newValue) => $emit('load-scenes-if-needed', chapter.id, newValue)"
-            class="chapter-group"
-          >
-            <template v-slot:activator="{ props: activatorProps }">
-              <v-list-item
-                v-bind="activatorProps"
-                link
-                density="default"
-                min-height="48px"
-                :class="{ 'v-list-item--active active-chapter': selectedChapterId === chapter.id }"
-                class="list-item-hover-actions chapter-item pl-2 pr-1 py-1"
-                @click.stop="$emit('select-chapter', chapter.id)"
-              >
-                <template v-slot:prepend>
-                   <IconGripVertical size="20" class="drag-handle mr-2" title="Réordonner" />
-                  <v-checkbox-btn
-                    :model-value="selectedChapterIds.includes(chapter.id)"
-                    @update:model-value="$emit('toggle-selection', chapter.id)"
-                    density="default"
-                    @click.stop
-                    class="mr-2 flex-grow-0"
-                  ></v-checkbox-btn>
-                  <IconBook size="20" class="mr-2" />
-                </template>
+          <div> <!-- Enveloppe pour vuedraggable -->
+            <v-list-item
+              :key="chapter.id"
+              link
+              density="default"
+              min-height="48px"
+              :class="{ 'v-list-item--active active-chapter': selectedChapterId === chapter.id }"
+              class="list-item-hover-actions chapter-item pl-2 pr-1 py-1"
+              @click.stop="$emit('select-chapter', chapter.id)"
+            >
+              <template v-slot:prepend>
+                 <IconGripVertical size="20" class="drag-handle mr-2" title="Réordonner" />
+                <v-checkbox-btn
+                  :model-value="selectedChapterIds.includes(chapter.id)"
+                  @update:model-value="$emit('toggle-selection', chapter.id)"
+                  density="default"
+                  @click.stop
+                  class="mr-2 flex-grow-0"
+                ></v-checkbox-btn>
+                <IconBook size="20" class="mr-2" />
+              </template>
 
-                <v-list-item-title class="text-body-1 font-weight-medium">{{ chapter.title }}</v-list-item-title>
-                <v-list-item-subtitle v-if="chapter.summary" class="summary-preview mt-1">
-                  Résumé: {{ chapter.summary.substring(0, 70) }}{{ chapter.summary.length > 70 ? '...' : '' }}
-                </v-list-item-subtitle>
+              <v-list-item-title class="text-body-1 font-weight-medium">{{ chapter.title }}</v-list-item-title>
+              <v-list-item-subtitle v-if="chapter.summary" class="summary-preview mt-1">
+                Résumé: {{ chapter.summary.substring(0, 70) }}{{ chapter.summary.length > 70 ? '...' : '' }}
+              </v-list-item-subtitle>
 
 
-                <template v-slot:append>
-                  <v-tooltip location="top">
-                    <template v-slot:activator="{ props: tooltipPropsSummary }">
-                      <v-btn
-                        v-bind="tooltipPropsSummary"
-                        icon
-                        density="default"
-                        variant="text"
-                        size="default"
-                        @click.stop="$emit('request-generate-summary', chapter.id)" 
-                        :loading="props.generatingSummaryChapterId === chapter.id" 
-                        :disabled="props.generatingSummaryChapterId === chapter.id"
-                        class="action-btn"
-                        title="Générer/Régénérer le résumé"
-                      >
-                        <v-icon size="20">mdi-text-box-check-outline</v-icon>
-                      </v-btn>
-                    </template>
-                    <span>{{ chapter.summary ? 'Régénérer le résumé' : 'Générer le résumé' }}</span>
-                  </v-tooltip>
+              <template v-slot:append>
+                <v-tooltip location="top">
+                  <template v-slot:activator="{ props: tooltipPropsSummary }">
+                    <v-btn
+                      v-bind="tooltipPropsSummary"
+                      icon
+                      density="default"
+                      variant="text"
+                      size="default"
+                      @click.stop="$emit('request-generate-summary', chapter.id)" 
+                      :loading="props.generatingSummaryChapterId === chapter.id" 
+                      :disabled="props.generatingSummaryChapterId === chapter.id"
+                      class="action-btn"
+                      title="Générer/Régénérer le résumé"
+                    >
+                      <v-icon size="20">mdi-text-box-check-outline</v-icon>
+                    </v-btn>
+                  </template>
+                  <span>{{ chapter.summary ? 'Régénérer le résumé' : 'Générer le résumé' }}</span>
+                </v-tooltip>
 
-                  <v-menu location="bottom end">
-                    <template v-slot:activator="{ props: menuProps }">
-                      <v-btn
-                        icon
-                        density="default"
-                        variant="text"
-                        v-bind="menuProps"
-                        @click.stop
-                        title="Actions Chapitre"
-                        class="action-menu-btn"
-                        size="default"
-                      >
-                        <IconDotsVertical size="22" />
-                      </v-btn>
-                    </template>
-                    <v-list density="compact">
-                      <v-list-subheader>Exporter Chapitre</v-list-subheader>
-                      <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'docx' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en DOCX">
-                        <template v-slot:prepend>
-                          <IconFileText size="20" class="mr-3"/>
+                <v-menu location="bottom end">
+                  <template v-slot:activator="{ props: menuProps }">
+                    <v-btn
+                      icon
+                      density="default"
+                      variant="text"
+                      v-bind="menuProps"
+                      @click.stop
+                      title="Actions Chapitre"
+                      class="action-menu-btn"
+                      size="default"
+                    >
+                      <IconDotsVertical size="22" />
+                    </v-btn>
+                  </template>
+                  <v-list density="compact">
+                    <v-list-subheader>Exporter Chapitre</v-list-subheader>
+                    <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'docx' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en DOCX">
+                      <template v-slot:prepend>
+                        <IconFileText size="20" class="mr-3"/>
+                      </template>
+                      <v-list-item-title>DOCX</v-list-item-title>
+                       <template v-slot:append v-if="exportingChapterId === chapter.id && exportingFormat === 'docx'">
+                          <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
                         </template>
-                        <v-list-item-title>DOCX</v-list-item-title>
-                         <template v-slot:append v-if="exportingChapterId === chapter.id && exportingFormat === 'docx'">
-                            <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
-                          </template>
-                      </v-list-item>
-                      <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'pdf' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en PDF">
-                        <template v-slot:prepend>
-                          <IconFileTypePdf size="20" class="mr-3"/>
+                    </v-list-item>
+                    <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'pdf' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en PDF">
+                      <template v-slot:prepend>
+                        <IconFileTypePdf size="20" class="mr-3"/>
+                      </template>
+                      <v-list-item-title>PDF</v-list-item-title>
+                       <template v-slot:append v-if="exportingChapterId === chapter.id && exportingFormat === 'pdf'">
+                          <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
                         </template>
-                        <v-list-item-title>PDF</v-list-item-title>
-                         <template v-slot:append v-if="exportingChapterId === chapter.id && exportingFormat === 'pdf'">
-                            <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
-                          </template>
-                       </v-list-item>
-                       <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'txt' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en TXT">
-                         <template v-slot:prepend>
-                           <IconFileText size="20" class="mr-3"/>
+                     </v-list-item>
+                     <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'txt' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en TXT">
+                       <template v-slot:prepend>
+                         <IconFileText size="20" class="mr-3"/>
+                       </template>
+                       <v-list-item-title>TXT</v-list-item-title>
+                        <template v-slot:append v-if="exportingChapterId === chapter.id && exportingFormat === 'txt'">
+                           <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
                          </template>
-                         <v-list-item-title>TXT</v-list-item-title>
-                          <template v-slot:append v-if="exportingChapterId === chapter.id && exportingFormat === 'txt'">
-                             <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
-                           </template>
-                        </v-list-item>
-                       <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'epub' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en EPUB">
-                         <template v-slot:prepend>
-                           <IconBookDownload size="20" class="mr-3"/>
+                      </v-list-item>
+                     <v-list-item @click="$emit('handle-export', { chapterId: chapter.id, format: 'epub' })" :disabled="!!exportingChapterId" title="Exporter Chapitre en EPUB">
+                       <template v-slot:prepend>
+                         <IconBookDownload size="20" class="mr-3"/>
+                       </template>
+                       <v-list-item-title>EPUB</v-list-item-title>
+                        <template v-slot:append v-if="exportingChapterId === chapter.id && exportingFormat === 'epub'">
+                           <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
                          </template>
-                         <v-list-item-title>EPUB</v-list-item-title>
-                          <template v-slot:append v-if="exportingChapterId === chapter.id && exportingFormat === 'epub'">
-                             <v-progress-circular indeterminate size="16" width="2" color="primary"></v-progress-circular>
-                           </template>
-                        </v-list-item>
-                      <v-divider class="my-1"></v-divider>
-                      <v-list-subheader>Actions Chapitre</v-list-subheader>
-                      <v-list-item @click="openEditChapterDialog(chapter)" title="Modifier le chapitre">
-                        <template v-slot:prepend>
-                          <IconPencil size="20" class="mr-3"/>
+                      </v-list-item>
+                    <v-divider class="my-1"></v-divider>
+                    <v-list-subheader>Actions Chapitre</v-list-subheader>
+                    <v-list-item @click="openEditChapterDialog(chapter)" title="Modifier le chapitre">
+                      <template v-slot:prepend>
+                        <IconPencil size="20" class="mr-3"/>
+                      </template>
+                      <v-list-item-title>Modifier</v-list-item-title>
+                    </v-list-item>
+                    <v-list-item @click.stop="openChapterAnalysisDialog(chapter.id)" title="Analyser le contenu du chapitre">
+                       <template v-slot:prepend>
+                         <IconFileSearch size="20" class="mr-3"/>
+                       </template>
+                       <v-list-item-title>Analyser Contenu</v-list-item-title>
+                       <template v-slot:append v-if="loadingChapterAnalysis && analyzingChapterId === chapter.id">
+                          <v-progress-circular indeterminate size="16" width="2" color="info"></v-progress-circular>
                         </template>
-                        <v-list-item-title>Modifier</v-list-item-title>
-                      </v-list-item>
-                      <v-list-item @click.stop="$emit('open-add-scene', chapter.id)" title="Ajouter une scène">
-                         <template v-slot:prepend>
-                           <IconSquarePlus size="20" class="mr-3"/>
-                         </template>
-                         <v-list-item-title>Ajouter Scène</v-list-item-title>
-                      </v-list-item>
-                      <v-list-item @click.stop="openChapterAnalysisDialog(chapter.id)" title="Analyser le contenu du chapitre">
-                         <template v-slot:prepend>
-                           <IconFileSearch size="20" class="mr-3"/>
-                         </template>
-                         <v-list-item-title>Analyser Contenu</v-list-item-title>
-                         <template v-slot:append v-if="loadingChapterAnalysis && analyzingChapterId === chapter.id">
-                            <v-progress-circular indeterminate size="16" width="2" color="info"></v-progress-circular>
-                          </template>
-                      </v-list-item>
-                      <v-list-item @click="$emit('open-delete', chapter, 'chapter')" title="Supprimer le chapitre" class="text-error">
-                        <template v-slot:prepend>
-                          <IconTrash size="20" class="mr-3"/>
-                        </template>
-                        <v-list-item-title>Supprimer</v-list-item-title>
-                      </v-list-item>
-                    </v-list>
-                  </v-menu>
-                </template>
-              </v-list-item>
-            </template>
-
-            <slot :name="`scene-list-${chapter.id}`"></slot>
-
-          </v-list-group>
+                    </v-list-item>
+                    <v-list-item @click="$emit('open-delete', chapter, 'chapter')" title="Supprimer le chapitre" class="text-error">
+                      <template v-slot:prepend>
+                        <IconTrash size="20" class="mr-3"/>
+                      </template>
+                      <v-list-item-title>Supprimer</v-list-item-title>
+                    </v-list-item>
+                  </v-list>
+                </v-menu>
+              </template>
+            </v-list-item>
+          </div>
         </template>
       </draggable>
 
@@ -201,220 +185,221 @@
         :show="showChapterAnalysisDialog"
         :loading="loadingChapterAnalysis"
         :error="errorChapterAnalysis"
-        :analysisResult="chapterAnalysisResult"
-        :chapterTitle="getChapterTitleById(analyzingChapterId)"
+        :analysis-result="chapterAnalysisResult"
+        :chapter-title="analyzingChapterTitle"
         @close="closeChapterAnalysisDialog"
-        @apply-suggestion="handleApplySuggestion"
+        @apply-suggestion="handleApplySuggestionFromDialog"
       />
   </div>
 </template>
 
 <script setup>
-import { defineProps, defineEmits, ref, watch, computed, nextTick, onMounted } from 'vue';
+import { ref, watch, computed } from 'vue';
 import draggable from 'vuedraggable';
-import {
-  VListGroup, VListItem, VListItemTitle, VListSubheader, VDivider, VIcon, VTooltip,
-  VBtn, VProgressLinear, VAlert, VCheckboxBtn, VMenu, VProgressCircular, VList
-} from 'vuetify/components';
+import { 
+  VList, VListItem, VListItemTitle, VListItemSubtitle, VProgressLinear, VAlert, VBtn, VIcon, 
+  VMenu, VListSubheader, VDivider, VProgressCircular, VCheckboxBtn, VTooltip
+} from 'vuetify/components'; // VListGroup retiré
+import { 
+  IconBook, IconDotsVertical, IconPencil, IconTrash, IconPlus, IconFileText, 
+  IconFileTypePdf, IconBookDownload, IconFileSearch, IconGripVertical
+} from '@tabler/icons-vue'; // IconSquarePlus retiré
+
 import AddChapterDialog from './dialogs/AddChapterDialog.vue';
 import EditChapterDialog from './dialogs/EditChapterDialog.vue';
 import ChapterAnalysisDialog from './dialogs/ChapterAnalysisDialog.vue';
-// import { useChapters } from '@/composables/useChapters.js'; // SUPPRIMÉ
-import { useAnalysis } from '@/composables/useAnalysis.js';
-import { useAIModels } from '@/composables/useAIModels.js';
-import { useProjects } from '@/composables/useProjects.js'; 
 
-import {
-  IconGripVertical, IconBook, IconDotsVertical, IconFileText, IconFileTypePdf,
-  IconBookDownload, IconPencil, IconSquarePlus, IconFileSearch, IconTrash, IconPlus
-} from '@tabler/icons-vue';
+// Import du composable useAnalysis
+import { useAnalysis } from '@/composables/useAnalysis.js';
+
 
 const props = defineProps({
-  chapters: Array,
-  selectedChapterId: [Number, String, null],
-  projectId: [Number, String, null],
-  loading: Boolean, // Renommé en loadingChapters dans le template pour clarté
-  error: String,    // Renommé en errorChapters dans le template
+  projectId: {
+    type: Number,
+    required: true
+  },
+  chapters: {
+    type: Array,
+    default: () => []
+  },
+  loading: { 
+    type: Boolean,
+    default: false
+  },
+  error: { 
+    type: [String, null],
+    default: null
+  },
+  selectedChapterId: {
+    type: [Number, null],
+    default: null
+  },
   selectedChapterIds: {
     type: Array,
     default: () => []
   },
-  exportingChapterId: { 
-    type: [Number, String, null],
-    default: null,
+  exportingChapterId: {
+    type: [Number, null],
+    default: null
   },
-  exportingFormat: { 
-      type: String,
-      default: null,
+  exportingFormat: {
+    type: [String, null],
+    default: null
   },
-  showSnackbar: Function,
-  // NOUVELLES PROPS pour les états de chargement gérés par le parent
-  submittingChapter: Boolean,
-  generatingSummaryChapterId: [Number, String, null],
+  submittingChapter: { 
+    type: Boolean,
+    default: false
+  },
+  generatingSummaryChapterId: { 
+    type: [Number, null],
+    default: null
+  },
+  showSnackbar: { 
+    type: Function,
+    default: () => {}
+  },
+  getProjectNameById: {
+    type: Function,
+    default: () => ''
+  }
 });
 
 const emit = defineEmits([
-  'select-chapter',
-  'reordered',
-  'open-add-scene',
+  'reordered', 
+  'select-chapter', 
+  'toggle-selection', 
+  'handle-export', 
   'open-delete',
-  'toggle-selection',
-  'handle-export',
-  'load-scenes-if-needed',
-  'apply-suggestion-to-editor',
-  // NOUVEAUX ÉVÉNEMENTS
-  'request-add-chapter',
-  'request-update-chapter',
-  'request-generate-summary',
+  'apply-suggestion', 
+  'request-add-chapter',    
+  'request-update-chapter', 
+  'request-generate-summary' 
 ]);
 
-// Utilisation du composable useChapters SUPPRIMÉE
-// const {
-//   chapterError: generalChapterError, // Sera géré par le parent ou passé en prop si nécessaire
-//   submittingChapter, // Sera une prop
-//   generatingSummaryChapterId, // Sera une prop
-//   fetchChaptersForProject, // Non utilisé directement ici
-//   addChapter, // Sera émis
-//   updateChapter, // Sera émis
-//   deleteChapter, // Déjà émis via open-delete
-//   generateChapterSummary, // Sera émis
-// } = useChapters(props.showSnackbar); 
+const localChapters = ref([...props.chapters]);
+const loadingChapters = computed(() => props.loading); 
+const errorChapters = computed(() => props.error);     
+
+watch(() => props.chapters, (newChapters) => {
+  localChapters.value = [...newChapters];
+}, { deep: true });
 
 
-// Dialogs state
 const showAddChapterDialog = ref(false);
-const addChapterError = ref(null); // Peut être gardé localement pour le dialogue
+const addChapterError = ref(null); 
 
 const showEditChapterDialog = ref(false);
-const editingChapter = ref(null); 
-const editChapterError = ref(null); // Peut être gardé localement
+const editingChapter = ref(null);
+const editChapterError = ref(null); 
 
 const showChapterAnalysisDialog = ref(false);
 const analyzingChapterId = ref(null);
-const chapterAnalysisResult = ref(null);
+const analyzingChapterTitle = ref(''); 
 
-// Utilisation du composable useAnalysis
 const {
-    performChapterAnalysis,
-    loading: loadingChapterAnalysis, 
-    error: errorChapterAnalysis, 
-    applySuggestionToContent,
+    analysisResult: chapterAnalysisResult, 
+    loadingAnalysis: loadingChapterAnalysis,
+    errorAnalysis: errorChapterAnalysis,
+    getChapterAnalysis,
 } = useAnalysis(props.showSnackbar);
 
 
-const localChapters = ref([]);
-
-watch(() => props.chapters, (newChapters) => {
-  localChapters.value = newChapters ? [...newChapters] : [];
-}, { immediate: true, deep: true });
-
-
-const loadingChapters = computed(() => props.loading);
-const errorChapters = computed(() => props.error);
-
-
 const openAddChapterDialogInternal = () => {
-  addChapterError.value = null;
+  addChapterError.value = null; 
   showAddChapterDialog.value = true;
 };
 
 const handleAddChapterDialogClose = () => {
   showAddChapterDialog.value = false;
+  addChapterError.value = null;
 };
 
-const handleAddChapterDialogSave = async (title) => {
-  if (!props.projectId) {
-    addChapterError.value = "ID du projet non défini."; // Garder l'erreur locale au dialogue
-    if(props.showSnackbar) props.showSnackbar(addChapterError.value, 'error');
-    return;
-  }
-  addChapterError.value = null;
-  // Émettre l'événement au lieu d'appeler addChapter directement
-  emit('request-add-chapter', { projectId: props.projectId, title: title });
-  // La fermeture du dialogue sera gérée par le parent ou après confirmation de succès
-  // Pour l'instant, on suppose que le parent gère la fermeture si l'ajout réussit.
-  // Si l'ajout échoue, le parent pourrait ne pas fermer, et addChapterError pourrait être mis à jour via une prop.
-  // Pour simplifier, on ferme ici et le parent peut rouvrir ou afficher une erreur globale.
-  // Alternative: attendre une confirmation de succès du parent.
-  // Pour l'instant, on ne ferme pas ici, on laisse le parent gérer.
-  showAddChapterDialog.value = false; // Fermé après émission de la requête. Le parent gère la suite (ex: erreurs).
+const handleAddChapterDialogSave = async (chapterData) => {
+  emit('request-add-chapter', props.projectId, chapterData);
 };
+
 
 const openEditChapterDialog = (chapter) => {
-  editingChapter.value = { ...chapter }; 
-  editChapterError.value = null;
+  editingChapter.value = { ...chapter };
+  editChapterError.value = null; 
   showEditChapterDialog.value = true;
 };
 
 const closeEditChapterDialog = () => {
   showEditChapterDialog.value = false;
   editingChapter.value = null;
+  editChapterError.value = null;
 };
 
-const submitEditChapter = async (dataToSave) => { // dataToSave est { title, summary }
-  if (!editingChapter.value || !editingChapter.value.id) return;
-  editChapterError.value = null;
-  
-  const updatePayload = { 
-    id: editingChapter.value.id,
-    title: dataToSave.title, 
-    summary: dataToSave.summary 
-  };
-  emit('request-update-chapter', updatePayload);
-  // La fermeture du dialogue sera gérée par le parent.
-  // showEditChapterDialog.value = false; 
-  // editingChapter.value = null;
+const submitEditChapter = async (chapterUpdateData) => {
+  if (!editingChapter.value) return;
+  emit('request-update-chapter', editingChapter.value.id, chapterUpdateData);
 };
 
 const openChapterAnalysisDialog = async (chapterId) => {
     analyzingChapterId.value = chapterId;
+    const chapter = localChapters.value.find(c => c.id === chapterId);
+    analyzingChapterTitle.value = chapter ? chapter.title : 'Chapitre';
+    errorChapterAnalysis.value = null; 
     chapterAnalysisResult.value = null; 
     showChapterAnalysisDialog.value = true;
-    const result = await performChapterAnalysis(chapterId);
-    if (result) {
-        chapterAnalysisResult.value = result;
-    }
+    await getChapterAnalysis(chapterId); 
 };
 
 const closeChapterAnalysisDialog = () => {
     showChapterAnalysisDialog.value = false;
     analyzingChapterId.value = null;
+    chapterAnalysisResult.value = null;
+    errorChapterAnalysis.value = null;
 };
 
-const handleApplySuggestion = (suggestion) => {
-    emit('apply-suggestion-to-editor', { chapterId: analyzingChapterId.value, suggestion });
+const handleApplySuggestionFromDialog = (suggestionData) => {
+    emit('apply-suggestion', suggestionData);
+    closeChapterAnalysisDialog(); 
 };
 
-const { getProjectById } = useProjects(); 
-const getProjectNameById = (pId) => {
-    if (!pId) return "Projet inconnu";
-    const project = getProjectById(pId); 
-    return project ? project.title : "Projet en chargement...";
-};
-
-const getChapterTitleById = (chapterId) => {
-    if (!chapterId || !localChapters.value) return "Chapitre inconnu";
-    const chapter = localChapters.value.find(c => c.id === chapterId);
-    return chapter ? chapter.title : "Chapitre inconnu";
-};
-
-// handleGenerateSummary est maintenant géré par un emit dans le template:
-// @click.stop="$emit('request-generate-summary', chapter.id)"
 
 </script>
 
 <style scoped>
 .chapters-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
+  /* Styles pour le conteneur des chapitres */
 }
+/* Retrait de .chapter-group car v-list-group n'est plus utilisé */
+
+.chapter-item.v-list-item--active {
+  /* background-color: rgba(var(--v-theme-primary), 0.1) !important; */
+  /* border-left-color: rgb(var(--v-theme-primary)) !important; */ /* Plus pertinent sans v-list-group */
+}
+.active-chapter {
+   background-color: rgba(var(--v-theme-primary), 0.10); 
+   /* border-left: 3px solid rgb(var(--v-theme-primary)); */ /* Moins pertinent sans v-list-group */
+}
+
+
+.list-item-hover-actions .v-btn {
+  opacity: 0.6;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.list-item-hover-actions:hover .v-btn,
+.list-item-hover-actions .v-btn:focus, 
+.list-item-hover-actions .v-btn.v-btn--active, 
+.list-item-hover-actions .v-menu--active .action-menu-btn 
+ {
+  opacity: 1;
+}
+.action-btn {
+  /* Pour s'assurer qu'ils ne prennent pas trop de place et s'alignent bien */
+}
+.action-menu-btn {
+ /* Styles spécifiques si nécessaire */
+}
+
 
 .drag-handle {
   cursor: grab;
   opacity: 0.5;
-  margin-right: 8px; 
 }
 .drag-handle:hover {
   opacity: 1;
@@ -424,47 +409,16 @@ const getChapterTitleById = (chapterId) => {
   opacity: 0.5;
   background: #c8ebfb;
 }
-
-.chapter-item {
-  border-left: 3px solid transparent; 
-  transition: background-color 0.1s ease-in-out;
-}
-.chapter-item:hover {
-  background-color: rgba(var(--v-theme-on-surface), 0.04);
-}
-
-.v-list-item--active.active-chapter {
-  border-left-color: rgb(var(--v-theme-primary)) !important;
-}
-.v-list-item--active.active-chapter .v-list-item-title {
- font-weight: 500 !important; 
- color: rgb(var(--v-theme-primary));
-}
-
-
-.list-item-hover-actions .action-btn,
-.list-item-hover-actions .action-menu-btn {
-  opacity: 0.3;
-  transition: opacity 0.2s ease-in-out;
-}
-
-.list-item-hover-actions:hover .action-btn,
-.list-item-hover-actions:hover .action-menu-btn,
-.list-item-hover-actions .v-menu--active .action-menu-btn 
- {
-  opacity: 1;
+.drag-item {
+  /* background: #e0e0e0; */
+  /* box-shadow: 0 2px 5px rgba(0,0,0,0.1); */
 }
 .summary-preview {
-  font-size: 0.7rem; 
-  color: rgba(var(--v-theme-on-surface), 0.6); 
+  font-size: 0.75rem;
+  color: grey;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 90%; 
-  line-height: 1.2;
-  margin-top: 2px; /* Ajout d'un petit espace */
-}
-.action-btn { /* Style pour s'assurer que les boutons d'action sont bien alignés */
-  margin-left: 4px;
+  max-width: 200px; /* Ajustez selon besoin */
 }
 </style>

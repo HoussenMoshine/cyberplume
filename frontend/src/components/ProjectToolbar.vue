@@ -3,25 +3,6 @@
     <v-toolbar-title class="text-h6 font-weight-medium">Projets</v-toolbar-title>
     <v-spacer></v-spacer>
 
-    <v-tooltip location="bottom">
-      <template v-slot:activator="{ props }">
-        <v-btn
-          icon
-          variant="tonal"
-          color="secondary"
-          @click="$emit('open-generate-scene-dialog')"
-          v-bind="props"
-          class="mr-1"
-          title="Générer une ébauche de Scène par IA"
-          size="default"
-        >
-          <!-- Utilisation directe de l'icône importée -->
-          <IconMovie size="22" />
-        </v-btn>
-      </template>
-      <span>Générer une ébauche de Scène par IA</span>
-    </v-tooltip>
-
      <v-tooltip location="bottom">
        <template v-slot:activator="{ props }">
          <v-btn
@@ -34,7 +15,6 @@
            title="Ajouter un projet"
            size="default"
          >
-           <!-- Remplacement par l'icône SVG personnalisée -->
            <img :src="AjouterIconURL" alt="Ajouter projet" width="22" height="22" />
          </v-btn>
        </template>
@@ -53,7 +33,6 @@
             v-bind="props"
             size="default"
           >
-            <!-- Utilisation directe de l'icône importée -->
             <IconTrash size="22" />
           </v-btn>
        </template>
@@ -67,9 +46,8 @@ import { defineProps, defineEmits } from 'vue';
 import {
   VToolbar, VToolbarTitle, VSpacer, VBtn, VTooltip
 } from 'vuetify/components';
-// Import des icônes Tabler nécessaires (importation nommée)
-import { IconMovie, IconTrash } from '@tabler/icons-vue'; // IconPlus supprimée
-import AjouterIconURL from '@/assets/ajouter.svg'; // Ajout de l'import pour l'icône SVG
+import { IconTrash } from '@tabler/icons-vue'; 
+import AjouterIconURL from '@/assets/ajouter.svg';
 
 const props = defineProps({
   selectedProjectIds: {
@@ -83,7 +61,6 @@ const props = defineProps({
 });
 
 const emit = defineEmits([
-  'open-generate-scene-dialog',
   'open-add-project-dialog',
   'open-delete-confirm-dialog'
 ]);

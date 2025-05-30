@@ -53,7 +53,7 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
 
   // --- Core API Call Function ---
 
-  async function triggerAIAction(action) {
+  async function triggerAIAction(action, customPrompt = null) {
 
     // Vérifications initiales (éditeur, paramètres IA, contexte)
     if (!editorRef.value) {
@@ -66,11 +66,21 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
         generationError.value = "Veuillez sélectionner un fournisseur, un modèle et un style IA.";
         return;
     }
-    const context = getContextText(action);
-    const promptTextForApi = context.text;
-    if (context.isEmpty && ['continue', 'reformulate', 'shorten', 'expand'].includes(action)) {
-        console.warn(`useAIActions: Action '${action}' requires text context, but it's empty.`);
-        generationError.value = `L'action "${action}" nécessite du texte (sélectionné ou complet).`;
+    let promptTextForApi;
+    if (customPrompt) {
+      promptTextForApi = customPrompt;
+    } else {
+      const context = getContextText(action);
+      promptTextForApi = context.text;
+      if (context.isEmpty && ['continue', 'reformulate', 'shorten', 'expand'].includes(action) && !customPrompt) { // Vérifier customPrompt ici aussi
+          console.warn(`useAIActions: Action '${action}' requires text context, but it's empty.`);
+          generationError.value = `L'action "${action}" nécessite du texte (sélectionné ou complet).`;
+          return;
+      }
+    }
+    if (!promptTextForApi && !['suggest'].includes(action)) { // 'suggest' peut fonctionner sans prompt initial si le backend le gère
+        console.warn(`useAIActions: Action '${action}' ended up with no prompt text.`);
+        generationError.value = `L'action "${action}" n'a pas pu déterminer de texte de prompt.`;
         return;
     }
 
@@ -277,9 +287,9 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
 
 
 // Fonctions spécifiques pour chaque action, appelant triggerAIAction
-  const triggerSuggest = () => triggerAIAction('suggest');
-  const triggerContinue = () => triggerAIAction('continue');
-  const triggerDialogue = () => triggerAIAction('dialogue');
+  const triggerSuggest = (customPrompt = null) => triggerAIAction('suggest', customPrompt);
+  const triggerContinue = (customPrompt = null) => triggerAIAction('continue', customPrompt);
+  const triggerDialogue = (customPrompt = null) => triggerAIAction('dialogue', customPrompt);
   const triggerReformulate = () => triggerAIAction('reformulate');
   const triggerShorten = () => triggerAIAction('shorten');
   const triggerExpand = () => triggerAIAction('expand');

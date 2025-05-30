@@ -3,7 +3,6 @@
     <ProjectToolbar
       :selectedProjectIds="selectedProjectIds"
       :selectedChapterIds="selectedChapterIds"
-      @open-generate-scene-dialog="openGenerateSceneDialog"
       @open-add-project-dialog="showAddProjectDialog = true"
       @open-delete-confirm-dialog="openDeleteConfirmDialog"
     />
@@ -44,11 +43,9 @@
               :submittingChapter="submittingChapter" 
               :generatingSummaryChapterId="generatingSummaryChapterId" 
               @reordered="(event) => onChapterDrop(project.id, event)"
-              @load-scenes-if-needed="loadScenesIfNeeded"
               @select-chapter="(chapterId) => selectChapter(project.id, chapterId)"
               @toggle-selection="toggleChapterSelection"
               @handle-export="handleChapterExport"
-              @open-add-scene="openAddSceneDialog"
               @open-delete="openDeleteConfirmDialog"
               @apply-suggestion="handleApplySuggestion"
               @request-add-chapter="handleChapterAddRequested"
@@ -56,18 +53,6 @@
               @request-generate-summary="handleChapterGenerateSummaryRequested"
               :showSnackbar="showSnackbar" 
             >
-              <template v-for="chapter in chaptersByProjectId[project.id]" :key="`scenes-${chapter.id}`" #[`scene-list-${chapter.id}`]>
-                 <SceneList
-                   :chapter-id="chapter.id"
-                   :scenes="scenesByChapterId[chapter.id]"
-                   :loadingScenes="loadingScenes[chapter.id]"
-                   :errorScenes="errorScenes[chapter.id]"
-                   @reordered="(event) => onSceneDrop(chapter.id, event)"
-                   @select-scene="selectScene"
-                   @open-edit="openEditSceneDialog"
-                   @open-delete="openDeleteConfirmDialog"
-                 />
-              </template>
             </ChapterList>
           </template>
         </ProjectItem>
@@ -82,7 +67,7 @@
     <AddProjectDialog :show="showAddProjectDialog" :loading="submittingProject" :error="addProjectError" @close="handleAddProjectDialogClose" @save="submitNewProject" />
     <DeleteConfirmDialog
       :show="showDeleteConfirmDialog"
-      :loading="!!deletingProjectItemState?.id || deletingChapterItem.value || !!deletingSceneId"
+      :loading="!!deletingProjectItemState?.id || deletingChapterItem.value"
       :deleteTarget="deleteTarget"
       :targetCounts="{ projects: selectedProjectIds.length, chapters: selectedChapterIds.length }"
       @close="closeDeleteConfirmDialog"
@@ -90,21 +75,6 @@
     />
     <EditProjectDialog :show="showEditProjectDialog" :loading="submittingProject" :error="editProjectError" :initialTitle="editingProject?.title || ''" :initialDescription="editingProject?.description || ''" @close="closeEditProjectDialog" @save="submitEditProject" />
 
-    <GenerateSceneDialog
-      :show="showGenerateSceneDialog"
-      :providers="providers"
-      :availableModels="availableModels"
-      :writingStyles="writingStyles"
-      :providerInfo="providerInfo"
-      :loadingModels="loadingModels"
-      :errorLoadingModels="errorLoadingModels"
-      :fetchModels="fetchModels"
-      :selectDefaultModel="selectDefaultModel"
-      :showSnackbar="showSnackbar"
-      :project-characters="[]" 
-      @close="showGenerateSceneDialog = false"
-      @insert-content="handleInsertContent"
-    />
     <AnalysisReportDialog
         :show="showAnalysisDialog"
         :loading="loadingAnalysis"
@@ -140,20 +110,17 @@ import axios from 'axios';
 import AddProjectDialog from './dialogs/AddProjectDialog.vue';
 import DeleteConfirmDialog from './dialogs/DeleteConfirmDialog.vue';
 import EditProjectDialog from './dialogs/EditProjectDialog.vue';
-import GenerateSceneDialog from './dialogs/GenerateSceneDialog.vue';
 import AnalysisReportDialog from './dialogs/AnalysisReportDialog.vue';
 
 import ProjectToolbar from './ProjectToolbar.vue';
 import ProjectItem from './ProjectItem.vue';
 import ChapterList from './ChapterList.vue';
-import SceneList from './SceneList.vue';
 
 
 import { useProjects } from '@/composables/useProjects.js';
 import { useChapters } from '@/composables/useChapters.js';
 import { useAIModels, writingStyles } from '@/composables/useAIModels.js';
 import { useAnalysis } from '@/composables/useAnalysis.js';
-import { useScenes } from '@/composables/useScenes.js';
 // import { useCharacters } from '@/composables/useCharacters.js'; // SUPPRIMÉ
 
 import {
@@ -172,7 +139,7 @@ const props = defineProps({
   currentCustomAiDescription: String,
 });
 
-const emit = defineEmits(['active-chapter-content-changed', 'active-scene-content-changed', 'ai-action-insert-content', 'chapter-selected']);
+const emit = defineEmits(['active-chapter-content-changed', 'ai-action-insert-content', 'chapter-selected']);
 
 
 const snackbarVisible = ref(false);
@@ -198,70 +165,81 @@ const {
   deletingChapterItem, 
   exportingChapterId: exportingChapterIdComposable, 
   generatingSummaryChapterId, 
-  fetchChaptersForProject, addChapter: addChapterComposable, 
-  updateChapter: updateChapterComposable, deleteChapter: deleteChapterInternalComposable, 
-  exportChapter, clearChaptersForProject,
-  reorderChapters, generateChapterSummary 
+  fetchChaptersForProject: fetchChaptersComposable, 
+  addChapter: addChapterComposable, 
+  updateChapter: updateChapterComposable, 
+  deleteChapter: deleteChapterComposable, 
+  reorderChapters: reorderChaptersComposable,
+  exportChapter: exportChapterComposable,
+  generateChapterSummary: generateChapterSummaryComposable,
+  applySuggestionToChapterContent,
 } = useChapters(showSnackbar);
 
-const {
-    providerInfo, providers, availableModels, loadingModels, errorLoadingModels,
-    fetchModels, selectDefaultModel
-} = useAIModels(showSnackbar);
+
+const { 
+  providers, 
+  availableModels, 
+  providerInfo, 
+  loadingModels, 
+  errorLoadingModels, 
+  fetchModels, 
+  selectDefaultModel 
+} = useAIModels(showSnackbar, props);
 
 const {
-    analysisResult, loadingAnalysis, errorAnalysis,
-    triggerConsistencyAnalysis, clearConsistencyAnalysisState,
+    analysisResult,
+    loadingAnalysis,
+    errorAnalysis,
+    getProjectAnalysis,
+    getChapterAnalysis,
+    getStyleAnalysis,
+    applySuggestionToChapter: applySuggestionToChapterAnalysis, // Renommer pour éviter conflit
 } = useAnalysis(showSnackbar);
 
-const {
-  scenesByChapterId, loadingScenes, errorScenes, submittingScene, deletingSceneId,
-  fetchScenesForChapter, addScene, updateScene, deleteScene: deleteSceneComposable, reorderScenes
-} = useScenes(showSnackbar);
 
-// Utilisation de useCharacters SUPPRIMÉE
-// const {
-//     charactersByProjectId, fetchCharactersForProject, addCharacter, updateCharacter, deleteCharacter,
-//     loadingCharacters: loadingAllCharacters, errorCharacters: errorAllCharacters
-// } = useCharacters(showSnackbar);
+// --- State (local) ---
+const activeProjectId = ref(null); // Pour suivre le projet actuellement actif/développé
+const selectedChapterId = ref(null); // ID du chapitre sélectionné pour l'édition
+const selectedProjectIds = ref([]); // Pour la sélection multiple de projets
+const selectedChapterIds = ref([]); // Pour la sélection multiple de chapitres
 
 
-// --- Gestion de la sélection et de l'état actif ---
-const selectedProjectIds = ref([]);
-const selectedChapterId = ref(null);
-const selectedChapterIds = ref([]);
-const activeProjectId = ref(null); 
-
-const selectedSceneId = ref(null);
-
-
-// --- Dialogs ---
+// Dialogs visibility
 const showAddProjectDialog = ref(false);
-const addProjectError = ref(null);
-const editingProject = ref(null);
-const showEditProjectDialog = ref(false);
-const editProjectError = ref(null);
-
 const showDeleteConfirmDialog = ref(false);
-const deleteTarget = ref(null); 
-
-const showGenerateSceneDialog = ref(false);
-const currentChapterIdForSceneGeneration = ref(null);
+const deleteTarget = ref({ type: null, item: null }); // type: 'project' ou 'chapter'
+const showEditProjectDialog = ref(false);
+const editingProject = ref(null); // Projet en cours d'édition
+const addProjectError = ref(null);
+const editProjectError = ref(null);
 
 const showAnalysisDialog = ref(false);
 
 
-// --- Characters ---
-// const allCharacters = computed(() => { // SUPPRIMÉ pour l'instant
-//     if (activeProjectId.value && charactersByProjectId[activeProjectId.value]) {
-//         return charactersByProjectId[activeProjectId.value];
-//     }
-//     return [];
-// });
-
-// --- Logique de Projet ---
-const fetchAllProjects = async () => {
+// --- Cycle de vie ---
+onMounted(async () => {
   await fetchProjectsComposable();
+  // Optionnel: charger les chapitres du premier projet si la liste n'est pas vide
+  if (projects.value.length > 0) {
+    // activeProjectId.value = projects.value[0].id; // Décommentez si vous voulez un projet actif par défaut
+    // await fetchChaptersForProject(projects.value[0].id); // Décommentez pour charger les chapitres
+  }
+});
+
+// --- Gestion des Projets ---
+const fetchChaptersForProject = async (projectId) => {
+  activeProjectId.value = projectId;
+  await fetchChaptersComposable(projectId);
+};
+
+const submitNewProject = async (projectData) => {
+  addProjectError.value = null;
+  const newProject = await addProjectComposable(projectData);
+  if (newProject) {
+    handleAddProjectDialogClose();
+  } else {
+    addProjectError.value = "Erreur lors de l'ajout du projet."; // Ou utiliser l'erreur de useProjects
+  }
 };
 
 const handleAddProjectDialogClose = () => {
@@ -269,18 +247,8 @@ const handleAddProjectDialogClose = () => {
   addProjectError.value = null;
 };
 
-const submitNewProject = async (projectData) => {
-  addProjectError.value = null;
-  const newProject = await addProjectComposable(projectData);
-  if (newProject) {
-    showAddProjectDialog.value = false;
-  } else {
-    addProjectError.value = "Erreur lors de l'ajout du projet."; 
-  }
-};
-
 const openEditProjectDialog = (project) => {
-  editingProject.value = { ...project };
+  editingProject.value = { ...project }; // Copie pour éviter la modification directe
   editProjectError.value = null;
   showEditProjectDialog.value = true;
 };
@@ -288,57 +256,18 @@ const openEditProjectDialog = (project) => {
 const closeEditProjectDialog = () => {
   showEditProjectDialog.value = false;
   editingProject.value = null;
+  editProjectError.value = null;
 };
 
 const submitEditProject = async (projectData) => {
-  if (!editingProject.value || !editingProject.value.id) return;
   editProjectError.value = null;
+  if (!editingProject.value) return;
   const success = await updateProjectComposable(editingProject.value.id, projectData);
   if (success) {
-    showEditProjectDialog.value = false;
-    editingProject.value = null;
+    closeEditProjectDialog();
   } else {
-    editProjectError.value = "Erreur lors de la mise à jour du projet.";
+    editProjectError.value = "Erreur lors de la modification du projet."; // Ou utiliser l'erreur de useProjects
   }
-};
-
-const handleProjectExport = async ({ projectId, format }) => {
-  await exportProject(projectId, format);
-};
-
-
-// --- Logique de Chapitre ---
-const handleChapterAddRequested = async ({ projectId, title }) => {
-  const newChapter = await addChapterComposable(projectId, title);
-  if (newChapter) {
-    // La liste des chapitres est mise à jour par le re-fetch dans addChapterComposable.
-    // Fermer le dialogue AddChapterDialog dans ChapterList si ce n'est pas déjà fait par ChapterList.
-    // Pour l'instant, on assume que ChapterList gère la fermeture de son propre dialogue après l'emit.
-  } else {
-    showSnackbar("Erreur lors de l'ajout du chapitre.", "error");
-  }
-};
-
-const handleChapterUpdateRequested = async (updatePayload) => {
-  const success = await updateChapterComposable(updatePayload.id, { title: updatePayload.title, summary: updatePayload.summary });
-  if (success) {
-    // Le dialogue EditChapterDialog dans ChapterList devrait se fermer.
-  } else {
-    showSnackbar("Erreur lors de la mise à jour du chapitre.", "error");
-  }
-};
-
-const handleChapterGenerateSummaryRequested = async (chapterId) => {
-  await generateChapterSummary(chapterId); 
-};
-
-
-const selectChapter = (projectId, chapterId) => {
-  selectedChapterId.value = chapterId;
-  activeProjectId.value = projectId; 
-  emit('chapter-selected', { projectId, chapterId });
-  fetchScenesForChapter(chapterId); 
-  // fetchCharactersForProject(projectId); // SUPPRIMÉ pour l'instant
 };
 
 const toggleProjectSelection = (projectId) => {
@@ -348,6 +277,19 @@ const toggleProjectSelection = (projectId) => {
   } else {
     selectedProjectIds.value.push(projectId);
   }
+};
+
+const handleProjectExport = async (projectId, format) => {
+    await exportProject(projectId, format);
+};
+
+
+// --- Gestion des Chapitres ---
+const selectChapter = (projectId, chapterId) => {
+  selectedChapterId.value = chapterId;
+  activeProjectId.value = projectId; // S'assurer que le projet parent est actif
+  emit('chapter-selected', { projectId, chapterId });
+  // fetchCharactersForProject(projectId); // SUPPRIMÉ pour l'instant
 };
 
 const toggleChapterSelection = (chapterId) => {
@@ -360,67 +302,73 @@ const toggleChapterSelection = (chapterId) => {
 };
 
 const onChapterDrop = async (projectId, newOrderedChapters) => {
-  const orderedIds = newOrderedChapters.map(ch => ch.id);
-  await reorderChapters(projectId, orderedIds);
+  const orderedIds = newOrderedChapters.map(c => c.id);
+  await reorderChaptersComposable(projectId, orderedIds);
 };
 
-const handleChapterExport = async ({ chapterId, format }) => {
-  await exportChapter(chapterId, format);
+const handleChapterExport = async (chapterId, format) => {
+    await exportChapterComposable(chapterId, format);
 };
 
-// --- Logique de Scène ---
-const openAddSceneDialog = (chapterId) => {
-  console.log("Ouvrir dialogue ajout scène pour chapitre:", chapterId);
+const handleChapterAddRequested = async (projectId, chapterData) => {
+    await addChapterComposable(projectId, chapterData);
 };
 
-const selectScene = (sceneId, chapterId) => {
-  selectedSceneId.value = sceneId;
-  emit('active-scene-content-changed', { sceneId, chapterId });
+const handleChapterUpdateRequested = async (chapterId, chapterUpdateData) => {
+    await updateChapterComposable(chapterId, chapterUpdateData);
 };
 
-const openEditSceneDialog = (scene) => {
-  console.log("Ouvrir dialogue édition scène:", scene);
+const handleChapterGenerateSummaryRequested = async (chapterId) => {
+    await generateChapterSummaryComposable(chapterId);
 };
 
-const onSceneDrop = async (chapterId, newOrderedScenes) => {
-  const orderedIds = newOrderedScenes.map(s => s.id);
-  await reorderScenes(chapterId, orderedIds);
-};
 
-const loadScenesIfNeeded = async (chapterId, isOpen) => {
-    if (isOpen && chapterId && (!scenesByChapterId[chapterId] || scenesByChapterId[chapterId].length === 0)) {
-        await fetchScenesForChapter(chapterId);
-    }
-};
-
-// --- Logique de Suppression ---
-const openDeleteConfirmDialog = (item, type) => {
-  deleteTarget.value = { item, type, id: item.id };
+// --- Suppression (Projets & Chapitres) ---
+const openDeleteConfirmDialog = (type, item) => {
+  deleteTarget.value = { type, item };
   showDeleteConfirmDialog.value = true;
 };
 
 const closeDeleteConfirmDialog = () => {
   showDeleteConfirmDialog.value = false;
-  deleteTarget.value = null;
+  deleteTarget.value = { type: null, item: null };
 };
 
 const confirmDelete = async () => {
-  if (!deleteTarget.value) return;
-  const { type, id, item } = deleteTarget.value;
+  const { type, item } = deleteTarget.value;
   let success = false;
 
-  if (type === 'project') {
-    success = await deleteProjectInternalComposable(id);
-    if (success) selectedProjectIds.value = selectedProjectIds.value.filter(pid => pid !== id);
-  } else if (type === 'chapter') {
-    success = await deleteChapterInternalComposable(id);
-    if (success) selectedChapterIds.value = selectedChapterIds.value.filter(cid => cid !== id);
-  } else if (type === 'scene') {
-    success = await deleteSceneComposable(id);
+  if (type === 'project-selection' && selectedProjectIds.value.length > 0) {
+    // Logique pour supprimer plusieurs projets sélectionnés
+    // Pour l'instant, on va boucler, mais une API de suppression en masse serait mieux
+    let allSucceeded = true;
+    for (const projectId of selectedProjectIds.value) {
+      const result = await deleteProjectInternalComposable(projectId);
+      if (!result) allSucceeded = false;
+    }
+    success = allSucceeded;
+    if (success) selectedProjectIds.value = [];
+
+  } else if (type === 'chapter-selection' && selectedChapterIds.value.length > 0) {
+     // Logique pour supprimer plusieurs chapitres sélectionnés
+    let allSucceeded = true;
+    for (const chapterId of selectedChapterIds.value) {
+      const result = await deleteChapterComposable(chapterId);
+      if (!result) allSucceeded = false;
+    }
+    success = allSucceeded;
+    if (success) selectedChapterIds.value = [];
+
+  } else if (type === 'project' && item) {
+    success = await deleteProjectInternalComposable(item.id);
+    if (success) selectedProjectIds.value = selectedProjectIds.value.filter(pid => pid !== item.id);
+  } else if (type === 'chapter' && item) {
+    success = await deleteChapterComposable(item.id);
+    if (success) selectedChapterIds.value = selectedChapterIds.value.filter(cid => cid !== item.id);
   }
 
   if (success) {
-    showSnackbar(`${type.charAt(0).toUpperCase() + type.slice(1)} supprimé(e) avec succès.`);
+    showSnackbar(`${type === 'project' || type === 'project-selection' ? 'Projet(s)' : 'Chapitre(s)'} supprimé(s) avec succès.`, 'success');
   } else {
     showSnackbar(`Erreur lors de la suppression.`, 'error');
   }
@@ -428,55 +376,94 @@ const confirmDelete = async () => {
 };
 
 
-// --- Génération de Scène ---
-const openGenerateSceneDialog = (chapterId) => {
-    currentChapterIdForSceneGeneration.value = chapterId;
-    // if (activeProjectId.value) { // SUPPRIMÉ pour l'instant
-    //     fetchCharactersForProject(activeProjectId.value);
-    // }
-    showGenerateSceneDialog.value = true;
-};
-
-const handleInsertContent = (content) => {
-    emit('ai-action-insert-content', content);
-    showGenerateSceneDialog.value = false; 
-};
-
 // --- Analyse ---
-const openAnalysisDialog = async (project) => {
-    analysisResult.value = null; 
+const openAnalysisDialog = async (itemType, itemId) => {
+    errorAnalysis.value = null;
+    analysisResult.value = null; // Réinitialiser avant de charger
     showAnalysisDialog.value = true;
-    await triggerConsistencyAnalysis(project.id);
+
+    if (itemType === 'project') {
+        await getProjectAnalysis(itemId);
+    } else if (itemType === 'chapter') {
+        await getChapterAnalysis(itemId);
+    } else if (itemType === 'style') {
+        // Pour l'analyse de style, itemId pourrait être l'ID du chapitre ou du projet
+        // ou vous pourriez avoir une logique différente pour obtenir le texte.
+        // Pour l'instant, supposons que c'est l'ID du chapitre.
+        const chapter = getChapterById(itemId); // Vous devrez peut-être implémenter getChapterById dans useChapters
+        if (chapter && chapter.content) {
+             await getStyleAnalysis(chapter.content);
+        } else {
+            errorAnalysis.value = "Contenu du chapitre non trouvé pour l'analyse de style.";
+        }
+    }
 };
+
 const closeAnalysisDialog = () => {
     showAnalysisDialog.value = false;
-    clearConsistencyAnalysisState();
+    analysisResult.value = null;
+    errorAnalysis.value = null;
 };
 
-const handleApplySuggestion = (payload) => { 
-  emit('active-chapter-content-changed', { 
-    projectId: activeProjectId.value, 
-    chapterId: payload.chapterId, 
-    applySuggestion: payload.suggestion 
-  });
+const handleApplySuggestion = async (suggestionData) => {
+  if (selectedChapterId.value) {
+    // Utiliser la fonction applySuggestionToChapterContent de useChapters
+    const success = await applySuggestionToChapterContent(selectedChapterId.value, suggestionData.texte_modifie);
+    if (success) {
+      showSnackbar('Suggestion appliquée avec succès au chapitre.', 'success');
+      // L'état du contenu du chapitre devrait être mis à jour par useChapters,
+      // et EditorComponent devrait réagir à ce changement.
+      // On peut aussi émettre un événement pour forcer un re-fetch si nécessaire.
+      emit('active-chapter-content-changed', { chapterId: selectedChapterId.value, content: suggestionData.texte_modifie });
+
+    } else {
+      showSnackbar('Erreur lors de l\'application de la suggestion.', 'error');
+    }
+  } else {
+    showSnackbar('Aucun chapitre sélectionné pour appliquer la suggestion.', 'warning');
+  }
 };
 
 
-// --- Cycle de vie ---
-onMounted(() => {
-  fetchAllProjects();
-  fetchModels(); 
-});
+// --- Watchers ---
+watch(projects, (newProjects) => {
+  // Si un projet actif n'existe plus (ex: supprimé), réinitialiser
+  if (activeProjectId.value && !newProjects.some(p => p.id === activeProjectId.value)) {
+    activeProjectId.value = null;
+    selectedChapterId.value = null; // Désélectionner aussi le chapitre
+    emit('chapter-selected', { projectId: null, chapterId: null });
+  }
+}, { deep: true });
 
+watch(() => chaptersByProjectId, (newChaptersMap) => {
+  // Si un chapitre sélectionné n'existe plus dans le projet actif, réinitialiser
+  if (activeProjectId.value && selectedChapterId.value) {
+    const chaptersOfActiveProject = newChaptersMap[activeProjectId.value];
+    if (chaptersOfActiveProject && !chaptersOfActiveProject.some(c => c.id === selectedChapterId.value)) {
+      selectedChapterId.value = null;
+      emit('chapter-selected', { projectId: activeProjectId.value, chapterId: null });
+    }
+  }
+}, { deep: true });
+
+
+// Exposer les fonctions/états nécessaires au template
 defineExpose({
-  fetchChaptersForProject, 
+  fetchProjects: fetchProjectsComposable,
+  fetchChaptersForProject,
+  // ... autres si nécessaire pour des tests ou accès parent
 });
 
 </script>
 
 <style scoped>
 .v-navigation-drawer {
-  border-right: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-right: 1px solid rgba(0,0,0,0.12);
 }
-/* Autres styles si nécessaire */
+.project-item-container {
+  margin-bottom: 8px;
+}
+.text-disabled {
+  color: #9e9e9e !important; /* Gris pour le texte désactivé */
+}
 </style>

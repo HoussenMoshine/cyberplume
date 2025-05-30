@@ -27,7 +27,6 @@
     <project-manager
       v-if="!isDistractionFree && activeTab !== 'config'"
       @chapter-selected="handleChapterSelection"
-      @scene-selected="handleSceneSelection"
       @insert-generated-content="handleInsertGeneratedContent"
       @apply-suggestion-to-editor="handleApplySuggestionToEditor"
       :current-ai-provider="globalAIProvider"
@@ -43,9 +42,7 @@
           <editor-component
             ref="editorComponentRef"
             :selected-chapter-id="currentChapterId"
-            :selected-scene-id="currentSceneId"
             :active-chapter-title="currentChapterTitle"
-            :active-scene-title="currentSceneTitle"
             :is-distraction-free="isDistractionFree"
             @toggle-distraction-free="toggleDistractionFreeMode"
             @ai-settings-changed="updateGlobalAISettings"
@@ -121,11 +118,9 @@ const globalCustomAIDescription = ref(null);
 // State pour l'onglet actif
 const activeTab = ref('editor');
 
-// State pour l'ID et le titre du chapitre/scène sélectionné
+// State pour l'ID et le titre du chapitre sélectionné
 const currentChapterId = ref(null);
 const currentChapterTitle = ref(null);
-const currentSceneId = ref(null);
-const currentSceneTitle = ref(null);
 
 // Référence vers l'instance de EditorComponent
 const editorComponentRef = ref(null);
@@ -168,10 +163,8 @@ const handleChapterSelection = (payload) => {
   console.log("App.vue: handleChapterSelection payload:", payload);
   isSelectionEvent = true;
   currentChapterId.value = payload && payload.chapterId !== undefined ? payload.chapterId : null;
-console.log("App.vue: currentChapterId.value set to", currentChapterId.value);
-  currentChapterTitle.value = null;
-  currentSceneId.value = null;
-  currentSceneTitle.value = null;
+  console.log("App.vue: currentChapterId.value set to", currentChapterId.value);
+  currentChapterTitle.value = null; // Sera mis à jour par EditorComponent via une prop ou un watch interne
   if (payload && payload.chapterId !== null) {
     activeTab.value = 'editor';
     if (isDistractionFree.value) {
@@ -181,78 +174,88 @@ console.log("App.vue: currentChapterId.value set to", currentChapterId.value);
   setTimeout(() => { isSelectionEvent = false; }, 50);
 };
 
-const handleSceneSelection = (sceneId) => {
-  console.log("App.vue: handleSceneSelection", sceneId);
-  isSelectionEvent = true;
-  currentSceneId.value = sceneId ?? null;
-  currentSceneTitle.value = null;
-  if (sceneId !== null) {
-    currentChapterId.value = null;
-    currentChapterTitle.value = null;
-    activeTab.value = 'editor';
-    if (isDistractionFree.value) {
-        toggleDistractionFreeMode();
-    }
-  }
-  setTimeout(() => { isSelectionEvent = false; }, 50);
-};
-
 const handleInsertGeneratedContent = (content) => {
-  console.log("App.vue: handleInsertGeneratedContent");
-  if (editorComponentRef.value && typeof editorComponentRef.value.insertContentAtCursor === 'function') {
-    editorComponentRef.value.insertContentAtCursor(content);
-    activeTab.value = 'editor';
+  if (editorComponentRef.value && typeof editorComponentRef.value.insertGeneratedContent === 'function') {
+    editorComponentRef.value.insertGeneratedContent(content);
   } else {
-    console.error("EditorComponent reference or insertContentAtCursor method not found!");
+     console.warn("EditorComponent reference or insertGeneratedContent method not found for direct insertion!");
+     // Fallback: Peut-être copier dans le presse-papiers ou afficher dans un dialogue
   }
 };
 
 const handleApplySuggestionToEditor = (suggestionData) => {
-  console.log("App.vue: handleApplySuggestionToEditor");
-  if (editorComponentRef.value && typeof editorComponentRef.value.applySuggestion === 'function') {
-    editorComponentRef.value.applySuggestion(suggestionData);
-    activeTab.value = 'editor';
+  if (editorComponentRef.value && typeof editorComponentRef.value.handleApplySuggestionToEditor === 'function') {
+    editorComponentRef.value.handleApplySuggestionToEditor(suggestionData);
   } else {
-    console.error("EditorComponent reference or applySuggestion method not found!");
+    console.warn("EditorComponent reference or handleApplySuggestionToEditor method not found!");
   }
+};
+
+
+const handleEditorTabClick = () => {
+  if (isSelectionEvent) {
+    // Si c'était une sélection de contenu qui a changé l'onglet, ne rien faire de plus
+    return;
+  }
+  // Si l'utilisateur clique manuellement sur l'onglet Éditeur
+  // et qu'aucun chapitre n'est actif, on pourrait vouloir désactiver l'éditeur
+  // ou afficher un message. Pour l'instant, on ne fait rien de spécial.
+  // Si un chapitre est actif, il reste actif.
 };
 
 const updateGlobalAISettings = (settings) => {
-  if (settings) {
-    globalAIProvider.value = settings.provider;
-    globalAIModel.value = settings.model;
-    globalAIStyle.value = settings.style;
-    globalCustomAIDescription.value = settings.customDescription;
-  }
+  if (settings.provider) globalAIProvider.value = settings.provider;
+  if (settings.model) globalAIModel.value = settings.model;
+  if (settings.style) globalAIStyle.value = settings.style;
+  if (settings.customDescription) globalCustomAIDescription.value = settings.customDescription;
 };
 
-const handleEditorTabClick = () => {
-  if (!isSelectionEvent) {
-    activeTab.value = 'editor';
-  }
-};
 
 </script>
 
-<style> 
+<style>
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  overflow: hidden; /* Empêche le défilement global de la page */
+}
+
 .v-application {
-  background-color: var(--v-theme-background-lighten-1) !important; 
-}
-
-.distraction-free .v-main {
-  padding: 0 !important;
-  margin: 0 !important;
-  height: 100vh;
-  width: 100vw;
-  overflow: hidden; 
-}
-
-.editor-window-item {
-  height: 100%; 
+  height: 100vh; /* Assure que v-app prend toute la hauteur de la fenêtre */
+  display: flex;
+  flex-direction: column;
 }
 
 .v-main {
-  overflow-y: auto; 
+  flex-grow: 1;
+  overflow-y: auto; /* Permet le défilement à l'intérieur de v-main si nécessaire */
+  display: flex; /* Pour que v-window puisse grandir */
+  flex-direction: column;
+}
+
+.v-window {
+  flex-grow: 1; /* Permet à v-window de prendre l'espace restant */
+  display: flex; /* Pour que v-window-item puisse grandir */
+  flex-direction: column;
+}
+
+.v-window-item {
+  flex-grow: 1; /* Permet à v-window-item de prendre l'espace restant */
+  display: flex; /* Pour que son contenu (EditorComponent) puisse grandir */
+  flex-direction: column;
+  height: 100%; /* S'assurer que l'item prend toute la hauteur de la window */
+}
+
+.editor-window-item {
+  /* S'assurer que l'éditeur peut prendre toute la place */
+  height: calc(100vh - var(--v-toolbar-height, 48px) - var(--v-tabs-height, 48px)); /* Ajuster selon la hauteur réelle de l'app-bar et des tabs */
+}
+.v-app.distraction-free .v-main {
+  padding: 0 !important;
+}
+
+.v-app.distraction-free .editor-window-item {
+  height: 100vh; /* Prend toute la hauteur en mode sans distraction */
 }
 
 </style>
