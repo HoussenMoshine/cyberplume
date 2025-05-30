@@ -17,8 +17,10 @@ export function useChapterContent(selectedChapterIdRef, editorRef) {
   const loadingError = ref(null);
   const savingError = ref(null);
   const lastLoadedChapterId = ref(null); // Pour gérer la sauvegarde avant changement
-  const loadedChapterCharacters = ref([]); // Gardé, mais ne sera plus peuplé par les scènes
+  const loadedChapterCharacters = ref([]); 
 
+  // Variable pour suivre l'ID en cours de fetch et éviter les doublons
+  let currentlyFetchingId = null; 
 
   const hasUnsavedChanges = computed(() => {
     if (!editorRef.value || !selectedChapterIdRef.value) {
@@ -31,30 +33,33 @@ export function useChapterContent(selectedChapterIdRef, editorRef) {
   // --- API Functions ---
 
   async function fetchChapterContent(chapterId) {
-    // --- DEBUG LOG ---
+    console.log(`useChapterContent: Attempting to fetch chapter ${chapterId}. Currently fetching: ${currentlyFetchingId}, isLoading: ${isLoading.value}`);
     
-    // --- END DEBUG LOG ---
+    if (isLoading.value && currentlyFetchingId === chapterId) {
+      console.warn(`useChapterContent: Already fetching chapter ${chapterId}. Aborting duplicate call.`);
+      return; 
+    }
 
     if (chapterId === null) {
-      editorRef.value?.commands.setContent('<p>Aucun chapitre sélectionné.</p>');
+      editorRef.value?.commands.setContent('<p style="color: grey; text-align: center;">Sélectionnez un chapitre pour commencer l\'édition.</p>');
       lastSavedContent.value = '';
       currentChapterTitle.value = null;
       currentChapterProjectId.value = null;
       loadingError.value = null;
       lastLoadedChapterId.value = null;
-      loadedChapterCharacters.value = []; // Réinitialiser les personnages
-      return null; // Retourner null si aucun chapitre n'est sélectionné
+      loadedChapterCharacters.value = [];
+      if (isLoading.value && currentlyFetchingId === null) isLoading.value = false; // Si on annulait un chargement de "null"
+      currentlyFetchingId = null;
+      return null; 
     }
-
     
+    currentlyFetchingId = chapterId; // Mémoriser l'ID qu'on commence à fetcher
     isLoading.value = true;
     loadingError.value = null;
-    loadedChapterCharacters.value = []; // Réinitialiser avant chargement
-    editorRef.value?.commands.setContent(`<p>Chargement du chapitre ${chapterId}...</p>`); // Feedback visuel
+    loadedChapterCharacters.value = []; 
+    editorRef.value?.commands.setContent(`<p>Chargement du chapitre ${chapterId}...</p>`); 
 
     try {
-
-      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
       const response = await fetch(`/api/chapters/${chapterId}`, {
         headers: { 'x-api-key': config.apiKey }
       });
@@ -68,69 +73,70 @@ export function useChapterContent(selectedChapterIdRef, editorRef) {
       }
 
       const chapterData = await response.json();
-      const contentToLoad = chapterData.content || '<p>Ce chapitre est vide.</p>';
+      // Vérifier si l'ID a changé pendant le chargement (cas d'un clic rapide sur un autre chapitre)
+      if (selectedChapterIdRef.value !== chapterId) {
+          console.warn(`useChapterContent: Chapter ID changed during fetch. Requested ${chapterId}, current is ${selectedChapterIdRef.value}. Discarding fetched data for ${chapterId}.`);
+          // Ne pas réinitialiser currentlyFetchingId ici, car un autre fetch est peut-être déjà en cours pour le nouvel ID.
+          // isLoading sera géré par le fetch du nouvel ID.
+          return null; 
+      }
 
+      const contentToLoad = chapterData.content || '<p>Ce chapitre est vide.</p>';
       editorRef.value?.commands.setContent(contentToLoad);
       lastSavedContent.value = contentToLoad;
       currentChapterTitle.value = chapterData.title;
       currentChapterProjectId.value = chapterData.project_id;
-      lastLoadedChapterId.value = chapterId; // Mémoriser l'ID chargé
+      lastLoadedChapterId.value = chapterId; 
 
-      // La logique d'extraction des personnages des scènes a été supprimée ici.
-      // Si les personnages sont directement liés aux chapitres dans le backend,
-      // cette partie devrait être adaptée pour les charger depuis chapterData.characters (par exemple).
-      // Pour l'instant, loadedChapterCharacters restera vide ou sera peuplé par une autre source.
       if (chapterData.characters && Array.isArray(chapterData.characters)) {
         loadedChapterCharacters.value = chapterData.characters;
       } else {
         loadedChapterCharacters.value = [];
       }
       
-
-      
-      return chapterData; // Retourner les données chargées
+      return chapterData; 
 
     } catch (error) {
       const userMessage = handleApiError(error, `chargement du chapitre ${chapterId}`);
       loadingError.value = userMessage;
-      editorRef.value?.commands.setContent(`<p>Erreur lors du chargement du chapitre ${chapterId}.</p>`);
-      lastSavedContent.value = '';
-      currentChapterTitle.value = null;
-      currentChapterProjectId.value = null;
-      lastLoadedChapterId.value = null;
-      loadedChapterCharacters.value = []; // Réinitialiser en cas d'erreur
+      // Ne mettre à jour l'éditeur que si l'erreur concerne le chapitre actuellement sélectionné
+      if (selectedChapterIdRef.value === chapterId) {
+        editorRef.value?.commands.setContent(`<p>Erreur lors du chargement du chapitre ${chapterId}.</p>`);
+        lastSavedContent.value = '';
+        currentChapterTitle.value = null;
+        currentChapterProjectId.value = null;
+        lastLoadedChapterId.value = null;
+        loadedChapterCharacters.value = [];
+      }
       console.error(`useChapterContent: Failed to load chapter ${chapterId}:`, error);
-      return null; // Retourner null en cas d'erreur
+      return null; 
     } finally {
-      isLoading.value = false;
+      // Ne mettre isLoading à false et réinitialiser currentlyFetchingId que si ce fetch est celui qui était attendu
+      if (currentlyFetchingId === chapterId) {
+        isLoading.value = false;
+        currentlyFetchingId = null;
+      }
     }
   }
 
   async function saveChapterContent(chapterId, content, title, projectId, isManualSave = false) {
     if (!chapterId || !editorRef.value || isSaving.value) {
-      
       return false;
     }
-     // Vérifier si le titre ou project_id sont disponibles, sinon logguer une alerte
      if (!title || !projectId) {
         console.warn(`useChapterContent: Attempting to save chapter ${chapterId} without title or project_id. This might fail if the backend requires them.`);
-        // On pourrait choisir de bloquer ici, mais pour l'instant on tente la sauvegarde partielle
       }
-
-
     
     isSaving.value = true;
     savingError.value = null;
 
     try {
       const bodyData = {
-        // Inclure title et project_id seulement s'ils sont définis
         ...(title && { title }),
         ...(projectId && { project_id: projectId }),
         content: content,
       };
 
-      // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
       const response = await fetch(`/api/chapters/${chapterId}`, {
         method: 'PUT',
         headers: {
@@ -148,114 +154,87 @@ export function useChapterContent(selectedChapterIdRef, editorRef) {
         throw error;
       }
 
-      lastSavedContent.value = content; // Mettre à jour le contenu sauvegardé
-      
-      return true; // Indiquer le succès
+      lastSavedContent.value = content; 
+      return true; 
 
     } catch (error) {
       const userMessage = handleApiError(error, `sauvegarde du chapitre ${chapterId}`);
       savingError.value = userMessage;
       console.error(`useChapterContent: Failed to save chapter ${chapterId}:`, error);
-      return false; // Indiquer l'échec
+      return false; 
     } finally {
       isSaving.value = false;
     }
   }
 
-  // Fonction pour sauvegarder si nécessaire (appelée par onBlur ou manuellement)
   async function saveCurrentChapterIfNeeded(forceSave = false) {
-    const chapterId = selectedChapterIdRef.value; // Utiliser la valeur actuelle de la ref
+    const chapterId = selectedChapterIdRef.value; 
     if (!chapterId || !editorRef.value || isSaving.value) {
       return false;
     }
 
     const currentContent = editorRef.value.getHTML();
     if (forceSave || currentContent !== lastSavedContent.value) {
-      
-      // Utiliser les métadonnées actuelles pour la sauvegarde
       return await saveChapterContent(
         chapterId,
         currentContent,
         currentChapterTitle.value,
         currentChapterProjectId.value,
-        forceSave // Indiquer si c'est une sauvegarde manuelle/forcée
+        forceSave 
       );
     } else {
-      
-      return true; // Considéré comme un succès car aucune action n'était requise
+      return true; 
     }
   }
 
-  // --- Watcher ---
   watch(selectedChapterIdRef, async (newId, oldId) => {
-    // --- DEBUG LOG ---
-    
-    // --- END DEBUG LOG ---
-    if (newId === oldId) {
-      
-      return; // Ne rien faire si l'ID n'a pas changé
+    console.log(`useChapterContent WATCH selectedChapterIdRef: old=${oldId}, new=${newId}, isLoading=${isLoading.value}, currentlyFetching=${currentlyFetchingId}`);
+
+    if (newId === oldId && oldId !== undefined) { 
+      console.log('useChapterContent WATCH: newId === oldId and oldId is defined, returning.');
+      return; 
     }
 
-    // Sauvegarder l'ancien contenu avant de charger le nouveau, s'il y a des changements non sauvegardés
-    if (oldId !== null && editorRef.value && hasUnsavedChanges.value) {
-      
-      const success = await saveCurrentChapterIfNeeded(false); // false car ce n'est pas une sauvegarde manuelle forcée
+    if (oldId !== null && oldId !== undefined && editorRef.value && hasUnsavedChanges.value) {
+      console.log(`useChapterContent WATCH: Attempting to auto-save chapter ${oldId}`);
+      const success = await saveCurrentChapterIfNeeded(false); 
       if (!success) {
-        // Gérer l'échec de la sauvegarde ? Peut-être afficher un message à l'utilisateur.
-        // Pour l'instant, on continue le chargement du nouveau chapitre.
-        console.warn(`useChapterContent: Failed to auto-save chapter ${oldId} before switching.`);
+        console.warn(`useChapterContent WATCH: Failed to auto-save chapter ${oldId} before switching.`);
       }
     }
     
-    // Charger le nouveau contenu
-    await fetchChapterContent(newId);
-  }, { immediate: false }); // immediate: false car le chargement initial est géré par EditorComponent via onMounted
+    console.log(`useChapterContent WATCH: Calling fetchChapterContent for newId: ${newId}`);
+    await fetchChapterContent(newId); 
+  }, { immediate: true }); // Exécuter immédiatement pour gérer le chargement initial
 
-
-  // --- Helper pour effacer l'erreur de chargement ---
   const clearLoadingError = () => {
     loadingError.value = null;
   };
 
-  // --- Fonction pour appliquer une suggestion ---
-  // Modifiée pour mettre à jour directement le contenu de l'éditeur et marquer comme non sauvegardé
   function applySuggestionToChapter(chapterId, suggestionData) {
     if (selectedChapterIdRef.value === chapterId && editorRef.value) {
         const currentPosition = editorRef.value.state.selection.to;
-        
-        // Insérer la suggestion. Si du texte est sélectionné, il sera remplacé.
-        // Sinon, la suggestion est insérée à la position du curseur.
         editorRef.value.chain().focus().insertContentAt(currentPosition, suggestionData).run();
-        
-        // Mettre à jour lastSavedContent pour refléter que le contenu a changé et nécessite une sauvegarde.
-        // On ne met PAS à jour lastSavedContent avec le nouveau contenu, car cela indiquerait faussement
-        // que le contenu est "sauvegardé" alors qu'il vient d'être modifié par la suggestion.
-        // hasUnsavedChanges deviendra true.
         // La sauvegarde se fera via le mécanisme normal (blur, manuel, changement de chapitre).
-        
-        // Optionnel: forcer la détection de changement si TipTap ne le fait pas assez vite
-        // editorRef.value.emit('update'); 
         return true;
     }
     return false;
   }
 
-
-  // --- Retourner les refs et fonctions ---
   return {
     currentChapterTitle: computed(() => currentChapterTitle.value),
     currentChapterProjectId: computed(() => currentChapterProjectId.value),
-    content: lastSavedContent, // Exposer le contenu sauvegardé (ou le contenu actuel si on le souhaite)
+    content: lastSavedContent, 
     isLoading: computed(() => isLoading.value),
     isSaving: computed(() => isSaving.value),
     loadingError: computed(() => loadingError.value),
     savingError: computed(() => savingError.value),
     hasUnsavedChanges,
-    loadedChapterCharacters: computed(() => loadedChapterCharacters.value), // Personnages du chapitre
+    loadedChapterCharacters: computed(() => loadedChapterCharacters.value), 
 
     loadChapterContent: fetchChapterContent,
     saveCurrentChapterIfNeeded,
-    applySuggestionToChapter, // Exposer la fonction modifiée
+    applySuggestionToChapter, 
     clearLoadingError,
   };
 }

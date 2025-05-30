@@ -1,3 +1,65 @@
+# Contexte Actif - CyberPlume (Mise à jour : 30/05/2025 - 14:35)
+
+## Objectif de la Session (30 Mai - Après-midi)
+
+*   **Objectif principal :**
+    1.  Restaurer la fonctionnalité "scènes par IA" (sous forme d'un onglet "Idées de Scènes").
+    2.  Corriger le bug du double appel backend lors de la sélection d'un chapitre.
+    3.  Réintroduire et améliorer l'animation de chargement pour les fonctions IA dans l'éditeur.
+*   **Instructions utilisateur :** Suivre les instructions personnalisées pour la mise à jour de la banque de mémoire à la fin de la session. Ne pas corriger immédiatement le bug d'animation IA si non résolu pendant la session.
+
+## Actions Réalisées durant la Session
+
+1.  **Fonctionnalité "Idées de Scènes" (Frontend) :**
+    *   Ajout d'un nouvel onglet "Idées de Scènes" dans la barre de navigation principale ([`frontend/src/App.vue`](frontend/src/App.vue:1)).
+    *   Création d'un nouveau composant gestionnaire [`frontend/src/components/SceneIdeasManager.vue`](frontend/src/components/SceneIdeasManager.vue:1) pour cet onglet.
+    *   Création d'une nouvelle boîte de dialogue [`frontend/src/components/dialogs/GenerateSceneIdeasDialog.vue`](frontend/src/components/dialogs/GenerateSceneIdeasDialog.vue:1) permettant de configurer les options de génération (fournisseur IA, modèle, style, contexte projet, type de scène, etc.).
+    *   L'appel API pour la génération effective des idées est simulé dans la dialogue pour l'instant.
+
+2.  **Correction du Double Appel Backend :**
+    *   Analyse du flux de sélection de chapitre : `ChapterList` -> `ProjectManager` -> `App.vue` -> `EditorComponent` -> `useChapterContent`.
+    *   Modification du composable [`frontend/src/composables/useChapterContent.js`](frontend/src/composables/useChapterContent.js:1) :
+        *   Le `watch` sur `selectedChapterIdRef` a été configuré avec `{ immediate: true }` pour gérer le chargement initial et les changements.
+        *   Ajout d'une variable `currentlyFetchingId` et d'une garde dans `fetchChapterContent` pour prévenir les appels multiples si un chargement pour le même ID est déjà en cours.
+        *   Ajout d'une vérification pour s'assurer que l'ID du chapitre n'a pas changé pendant un appel API asynchrone.
+    *   Modification de [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:1) :
+        *   Suppression des appels directs à `loadChapterContent` depuis `onMounted` et le `watch` local sur `props.selectedChapterId`, pour centraliser la logique dans `useChapterContent`.
+
+3.  **Amélioration de l'Animation de Chargement IA :**
+    *   Modification de [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:1) :
+        *   La `v-progress-linear` existante est conservée pour `isLoading` (chargement chapitre) et `isSaving`.
+        *   Ajout d'un `v-overlay` avec une `v-progress-circular` et un message "Traitement IA en cours..." qui s'affiche lorsque la variable `isAIGenerating` (provenant de `useAIActions`) est `true`. L'overlay est configuré pour se superposer à la zone de l'éditeur.
+
+## État Actuel à la Fin de la Session
+
+*   **Fonctionnalité "Idées de Scènes" :** L'interface utilisateur (onglet, dialogue) est en place et fonctionnelle. La génération d'idées est simulée.
+*   **Double Appel Backend :** Corrigé. Les tests de l'utilisateur confirment la disparition du double appel.
+*   **Animation IA dans l'Éditeur :** L'implémentation de l'overlay avec `v-progress-circular` a été faite, mais **l'utilisateur signale que l'animation n'est toujours pas visible.** Ce point nécessitera une investigation plus approfondie.
+*   **Erreur `vuedraggable` :** Confirmée comme corrigée par l'utilisateur lors de la session précédente.
+
+## Prochaines Étapes (Pour la prochaine session de développement)
+
+1.  **Priorité 1 : Animation IA dans l'Éditeur :**
+    *   Investiguer pourquoi l'overlay `v-progress-circular` conditionné par `isAIGenerating` dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:1) n'est pas visible lors des opérations IA.
+    *   Vérifier la réactivité de `isAIGenerating`, les conditions d'affichage du `v-overlay` (styles CSS, `z-index`, conditions `v-if` ou `model-value`), et s'il est correctement contenu par son parent.
+2.  **Fonctionnalité "Idées de Scènes" - Backend & Améliorations :**
+    *   Implémenter l'endpoint backend et la logique IA pour la génération réelle d'idées de scènes.
+    *   Ajouter une fonction de copie pour les idées de scènes générées dans la dialogue [`frontend/src/components/dialogs/GenerateSceneIdeasDialog.vue`](frontend/src/components/dialogs/GenerateSceneIdeasDialog.vue:1).
+    *   (Optionnel) Étudier la possibilité d'insérer directement une idée de scène générée dans l'éditeur.
+3.  **Revoir l'initialisation de `currentAiParamsFromToolbar.provider`** dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:241) pour utiliser une source de configuration appropriée (point en suspens d'une session précédente).
+4.  **Nettoyage des `console.log`** de débogage introduits.
+5.  **Tests approfondis** de toutes les fonctionnalités après corrections.
+
+## Apprentissages et Patrons Importants (Session 30 Mai - Après-midi)
+
+*   La centralisation de la logique de gestion d'état et des effets secondaires (comme le chargement de données) dans les composables (ex: `useChapterContent`) est une stratégie robuste pour éviter les comportements dupliqués ou conflictuels initiés par plusieurs composants.
+*   L'option `{ immediate: true }` des `watch` est utile pour gérer les actions initiales basées sur des props, mais doit être coordonnée avec d'autres logiques d'initialisation (comme `onMounted`) pour éviter la redondance.
+*   Les indicateurs visuels (comme les animations de chargement) doivent être testés dans leur contexte d'affichage réel. Des problèmes de style, de positionnement (`z-index`, `position`), ou de conditions d'affichage peuvent empêcher leur apparition même si la logique de déclenchement est correcte.
+*   Le feedback utilisateur direct après une série de modifications est crucial pour valider les corrections et identifier les régressions ou les problèmes non résolus.
+
+---
+# Historique des Contextes Actifs Précédents
+---
 # Contexte Actif - CyberPlume (Mise à jour : 30/05/2025 - 08:00)
 
 ## Objectif de la Session (30 Mai - Matin)
@@ -47,124 +109,4 @@
 *   Le feedback utilisateur est essentiel pour identifier des problèmes subtils ou des régressions d'UX qui ne sont pas forcément des erreurs bloquantes.
 
 ---
-# Historique des Contextes Actifs Précédents
----
-# Contexte Actif - CyberPlume (Mise à jour : 29/05/2025 - 08:45)
-
-## Objectif de la Session (29 Mai - Matin)
-
-*   **Objectif principal :** Supprimer la fonctionnalité des "scènes" du frontend pour simplifier le code et potentiellement résoudre des bugs persistants (boucle de requêtes, problèmes d'affichage de contenu de chapitre).
-*   **Décision utilisateur :** Prioriser la suppression des scènes avant de continuer le débogage intensif des problèmes actuels.
-
-## Actions Réalisées durant la Session
-
-1.  **Planification de la Suppression des Scènes :**
-    *   Analyse des fichiers impactés par la fonctionnalité des scènes dans `frontend/src/`.
-    *   Élaboration d'un plan de suppression détaillé (validé par l'utilisateur).
-
-2.  **Suppression des Fichiers Dédiés aux Scènes :**
-    *   `frontend/src/composables/useScenes.js`
-    *   `frontend/src/composables/useSceneContent.js`
-    *   `frontend/src/components/SceneList.vue`
-    *   `frontend/src/components/dialogs/AddSceneDialog.vue`
-    *   `frontend/src/components/dialogs/EditSceneDialog.vue`
-    *   `frontend/src/components/dialogs/GenerateSceneDialog.vue`
-
-3.  **Modification des Fichiers Impactés (pour retirer les références aux scènes) :**
-    *   `frontend/src/components/ProjectManager.vue`
-    *   `frontend/src/components/EditorComponent.vue`
-    *   `frontend/src/App.vue`
-    *   `frontend/src/components/ChapterList.vue`
-    *   `frontend/src/composables/useChapterContent.js`
-    *   `frontend/src/components/ProjectToolbar.vue`
-    *   `frontend/src/components/dialogs/DeleteConfirmDialog.vue`
-
-4.  **Correction des Erreurs d'Importation Tiptap :**
-    *   Ajout des dépendances Tiptap manquantes (`@tiptap/extension-placeholder`, `@tiptap/extension-character-count`, etc.) dans `frontend/package.json`.
-    *   Mise à jour de `frontend/src/composables/useTiptapEditor.js` pour initialiser l'éditeur avec toutes les extensions Tiptap utilisées.
-    *   Correction de l'appel à `initializeEditor` dans `frontend/src/components/EditorComponent.vue`.
-
-5.  **Tentative de Correction de l'Erreur `vuedraggable` :**
-    *   Enveloppement du `v-list-item` dans un `div` à l'intérieur du slot `#item` de `draggable` dans `frontend/src/components/ChapterList.vue`.
-
-## État Actuel à la Fin de la Session
-
-*   **Frontend :** Se lance.
-*   **Problèmes Persistants :**
-    1.  **Erreur `vuedraggable` :** L'erreur `Error: Item slot must have only one child` s'affiche toujours dans l'interface utilisateur à la place des chapitres.
-    2.  **Problèmes Éditeur Tiptap :**
-        *   Le contenu des chapitres ne s'affiche pas dans l'éditeur.
-        *   La barre d'outils de formatage de l'éditeur n'est pas visible.
-        *   La console du navigateur affiche toujours : `[tiptap warn]: Invalid content. Passed value: RefImpl Error: RangeError: Unknown node type: undefined` pointant vers `initializeEditor` dans `useTiptapEditor.js` et `EditorComponent.vue`.
-    3.  **Appels Backend Multiples :** Le comportement de clics multiples sur les chapitres, entraînant des appels GET redondants au backend, persiste.
-
-*   **Hypothèse :** L'erreur Tiptap `Unknown node type` est probablement la cause principale des problèmes d'affichage de l'éditeur et de son contenu. L'erreur `vuedraggable` pourrait être une conséquence ou un problème distinct.
-
-## Prochaines Étapes (Pour la prochaine session de développement)
-
-1.  **Priorité Haute : Résoudre l'erreur Tiptap `Unknown node type: undefined` :**
-    *   Investiguer pourquoi Tiptap ne reconnaît pas le type de nœud lors de l'initialisation ou du chargement du contenu.
-    *   Vérifier la configuration des extensions dans `useTiptapEditor.js`.
-    *   Examiner le format du contenu des chapitres stocké en base de données (si possible) pour identifier des types de nœuds problématiques.
-    *   S'assurer que `StarterKit` et les autres extensions sont correctement configurés pour gérer tous les types de contenu attendus.
-
-2.  **Résoudre l'erreur `vuedraggable` `Item slot must have only one child` :**
-    *   Si la résolution de l'erreur Tiptap ne corrige pas celle-ci, réexaminer la structure du template dans `ChapterList.vue`.
-
-3.  **Investiguer les appels backend multiples lors de la sélection de chapitres.**
-
-4.  **Tester l'affichage du contenu des chapitres et la fonctionnalité de la barre d'outils de l'éditeur.**
-
-## Apprentissages et Patrons Importants (Session 29 Mai - Matin)
-
-*   La suppression de fonctionnalités majeures peut avoir des impacts en cascade sur de nombreux composants.
-*   Les erreurs d'initialisation de bibliothèques (comme Tiptap) peuvent masquer d'autres problèmes ou en causer de nouveaux.
-*   La mise à jour des dépendances (comme les extensions Tiptap) nécessite une vérification attentive de la compatibilité et des configurations.
-
----
-# Historique des Contextes Actifs Précédents
----
-(L'historique précédent est conservé ci-dessous)
-
-# Contexte Actif - CyberPlume (Mise à jour : 28/05/2025 - 14:28)
-
-## Fin de Session de Débogage (28 Mai - Après-midi Suite)
-
-*   **Objectif de la session :** Résoudre les bugs liés à la génération de résumé de chapitre.
-*   **Corrections Apportées durant la session :**
-    1.  **Bug Boîte de Dialogue Chapitre :** Corrigé dans `frontend/src/components/ChapterList.vue`. La boîte de dialogue se ferme maintenant correctement.
-    2.  **Gestion Clé API pour Service de Résumé :** Modifié `backend/services/summary_service.py` pour utiliser `get_decrypted_api_key` (DB puis `.env` fallback). L'erreur 500 initiale (si due à une clé non trouvée) est résolue, le backend retourne `200 OK` pour la requête de génération.
-    3.  **Bug de Copie de Contenu (Tentative de Correction) :** Modifié `frontend/src/composables/useChapters.js` pour ne mettre à jour que le champ `summary` dans le cas du fallback de la mise à jour d'état local.
-
-*   **Résultat du Dernier Test (Génération de Résumé) :**
-    *   Le bug de "copie de contenu" n'a pas été explicitement reconfirmé comme résolu ou non par l'utilisateur lors de ce test.
-    *   **Un problème de "boucle" de requêtes persiste :** Après avoir cliqué sur "générer le résumé", de multiples requêtes `GET /chapters/{id}`, `GET /chapters/{id}/scenes/` et `PUT /chapters/{id}` sont observées dans les logs du backend. L'utilisateur a noté que les scènes semblent intervenir.
-    *   La session de débogage s'arrête ici à la demande de l'utilisateur.
-
-## Prochaines Étapes (Pour la prochaine session de développement - Avant le 29/05)
-
-1.  **Investigation de la Boucle de Requêtes Post-Résumé (Priorité Haute) :**
-    *   Analyser en détail la séquence des événements et des mises à jour d'état dans le frontend après un appel réussi à `generateChapterSummary` dans `frontend/src/composables/useChapters.js`.
-    *   Examiner comment `fetchChaptersForProject` et la mise à jour de `chaptersByProjectId` interagissent avec les composants `ProjectManager`, `ChapterList`, `SceneList` et `EditorComponent`.
-    *   Identifier ce qui déclenche les multiples requêtes `GET` et surtout les `PUT` sur différents chapitres.
-    *   Prendre en compte l'observation de l'utilisateur sur l'implication possible des scènes (ex: chargement des scènes, état des scènes).
-2.  **Vérification de la Correction du Bug de Copie de Contenu :** S'assurer que la modification apportée à `frontend/src/composables/useChapters.js` a bien empêché la copie de contenu, même si la boucle de requêtes masque ce résultat.
-3.  **Finaliser l'Implémentation du Service de Résumé (si la génération de résumé de base fonctionne après résolution de la boucle) :**
-    *   Remplacer l'appel IA simulé/placeholder dans `backend/services/summary_service.py` par un appel réel et robuste.
-    *   Affiner les prompts IA.
-    *   Rendre configurable le fournisseur et le modèle IA.
-4.  **Nettoyage des `console.log` de Débogage.**
-5.  **Tests Approfondis.**
-... (autres étapes précédentes peuvent suivre)
-
-## Apprentissages et Patrons Importants Récents (Session 28 Mai - après-midi complète)
-*   **Gestion Centralisée vs. Locale des Clés API :** Importance d'une stratégie cohérente.
-*   **Mise à jour d'état réactif :** Attention à la propagation des objets lors de la mise à jour de l'état pour éviter des effets de bord. Préférer des mises à jour ciblées.
-*   **Importance du re-fetch vs. mise à jour locale :** Le re-fetch est plus sûr. Les mises à jour locales optimistes doivent être maniées avec soin.
-*   **Effets en cascade des mises à jour d'état :** Une mise à jour d'état (ex: après `generateChapterSummary`) peut déclencher une chaîne de réactions (watchers, re-renders, chargement de données associées comme les scènes) qui peuvent conduire à des comportements inattendus ou des boucles si la logique n'est pas parfaitement maîtrisée.
-
-## ⚠️ Rappels Cruciaux (inchangés)
-
-*   **Gestion des Branches Git :** L'utilisateur effectuera le merge.
-*   **Révocation des Clés API :** Rappel.
-*   **Finalisation Appel IA (Résumé) :** L'appel réel au service IA dans `summary_service.py` pour la génération de résumé doit toujours être implémenté.
+(L'historique plus ancien est conservé dans le fichier)

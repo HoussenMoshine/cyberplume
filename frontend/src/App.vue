@@ -15,6 +15,10 @@
           <IconUsers size="20" class="mr-2" />
           Personnages
         </v-tab>
+        <v-tab value="sceneIdeas">
+          <IconBulb size="20" class="mr-2" />
+          Idées de Scènes
+        </v-tab>
         <v-tab value="config">
           <IconSettings size="20" class="mr-2" />
           Configuration
@@ -23,9 +27,9 @@
     </v-app-bar>
 
 
-    <!-- Masquer le gestionnaire de projet en mode sans distraction ou si l'onglet config est actif -->
+    <!-- Masquer le gestionnaire de projet en mode sans distraction ou si l'onglet config ou sceneIdeas est actif -->
     <project-manager
-      v-if="!isDistractionFree && activeTab !== 'config'"
+      v-if="!isDistractionFree && activeTab !== 'config' && activeTab !== 'sceneIdeas'"
       @chapter-selected="handleChapterSelection"
       @insert-generated-content="handleInsertGeneratedContent"
       @apply-suggestion-to-editor="handleApplySuggestionToEditor"
@@ -51,6 +55,10 @@
         <v-window-item value="characters">
           <!-- Le CharacterManager ne s'affiche que si l'onglet characters est actif et pas en mode sans distraction -->
           <character-manager v-if="!isDistractionFree && activeTab === 'characters'" />
+        </v-window-item>
+        <v-window-item value="sceneIdeas">
+          <!-- Le SceneIdeasManager ne s'affiche que si l'onglet sceneIdeas est actif et pas en mode sans distraction -->
+          <scene-ideas-manager v-if="!isDistractionFree && activeTab === 'sceneIdeas'" />
         </v-window-item>
         <v-window-item value="config">
            <!-- Le ApiKeysManager ne s'affiche que si l'onglet config est actif et pas en mode sans distraction -->
@@ -87,25 +95,25 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import EditorComponent from './components/EditorComponent.vue';
 import ProjectManager from './components/ProjectManager.vue';
 import CharacterManager from './components/CharacterManager.vue';
+import SceneIdeasManager from './components/SceneIdeasManager.vue'; // Ajout de l'import
 import ApiKeysManager from './components/ApiKeysManager.vue';
 
 // Import des composants Vuetify utilisés
 import {
-  VApp, VAppBar, VTabs, VTab, VMain, VWindow, VWindowItem, VSnackbar, VBtn // Ajout VSnackbar, VBtn
+  VApp, VAppBar, VTabs, VTab, VMain, VWindow, VWindowItem, VSnackbar, VBtn
 } from 'vuetify/components';
 
 // Import des icônes Tabler
-import { IconFileText, IconUsers, IconSettings } from '@tabler/icons-vue';
+import { IconFileText, IconUsers, IconSettings, IconBulb } from '@tabler/icons-vue'; // Ajout de IconBulb
 import { config } from '@/config.js';
 
 // Import et utilisation du composable Snackbar
 import { useSnackbar } from '@/composables/useSnackbar.js';
 const { 
-  showSnackbar: isSnackbarVisible, // Renommer pour clarté (c'est la ref booléenne)
+  showSnackbar: isSnackbarVisible, 
   snackbarMessage, 
   snackbarColor, 
   snackbarTimeout 
-  // displaySnackbar n'est pas appelé directement ici, mais par les autres composants
 } = useSnackbar();
 
 
@@ -166,11 +174,14 @@ const handleChapterSelection = (payload) => {
   console.log("App.vue: currentChapterId.value set to", currentChapterId.value);
   currentChapterTitle.value = null; // Sera mis à jour par EditorComponent via une prop ou un watch interne
   if (payload && payload.chapterId !== null) {
+    // Si un chapitre est sélectionné, s'assurer que l'onglet éditeur est actif
+    // et que le mode sans distraction est désactivé si besoin.
     activeTab.value = 'editor';
     if (isDistractionFree.value) {
         toggleDistractionFreeMode();
     }
   }
+  // Réinitialiser le flag après un court délai pour permettre au changement d'onglet de se terminer
   setTimeout(() => { isSelectionEvent = false; }, 50);
 };
 
@@ -198,9 +209,9 @@ const handleEditorTabClick = () => {
     return;
   }
   // Si l'utilisateur clique manuellement sur l'onglet Éditeur
-  // et qu'aucun chapitre n'est actif, on pourrait vouloir désactiver l'éditeur
-  // ou afficher un message. Pour l'instant, on ne fait rien de spécial.
-  // Si un chapitre est actif, il reste actif.
+  // et qu'aucun chapitre n'est actuellement sélectionné (ou si on veut forcer le rechargement du dernier),
+  // on pourrait ajouter une logique ici. Pour l'instant, on laisse Vuetify gérer le changement d'onglet.
+  // Si currentChapterId.value est null, ProjectManager devrait afficher la liste des projets.
 };
 
 const updateGlobalAISettings = (settings) => {
@@ -210,52 +221,53 @@ const updateGlobalAISettings = (settings) => {
   if (settings.customDescription) globalCustomAIDescription.value = settings.customDescription;
 };
 
+// Logique pour s'assurer que ProjectManager est masqué si un onglet autre que 'editor' ou 'characters' est actif
+// Ceci est géré par le v-if sur le composant ProjectManager directement dans le template.
+// Cependant, il faut s'assurer que si on clique sur "Personnages" ou "Idées de Scènes" ou "Config",
+// le currentChapterId est désélectionné pour éviter que l'éditeur ne reste sur un chapitre.
+// Ou alors, on laisse l'éditeur afficher le dernier chapitre, et seul ProjectManager est masqué.
+// L'approche actuelle masque ProjectManager si activeTab n'est pas 'editor' ou 'characters'.
+// J'ai modifié le v-if pour inclure 'sceneIdeas' dans les conditions de masquage de ProjectManager.
 
 </script>
 
 <style>
-html, body, #app {
-  height: 100%;
-  margin: 0;
-  overflow: hidden; /* Empêche le défilement global de la page */
+/* Styles globaux pour l'application */
+.v-application {
+  font-family: 'Roboto', sans-serif;
+  background-color: #f5f5f5; /* Un gris clair pour le fond général */
 }
 
-.v-application {
-  height: 100vh; /* Assure que v-app prend toute la hauteur de la fenêtre */
+.v-app-bar.v-toolbar {
+  /* Styles spécifiques pour la barre d'application si nécessaire */
+}
+
+.v-main {
+  padding-top: var(--v-layout-top); /* Ajustement pour la barre d'app compacte */
+  height: 100vh; /* S'assurer que v-main prend toute la hauteur */
   display: flex;
   flex-direction: column;
 }
 
-.v-main {
+.v-window, .v-window-item {
   flex-grow: 1;
-  overflow-y: auto; /* Permet le défilement à l'intérieur de v-main si nécessaire */
-  display: flex; /* Pour que v-window puisse grandir */
+  display: flex;
   flex-direction: column;
-}
-
-.v-window {
-  flex-grow: 1; /* Permet à v-window de prendre l'espace restant */
-  display: flex; /* Pour que v-window-item puisse grandir */
-  flex-direction: column;
-}
-
-.v-window-item {
-  flex-grow: 1; /* Permet à v-window-item de prendre l'espace restant */
-  display: flex; /* Pour que son contenu (EditorComponent) puisse grandir */
-  flex-direction: column;
-  height: 100%; /* S'assurer que l'item prend toute la hauteur de la window */
 }
 
 .editor-window-item {
-  /* S'assurer que l'éditeur peut prendre toute la place */
-  height: calc(100vh - var(--v-toolbar-height, 48px) - var(--v-tabs-height, 48px)); /* Ajuster selon la hauteur réelle de l'app-bar et des tabs */
-}
-.v-app.distraction-free .v-main {
-  padding: 0 !important;
+  height: 100%; /* S'assurer que l'item de l'éditeur prend toute la hauteur disponible */
 }
 
-.v-app.distraction-free .editor-window-item {
-  height: 100vh; /* Prend toute la hauteur en mode sans distraction */
+
+/* Mode sans distraction */
+.distraction-free .v-main {
+  padding-left: 0 !important; /* Supprimer le padding potentiel du drawer/ProjectManager */
+}
+
+/* Ajustement pour la densité compacte de la barre d'outils */
+:root {
+  --v-layout-top: 48px; /* Hauteur de la barre d'app compacte */
 }
 
 </style>

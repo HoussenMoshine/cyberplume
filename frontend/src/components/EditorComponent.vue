@@ -76,15 +76,16 @@
         
       </v-toolbar>
 
+      <!-- Indicateur de chargement chapitre / sauvegarde -->
       <v-progress-linear
         indeterminate
         color="primary"
-        v-if="isLoading || isSaving || isAIGenerating"
+        v-if="isLoading || isSaving" 
         class="mb-1"
         height="3"
       ></v-progress-linear>
 
-      <v-row :class="{ 'fill-height': isDistractionFree }">
+      <v-row :class="{ 'fill-height': isDistractionFree }" style="position: relative;"> <!-- Ajout de position relative pour l'overlay -->
         <v-col cols="12" :md="isDistractionFree ? 12 : 9">
           <div class="editor-wrapper mb-4" :class="{ 'distraction-free-editor': isDistractionFree }">
             <editor-content :editor="editor" />
@@ -106,6 +107,22 @@
               </v-btn>
             </bubble-menu>
           </div>
+
+          <!-- Overlay pour le chargement IA -->
+          <v-overlay
+            :model-value="isAIGenerating"
+            class="align-center justify-center"
+            persistent
+            contained 
+            scrim="#E0E0E0" <!-- Fond légèrement opaque -->
+          >
+            <v-progress-circular
+              color="primary"
+              indeterminate
+              size="64"
+            ></v-progress-circular>
+            <div class="text-primary mt-2">Traitement IA en cours...</div>
+          </v-overlay>
 
           <ai-toolbar
             v-if="!isDistractionFree"
@@ -149,7 +166,7 @@
         </v-col>
         <v-col cols="12" md="3" v-if="!isDistractionFree">
           <action-panel
-            :loading="isAIGenerating"
+            :loading="isAIGenerating" 
             :current-action="currentAIAction"
             @suggest="triggerSuggest"
             @continue="triggerContinue"
@@ -198,10 +215,10 @@
 <script setup>
 import { ref, onMounted, onBeforeUnmount, watch, computed, toRef, nextTick } from 'vue';
 import { Editor, EditorContent, BubbleMenu } from '@tiptap/vue-3';
-// Les imports d'extensions spécifiques sont gérés par useTiptapEditor
 
 import {
-  VContainer, VRow, VCol, VChip, VSpacer, VBtn, VToolbar, VProgressLinear, VAlert, VList, VListItem, VListItemTitle, VSnackbar, VTooltip, VDivider
+  VContainer, VRow, VCol, VChip, VSpacer, VBtn, VToolbar, VProgressLinear, VAlert, 
+  VList, VListItem, VListItemTitle, VSnackbar, VTooltip, VDivider, VOverlay, VProgressCircular // Ajout VOverlay, VProgressCircular
 } from 'vuetify/components';
 
 import {
@@ -238,9 +255,9 @@ const { showSnackbar, snackbarMessage, snackbarColor, snackbarTimeout, displaySn
 
 const aiToolbarRef = ref(null); 
 const currentAiParamsFromToolbar = ref({
-  provider: '', // Valeur initiale - A REVOIR: anciennement config.defaultProvider
+  provider: '', 
   model: null,
-  style: 'normal', // Style par défaut
+  style: 'normal', 
   customStyleDescription: null
 });
 
@@ -254,21 +271,17 @@ const handleModelSelection = (data) => {
   };
 };
 
-// Placeholder pour relevantCharactersRef, à gérer ultérieurement
 const relevantCharactersForAI = ref(null);
 
-
-// --- Editor Setup ---
-// La ref 'editor' sera maintenant fournie par useTiptapEditor
 const { 
-  editor, // Récupérer la ref de l'éditeur ici
+  editor, 
   initializeEditor: initTiptap, 
   destroyEditor 
 } = useTiptapEditor(
-  undefined, // Utilise le initialContent par défaut de useTiptapEditor
+  undefined, 
   (blurredEditorInstance) => { 
-    if (activeType.value === 'chapter' && editor.value) { // Assurer que editor.value existe
-      saveCurrentChapterIfNeeded(); // saveCurrentChapterIfNeeded est défini plus bas, mais a besoin de 'editor'
+    if (activeType.value === 'chapter' && editor.value) { 
+      saveCurrentChapterIfNeeded(); 
     }
   },
   'Commencez à écrire votre chapitre ici...' 
@@ -281,8 +294,8 @@ const {
   loadingError: chapterLoadingError,
   savingError: chapterSavingError, 
   hasUnsavedChanges: chapterHasUnsavedChanges,
-  loadChapterContent,
-  saveCurrentChapterIfNeeded, // Cette fonction utilise 'editor' qui est maintenant correctement initialisé
+  // loadChapterContent, // N'est plus appelé directement ici
+  saveCurrentChapterIfNeeded, 
   applySuggestionToChapter,
   clearChapterLoadingError
 } = useChapterContent(toRef(props, 'selectedChapterId'), editor);
@@ -293,9 +306,8 @@ const {
   currentAIAction,
   aiGenerationError,
   suggestions,
-  // generateAIResponse, insertGeneratedContent, replaceSelectedContent sont gérés en interne par useAIActions
-  cancelCurrentAction, // Assurons-nous que les autres fonctions nécessaires sont bien là
-  triggerSuggest,    // Explicitement déstructurer pour clarté, même si appelées directement plus bas
+  cancelCurrentAction, 
+  triggerSuggest,    
   triggerContinue,
   triggerDialogue,
   triggerReformulate,
@@ -303,8 +315,6 @@ const {
   triggerExpand
 } = useAIActions(editor, currentAiParamsFromToolbar, relevantCharactersForAI);
 
-
-// --- Computed Properties ---
 const activeId = computed(() => props.selectedChapterId);
 const activeType = computed(() => {
   if (props.selectedChapterId) return 'chapter';
@@ -327,36 +337,12 @@ onMounted(() => {
       emit('content-changed', editor.value?.getHTML());
     }
   });
-
-  if (props.selectedChapterId && editor.value) {
-    loadChapterContent(props.selectedChapterId);
-  } else if (editor.value && props.selectedChapterId === null) {
-    editor.value.commands.setContent('<p style="color: grey; text-align: center;">Sélectionnez un chapitre pour commencer l\'édition.</p>');
-  }
 });
 
 onBeforeUnmount(() => {
   destroyEditor();
 });
 
-
-// --- Watchers ---
-watch(() => props.selectedChapterId, (newId, oldId) => {
-  // Ne charger que si l'ID change réellement et n'est pas l'appel initial (oldId !== undefined)
-  if (newId !== oldId && oldId !== undefined) { 
-    if (newId !== null) {
-      loadChapterContent(newId);
-    } else if (editor.value) {
-      editor.value.commands.setContent('<p style="color: grey; text-align: center;">Sélectionnez un chapitre pour commencer l\'édition.</p>');
-    }
-  } else if (newId !== null && oldId === undefined && editor.value && !editor.value.getText()) {
-    // Cas spécifique du premier chargement si onMounted n'a pas pu charger car selectedChapterId était null initialement
-    loadChapterContent(newId);
-  }
-}, { immediate: false }); // immediate: false pour éviter le double chargement avec onMounted
-
-
-// --- Methods ---
 const triggerManualSave = async () => {
   if (!activeId.value) {
     displaySnackbar('Aucun contenu actif à enregistrer.', 'warning');
@@ -385,23 +371,6 @@ const clearLoadingError = () => {
 const toggleDistractionFree = () => {
   emit('update:isDistractionFree', !props.isDistractionFree);
 };
-
-
-// --- AI Actions ---
-// Les fonctions getSelectedText et handleAIAction sont supprimées.
-// La logique est maintenant dans useAIActions.js et les fonctions trigger<ActionName>
-// déstructurées (triggerSuggest, triggerContinue, etc.) sont appelées directement.
-
-// Les définitions locales de triggerReformulate, triggerShorten, etc. sont supprimées.
-// Nous utilisons maintenant directement celles déstructurées depuis useAIActions,
-// qui ont été modifiées pour accepter customPrompt.
-// Par exemple, l'appel @click="triggerReformulate" dans le template
-// utilisera la fonction triggerReformulate de useAIActions.
-
-
-// La fonction handleModelSelection est maintenant définie plus haut pour mettre à jour currentAiParamsFromToolbar
-// et est utilisée par le template pour l'événement @model-selected de ai-toolbar.
-// La définition précédente ici est donc supprimée.
 
 const handleApplySuggestionToEditor = (suggestionData) => {
   if (activeType.value === 'chapter' && props.selectedChapterId) {
@@ -434,6 +403,7 @@ defineExpose({ editor, triggerManualSave, handleApplySuggestionToEditor });
   min-height: 300px; 
   flex-grow: 1; 
   overflow-y: auto; 
+  position: relative; /* Nécessaire pour que l'overlay 'contained' fonctionne correctement sur cette zone */
 
   .ProseMirror {
     min-height: 280px; 
@@ -497,4 +467,9 @@ defineExpose({ editor, triggerManualSave, handleApplySuggestionToEditor });
    height: 100%;
 }
 
+/* Style pour le texte sous le spinner de l'overlay */
+.v-overlay .text-primary {
+  color: var(--v-theme-primary) !important; 
+  font-weight: 500;
+}
 </style>
