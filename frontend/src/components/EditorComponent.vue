@@ -114,8 +114,8 @@
             class="align-center justify-center"
             persistent
             contained 
-            scrim="#E0E0E0" <!-- Fond légèrement opaque -->
-          >
+            scrim="#E0E0E0" 
+          > <!-- Fond légèrement opaque --> 
             <v-progress-circular
               color="primary"
               indeterminate
@@ -201,6 +201,7 @@
         {{ snackbarMessage }}
         <template v-slot:actions>
           <v-btn
+            color="white"
             variant="text"
             @click="showSnackbar = false"
           >
@@ -307,13 +308,43 @@ const {
   aiGenerationError,
   suggestions,
   cancelCurrentAction, 
-  triggerSuggest,    
-  triggerContinue,
-  triggerDialogue,
-  triggerReformulate,
-  triggerShorten,
-  triggerExpand
+  triggerAIAction // Récupérer la fonction générique triggerAIAction
+  // Les fonctions spécifiques comme triggerSuggest, triggerContinue ne sont plus déstructurées ici
 } = useAIActions(editor, currentAiParamsFromToolbar, relevantCharactersForAI);
+
+
+
+// Wrappers pour les actions IA pour ajouter des logs et appeler triggerAIAction
+function triggerReformulate() {
+  
+  triggerAIAction('reformulate');
+}
+
+function triggerShorten() {
+  
+  triggerAIAction('shorten');
+}
+
+function triggerExpand() {
+  
+  triggerAIAction('expand');
+}
+
+function triggerSuggest() {
+  
+  triggerAIAction('suggest');
+}
+
+function triggerContinue() {
+  
+  triggerAIAction('continue');
+}
+
+function triggerDialogue() {
+  
+  triggerAIAction('dialogue');
+}
+
 
 const activeId = computed(() => props.selectedChapterId);
 const activeType = computed(() => {

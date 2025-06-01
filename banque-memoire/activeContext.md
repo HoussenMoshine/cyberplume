@@ -1,3 +1,61 @@
+# Contexte Actif - CyberPlume (Mise à jour : 01/06/2025 - 07:45)
+
+## Objectif de la Session (01 Juin - Matin)
+
+*   **Objectif principal :** Corriger le bug de l'animation de chargement IA non visible dans l'éditeur ([`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:1)).
+*   **Objectif secondaire :** S'assurer que les actions IA de base redeviennent fonctionnelles.
+
+## Actions Réalisées durant la Session
+
+1.  **Investigation de l'état `isAIGenerating` :**
+    *   Ajout de `console.log` dans [`frontend/src/composables/useAIActions.js`](frontend/src/composables/useAIActions.js:1) pour tracer les changements de `isGenerating`.
+    *   Ajout d'un `watch` et de `console.log` dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:1) pour tracer `isAIGenerating` et les appels aux fonctions d'action IA.
+
+2.  **Identification des problèmes de déclenchement des actions IA :**
+    *   Constaté initialement qu'aucun log de `useAIActions.js` n'apparaissait, indiquant que la fonction `triggerAIAction` n'était pas atteinte.
+    *   Introduction de fonctions wrapper dans `EditorComponent.vue` pour les actions IA.
+    *   Identification d'une erreur `TypeError: originalTriggerContinue is not a function` due à une mauvaise déstructuration des fonctions depuis `useAIActions`. `useAIActions` expose `triggerAIAction` (générique) et non des fonctions spécifiques comme `triggerContinue`.
+
+3.  **Correction du déclenchement des actions IA :**
+    *   Modification de `EditorComponent.vue` pour que les fonctions wrapper appellent correctement `triggerAIAction('nom_action')`.
+    *   Correction de la déstructuration pour récupérer `triggerAIAction` depuis `useAIActions`.
+
+4.  **Identification et correction de l'erreur de rendu de l'overlay :**
+    *   Après correction du déclenchement, de nouvelles erreurs sont apparues (`[Vue warn]: Unhandled error during execution of component update`, `InvalidCharacterError: Failed to execute 'setAttribute' on 'Element': '<!--' is not a valid attribute name.`).
+    *   Identification d'un commentaire HTML (`<!-- Fond légèrement opaque -->`) mal placé à l'intérieur de la balise d'ouverture du composant `v-overlay` dans `EditorComponent.vue`.
+    *   Correction du commentaire en le déplaçant à l'extérieur de la balise.
+
+5.  **Nettoyage :**
+    *   Suppression de tous les `console.log` de débogage ajoutés dans `useAIActions.js` et `EditorComponent.vue`.
+
+## État Actuel à la Fin de la Session
+
+*   **Animation IA dans l'Éditeur : CORRIGÉE.** L'animation de chargement (`v-overlay` avec `v-progress-circular`) est maintenant visible pendant les opérations IA.
+*   **Actions IA : FONCTIONNELLES.** Les actions IA de base (ex: "Continuer") fonctionnent correctement.
+*   **Erreurs Corrigées :**
+    *   `TypeError: originalTrigger... is not a function` (problème de déstructuration/appel).
+    *   `InvalidCharacterError: Failed to execute 'setAttribute' on 'Element': '<!--' is not a valid attribute name.` (commentaire HTML mal placé).
+*   **Points à surveiller :** Les erreurs `Unhandled error during execution of component update` et `TypeError: Cannot read properties of null (reading 'emitsOptions')` étaient présentes avant la correction finale du commentaire. L'utilisateur n'a pas signalé leur persistance après la correction qui a rendu l'animation visible. Leur résolution n'était pas l'objectif principal de cette session, mais il faudra être attentif si elles réapparaissent.
+
+## Prochaines Étapes (Basées sur l'état avant cette session et non traitées)
+
+1.  **Fonctionnalité "Idées de Scènes" - Backend & Améliorations :**
+    *   Implémenter l'endpoint backend et la logique IA pour la génération réelle d'idées de scènes.
+    *   Ajouter une fonction de copie pour les idées de scènes générées dans la dialogue [`frontend/src/components/dialogs/GenerateSceneIdeasDialog.vue`](frontend/src/components/dialogs/GenerateSceneIdeasDialog.vue:1).
+    *   (Optionnel) Étudier la possibilité d'insérer directement une idée de scène générée dans l'éditeur.
+2.  **Revoir l'initialisation de `currentAiParamsFromToolbar.provider`** dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:258) pour utiliser une source de configuration appropriée (point en suspens d'une session précédente, initialement à la ligne 241).
+3.  **Tests approfondis** de toutes les fonctionnalités après corrections.
+
+## Apprentissages et Patrons Importants (Session 01 Juin - Matin)
+
+*   La correction d'une erreur peut en révéler d'autres ou changer le comportement observé (l'erreur `originalTrigger...` masquait l'erreur `InvalidCharacterError`).
+*   Une simple erreur de syntaxe HTML (comme un commentaire mal placé dans une balise) peut entraîner des erreurs JavaScript complexes lors du rendu du DOM et empêcher des fonctionnalités de s'afficher.
+*   Il est crucial de vérifier ce qu'un module/composable expose réellement avant de tenter de déstructurer des propriétés ou fonctions.
+*   S'assurer que l'environnement de développement (serveur Vite, cache navigateur) reflète bien les dernières modifications du code est essentiel lors du débogage.
+
+---
+# Historique des Contextes Actifs Précédents
+---
 # Contexte Actif - CyberPlume (Mise à jour : 30/05/2025 - 14:35)
 
 ## Objectif de la Session (30 Mai - Après-midi)
@@ -56,57 +114,6 @@
 *   L'option `{ immediate: true }` des `watch` est utile pour gérer les actions initiales basées sur des props, mais doit être coordonnée avec d'autres logiques d'initialisation (comme `onMounted`) pour éviter la redondance.
 *   Les indicateurs visuels (comme les animations de chargement) doivent être testés dans leur contexte d'affichage réel. Des problèmes de style, de positionnement (`z-index`, `position`), ou de conditions d'affichage peuvent empêcher leur apparition même si la logique de déclenchement est correcte.
 *   Le feedback utilisateur direct après une série de modifications est crucial pour valider les corrections et identifier les régressions ou les problèmes non résolus.
-
----
-# Historique des Contextes Actifs Précédents
----
-# Contexte Actif - CyberPlume (Mise à jour : 30/05/2025 - 08:00)
-
-## Objectif de la Session (30 Mai - Matin)
-
-*   **Objectif principal :** Poursuivre le débogage du frontend après la suppression des scènes. Spécifiquement, résoudre l'erreur `config is not defined` dans `frontend/src/components/EditorComponent.vue` qui empêchait le chargement de l'application.
-*   **Objectif secondaire :** Identifier les prochains bugs à traiter une fois l'application à nouveau fonctionnelle.
-
-## Actions Réalisées durant la Session
-
-1.  **Analyse de l'erreur `config is not defined` :**
-    *   Localisation de l'erreur à la [ligne 241 de `frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:241) lors de l'initialisation de `currentAiParamsFromToolbar`.
-    *   Constat que la variable `config` n'était pas définie dans le scope.
-
-2.  **Correction de l'erreur `config is not defined` :**
-    *   Modification de la [ligne 241 de `frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:241) pour remplacer `config.defaultProvider` par une chaîne vide (`''`) comme valeur initiale temporaire pour `provider`.
-    *   Ajout d'un commentaire `// Valeur initiale - A REVOIR: anciennement config.defaultProvider` pour indiquer que cette initialisation doit être revue.
-
-## État Actuel à la Fin de la Session
-
-*   **Frontend :** Se lance correctement. L'erreur `config is not defined` est résolue.
-*   **Fonctionnalités IA de l'éditeur :** Semblent fonctionner (selon le retour utilisateur).
-*   **Problèmes Identifiés (par l'utilisateur - NE PAS CORRIGER MAINTENANT) :**
-    1.  **Animation IA manquante :** L'indicateur visuel (animation/chargement) lors de l'exécution des fonctions IA dans l'éditeur a disparu. Le résultat s'affiche directement.
-    2.  **Bouton "scènes par IA" disparu :** Le bouton permettant d'accéder à une fonctionnalité IA liée aux scènes (probablement distincte de l'entité "scène" supprimée) n'est plus visible à côté du bouton des projets.
-*   **Problèmes Antérieurs Persistants (à vérifier/traiter lors des prochaines sessions) :**
-    *   **Erreur `vuedraggable` :** L'erreur `Error: Item slot must have only one child` dans `frontend/src/components/ChapterList.vue` (à vérifier si toujours présente et prioritaire).
-    *   **Appels Backend Multiples :** Le comportement de clics multiples sur les chapitres entraînant des appels GET redondants au backend.
-
-## Prochaines Étapes (Pour la prochaine session de développement)
-
-1.  **Priorité 1 : Résoudre l'erreur `vuedraggable` `Item slot must have only one child` dans `frontend/src/components/ChapterList.vue`** (si toujours d'actualité après les derniers tests utilisateur).
-2.  **Priorité 2 : Investiguer et corriger les appels backend multiples lors de la sélection de chapitres.**
-3.  **Priorité 3 (Feedback Utilisateur) : Réintroduire une indication visuelle (animation/notification) pendant l'exécution des fonctions IA dans l'éditeur.**
-    *   Analyser pourquoi `isAIGenerating` (ou un indicateur similaire) n'est plus reflété dans l'UI de `EditorComponent.vue` ou `ActionPanel.vue`.
-4.  **Priorité 4 (Feedback Utilisateur) : Investiguer la disparition du bouton "scènes par IA".**
-    *   Déterminer à quelle fonctionnalité exacte ce bouton correspondait.
-    *   Vérifier si sa disparition est une conséquence de la suppression des entités "scènes" ou un bug distinct.
-    *   Restaurer le bouton et sa fonctionnalité si pertinent.
-5.  **Revoir l'initialisation de `currentAiParamsFromToolbar.provider` dans `EditorComponent.vue`** pour utiliser une source de configuration appropriée ou une valeur par défaut logique au lieu de `''`.
-6.  **Nettoyage des `console.log` de débogage.**
-7.  **Tests approfondis de toutes les fonctionnalités après corrections.**
-
-## Apprentissages et Patrons Importants (Session 30 Mai - Matin)
-
-*   La correction d'une erreur bloquante (`config is not defined`) peut révéler des régressions ou des comportements modifiés dans d'autres parties de l'application (ex: disparition de l'animation IA).
-*   Il est crucial de bien initialiser les `ref` et variables réactives avec des valeurs par défaut sensées ou provenant de configurations explicites.
-*   Le feedback utilisateur est essentiel pour identifier des problèmes subtils ou des régressions d'UX qui ne sont pas forcément des erreurs bloquantes.
 
 ---
 (L'historique plus ancien est conservé dans le fichier)

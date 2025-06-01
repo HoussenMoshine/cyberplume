@@ -1,4 +1,4 @@
-# Progression - CyberPlume (Mise à jour : 30/05/2025 - 14:35)
+# Progression - CyberPlume (Mise à jour : 01/06/2025 - 07:46)
 
 ## Ce qui Fonctionne (État Actuel Partiel)
 
@@ -8,7 +8,8 @@
     *   Le contenu des chapitres s'affiche dans l'éditeur.
     *   La barre d'outils de formatage de l'éditeur est visible et fonctionnelle.
     *   L'erreur `Unknown node type: undefined` est résolue.
-*   **Actions IA de base (Éditeur) :** Fonctionnent (selon le retour utilisateur).
+*   **Actions IA de base (Éditeur) :** Fonctionnent.
+    *   **L'animation de chargement (`v-overlay`) est maintenant visible et fonctionnelle pendant les opérations IA.**
 *   **Nouvelle Fonctionnalité "Idées de Scènes" (Frontend) :**
     *   Onglet "Idées de Scènes" ajouté et fonctionnel dans [`frontend/src/App.vue`](frontend/src/App.vue:1).
     *   Composant [`frontend/src/components/SceneIdeasManager.vue`](frontend/src/components/SceneIdeasManager.vue:1) s'affiche correctement.
@@ -31,27 +32,36 @@
 
 ## Ce qui Reste à Construire / Améliorer (Prochaine Session)
 
-1.  **Animation IA dans l'Éditeur (Priorité 1 - Feedback Utilisateur) :**
-    *   Investiguer pourquoi l'overlay `v-progress-circular` (implémenté dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:1)) n'est pas visible lors des opérations IA.
-    *   Vérifier la réactivité de `isAIGenerating`, les conditions d'affichage du `v-overlay`, les styles CSS, `z-index`, etc.
-2.  **Fonctionnalité "Idées de Scènes" - Finalisation :**
+1.  **Fonctionnalité "Idées de Scènes" - Finalisation :**
     *   **Backend :** Implémenter l'endpoint et la logique IA pour la génération réelle d'idées de scènes.
     *   **Frontend :** Remplacer l'appel simulé par l'appel réel dans [`frontend/src/components/dialogs/GenerateSceneIdeasDialog.vue`](frontend/src/components/dialogs/GenerateSceneIdeasDialog.vue:1).
     *   **Frontend :** Ajouter une fonction de copie pour les idées de scènes générées.
     *   **(Optionnel)** Étudier la possibilité d'insérer directement une idée de scène générée dans l'éditeur.
-3.  **Revoir l'initialisation de `currentAiParamsFromToolbar.provider`** dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:241) pour utiliser une source de configuration/valeur par défaut appropriée (point en suspens).
-4.  **Nettoyage des `console.log`** de débogage introduits.
-5.  **Tests approfondis** de toutes les fonctionnalités après corrections.
+2.  **Revoir l'initialisation de `currentAiParamsFromToolbar.provider`** dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:258) pour utiliser une source de configuration/valeur par défaut appropriée (point en suspens d'une session précédente).
+3.  **Tests approfondis** de toutes les fonctionnalités après corrections.
 
 ## Problèmes Actuels (État Actuel)
 
-*   **(MAJEUR - Feedback Utilisateur) Animation IA (overlay/spinner) dans l'éditeur non visible :** Malgré l'implémentation d'un `v-overlay` avec `v-progress-circular` dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:1), l'utilisateur ne la voit pas.
 *   **(Mineur/Observation) Redirections 307 :** Pour les appels à `/api/characters` (observé avant la suppression des scènes, à vérifier si toujours pertinent).
 *   **Boucle de requêtes après génération de résumé (Observé avant suppression scènes) :** À retester.
 *   **L'appel IA pour la génération de résumé dans `summary_service.py` est un placeholder.**
 *   **L'appel API pour la génération d'idées de scènes est simulé dans le frontend.**
+*   **À surveiller :** Des erreurs `[Vue warn]: Unhandled error during execution of component update` et `Uncaught (in promise) TypeError: Cannot read properties of null (reading 'emitsOptions')` étaient apparues pendant le débogage de l'animation IA. Elles n'ont pas été signalées après la correction finale du commentaire HTML qui a résolu le problème d'animation. Leur statut actuel est incertain.
 
 ## Évolution des Décisions
+
+### Session 01 Juin (Matin - Correction Animation IA)
+*   **Objectif :** Corriger l'animation IA non visible dans l'éditeur.
+*   **Actions :**
+    *   Investigation par ajout de logs dans `useAIActions.js` et `EditorComponent.vue`.
+    *   Correction du mécanisme d'appel des fonctions d'action IA depuis `EditorComponent.vue` (utilisation correcte de `triggerAIAction` au lieu de fonctions spécifiques inexistantes dans le retour de `useAIActions`).
+    *   Identification et correction d'un commentaire HTML mal placé dans la balise `v-overlay` de `EditorComponent.vue`, cause de l'erreur `InvalidCharacterError` qui empêchait le rendu de l'overlay.
+    *   Nettoyage des logs de débogage.
+*   **Résultat :**
+    *   Animation IA dans l'éditeur fonctionnelle.
+    *   Actions IA de base fonctionnelles.
+    *   Erreurs `TypeError: originalTrigger... is not a function` et `InvalidCharacterError` résolues.
+*   **Décision :** Bug principal corrigé. Fin de session. Mise à jour de la banque de mémoire.
 
 ### Session 30 Mai (Après-midi - Corrections Frontend)
 *   **Objectifs :** Restaurer bouton "scènes par IA", corriger double appel backend, améliorer animation IA.
