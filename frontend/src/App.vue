@@ -232,42 +232,65 @@ const updateGlobalAISettings = (settings) => {
 </script>
 
 <style>
-/* Styles globaux pour l'application */
-.v-application {
-  font-family: 'Roboto', sans-serif;
-  background-color: #f5f5f5; /* Un gris clair pour le fond général */
-}
-
-.v-app-bar.v-toolbar {
-  /* Styles spécifiques pour la barre d'application si nécessaire */
-}
-
-.v-main {
-  padding-top: var(--v-layout-top); /* Ajustement pour la barre d'app compacte */
-  height: 100vh; /* S'assurer que v-main prend toute la hauteur */
-  display: flex;
-  flex-direction: column;
-}
-
-.v-window, .v-window-item {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.editor-window-item {
-  height: 100%; /* S'assurer que l'item de l'éditeur prend toute la hauteur disponible */
-}
-
-
-/* Mode sans distraction */
-.distraction-free .v-main {
-  padding-left: 0 !important; /* Supprimer le padding potentiel du drawer/ProjectManager */
-}
-
 /* Ajustement pour la densité compacte de la barre d'outils */
 :root {
   --v-layout-top: 48px; /* Hauteur de la barre d'app compacte */
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  /* overflow: hidden; Supprimé pour permettre le défilement de la page si nécessaire */
+}
+
+.v-application {
+  font-family: 'Roboto', sans-serif;
+  background-color: #f5f5f5; /* Un gris clair pour le fond général */
+  min-height: 100vh; /* Utiliser min-height pour permettre l'expansion */
+  display: flex;
+  flex-direction: column;
+}
+
+.v-application__wrap {
+  flex: 1 1 auto; 
+  display: flex;
+  flex-direction: column;
+  /* overflow: hidden; Supprimé */
+}
+
+.v-main {
+  padding-top: var(--v-layout-top);
+  flex: 1 1 auto; /* Permet à v-main de prendre l'espace vertical */
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; /* Permet à v-main de défiler si son contenu (v-window) est trop grand */
+                   /* C'est un fallback si la gestion flex interne ne suffit pas */
+}
+
+.v-window {
+  flex: 1 1 auto; /* Permet à v-window de s'étendre dans v-main */
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important pour que les enfants flex puissent se réduire */
+}
+
+.v-window-item {
+  flex: 1 1 auto; /* Permet à v-window-item de s'étendre dans v-window */
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important pour que les enfants flex puissent se réduire */
+}
+
+/* Spécifique pour l'éditeur, s'assure qu'il prend toute la hauteur de son parent .v-window-item */
+.editor-window-item {
+  height: 100%; 
+}
+
+/* Mode sans distraction */
+.distraction-free .v-main {
+  padding-left: 0 !important;
+  padding-top: 0 !important; /* En mode sans distraction, la barre d'app est cachée */
 }
 
 </style>

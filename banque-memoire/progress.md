@@ -1,4 +1,4 @@
-# Progression - CyberPlume (Mise à jour : 01/06/2025 - 07:46)
+# Progression - CyberPlume (Mise à jour : 02/06/2025 - 07:17)
 
 ## Ce qui Fonctionne (État Actuel Partiel)
 
@@ -8,6 +8,7 @@
     *   Le contenu des chapitres s'affiche dans l'éditeur.
     *   La barre d'outils de formatage de l'éditeur est visible et fonctionnelle.
     *   L'erreur `Unknown node type: undefined` est résolue.
+    *   **Le défilement de l'éditeur (avec texte long) et de la page globale est maintenant fonctionnel.**
 *   **Actions IA de base (Éditeur) :** Fonctionnent.
     *   **L'animation de chargement (`v-overlay`) est maintenant visible et fonctionnelle pendant les opérations IA.**
 *   **Nouvelle Fonctionnalité "Idées de Scènes" (Frontend) :**
@@ -46,39 +47,32 @@
 *   **Boucle de requêtes après génération de résumé (Observé avant suppression scènes) :** À retester.
 *   **L'appel IA pour la génération de résumé dans `summary_service.py` est un placeholder.**
 *   **L'appel API pour la génération d'idées de scènes est simulé dans le frontend.**
-*   **À surveiller :** Des erreurs `[Vue warn]: Unhandled error during execution of component update` et `Uncaught (in promise) TypeError: Cannot read properties of null (reading 'emitsOptions')` étaient apparues pendant le débogage de l'animation IA. Elles n'ont pas été signalées après la correction finale du commentaire HTML qui a résolu le problème d'animation. Leur statut actuel est incertain.
+*   **À surveiller :** Des erreurs `[Vue warn]: Unhandled error during execution of component update` et `Uncaught (in promise) TypeError: Cannot read properties of null (reading 'emitsOptions')` étaient apparues pendant le débogage de l'animation IA. Leur statut actuel est incertain.
 
 ## Évolution des Décisions
+
+### Session 02 Juin (Matin - Correction Défilement Éditeur/Page)
+*   **Objectif :** Corriger le bug de l'éditeur qui s'étend verticalement et l'absence de barres de défilement.
+*   **Actions :**
+    *   Plusieurs tentatives de correction des styles CSS dans [`frontend/src/App.vue`](frontend/src/App.vue:1) et [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue:1).
+    *   La solution finale a impliqué :
+        *   Dans `App.vue` : Suppression des `overflow: hidden` sur `html, body` et `.v-application__wrap`. Utilisation de `min-height: 100vh` sur `.v-application`.
+        *   Dans `EditorComponent.vue` : Application de `max-height: 65vh` (ajustable) et `overflow-y: auto` à `.editor-wrapper` (mode normal). Ajustements pour que `.distraction-free-editor` conserve son défilement plein écran.
+*   **Résultat :**
+    *   Défilement de la page globale fonctionnel.
+    *   Défilement interne de l'éditeur (mode normal) fonctionnel avec une hauteur contrainte.
+    *   Défilement du mode sans distraction fonctionnel.
+*   **Décision :** Bug principal corrigé. Fin de session. Mise à jour de la banque de mémoire.
 
 ### Session 01 Juin (Matin - Correction Animation IA)
 *   **Objectif :** Corriger l'animation IA non visible dans l'éditeur.
 *   **Actions :**
-    *   Investigation par ajout de logs dans `useAIActions.js` et `EditorComponent.vue`.
-    *   Correction du mécanisme d'appel des fonctions d'action IA depuis `EditorComponent.vue` (utilisation correcte de `triggerAIAction` au lieu de fonctions spécifiques inexistantes dans le retour de `useAIActions`).
-    *   Identification et correction d'un commentaire HTML mal placé dans la balise `v-overlay` de `EditorComponent.vue`, cause de l'erreur `InvalidCharacterError` qui empêchait le rendu de l'overlay.
-    *   Nettoyage des logs de débogage.
+    *   Investigation par ajout de logs.
+    *   Correction du mécanisme d'appel des fonctions d'action IA.
+    *   Identification et correction d'un commentaire HTML mal placé.
 *   **Résultat :**
     *   Animation IA dans l'éditeur fonctionnelle.
     *   Actions IA de base fonctionnelles.
-    *   Erreurs `TypeError: originalTrigger... is not a function` et `InvalidCharacterError` résolues.
 *   **Décision :** Bug principal corrigé. Fin de session. Mise à jour de la banque de mémoire.
-
-### Session 30 Mai (Après-midi - Corrections Frontend)
-*   **Objectifs :** Restaurer bouton "scènes par IA", corriger double appel backend, améliorer animation IA.
-*   **Actions :**
-    *   Ajout onglet "Idées de Scènes" avec UI de dialogue (génération simulée).
-    *   Correction du double appel backend en centralisant la logique de chargement de chapitre dans `useChapterContent.js`.
-    *   Tentative d'amélioration de l'animation IA avec un `v-overlay` et `v-progress-circular`.
-*   **Résultat :**
-    *   Onglet "Idées de Scènes" (UI) fonctionnel.
-    *   Double appel backend corrigé.
-    *   **Animation IA (overlay) non visible selon l'utilisateur.**
-*   **Décision :** Arrêt de la session. Mise à jour de la banque de mémoire. Prochaine priorité : corriger la visibilité de l'animation IA.
-
-### Session 30 Mai (Matin - Débogage `EditorComponent`)
-*   **Objectif :** Résoudre l'erreur `config is not defined` dans `EditorComponent.vue`.
-*   **Actions :** Modification de l'initialisation de `currentAiParamsFromToolbar.provider`.
-*   **Résultat :** Erreur résolue. Application fonctionnelle. Nouveaux points soulevés : animation IA manquante, bouton "scènes par IA" disparu.
-*   **Décision :** Mise à jour banque de mémoire. Priorités suivantes : `vuedraggable` (finalement confirmé corrigé), appels multiples, et les nouveaux points.
 
 *(Les détails des sessions antérieures sont conservés dans activeContext.md)*

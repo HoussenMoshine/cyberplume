@@ -417,13 +417,29 @@ defineExpose({ editor, triggerManualSave, handleApplySuggestionToEditor });
 .editor-component-wrapper {
   display: flex;
   flex-direction: column;
-  height: 100%; 
+  height: 100%; /* Prend la hauteur de son parent .editor-window-item */
+  min-height: 0; /* Permet de se réduire si nécessaire */
 }
 
-.v-container {
-  flex-grow: 1;
+.editor-component-wrapper > .v-container {
+  flex: 1 1 auto; /* S'étend pour remplir .editor-component-wrapper */
   display: flex;
   flex-direction: column;
+  min-height: 0;
+}
+
+.editor-component-wrapper > .v-container > .v-row {
+  flex: 1 1 auto; /* S'étend pour remplir .v-container */
+  display: flex;
+  min-height: 0;
+}
+
+/* Cible la v-col qui contient l'éditeur et le panneau d'action */
+.editor-component-wrapper > .v-container > .v-row > .v-col:first-child {
+  flex: 1 1 auto; /* Permet à cette colonne de prendre l'espace principal */
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .editor-wrapper {
@@ -431,13 +447,14 @@ defineExpose({ editor, triggerManualSave, handleApplySuggestionToEditor });
   border-radius: 4px;
   padding: 8px;
   background-color: #fff;
-  min-height: 300px; 
-  flex-grow: 1; 
+  /* flex: 1 1 auto; Supprimé pour que max-height contrôle la hauteur */
   overflow-y: auto; 
-  position: relative; /* Nécessaire pour que l'overlay 'contained' fonctionne correctement sur cette zone */
+  position: relative; 
+  max-height: 65vh; /* Hauteur maximale pour l'éditeur, ajustable */
+  min-height: 200px; 
 
   .ProseMirror {
-    min-height: 280px; 
+    min-height: 180px; 
     outline: none;
     &:focus {
       border-color: var(--v-theme-primary);
@@ -455,16 +472,21 @@ defineExpose({ editor, triggerManualSave, handleApplySuggestionToEditor });
 .distraction-free-editor {
   border: none;
   padding: 20px; 
-  min-height: calc(100vh - 40px); 
+  height: calc(100vh - 40px); /* Conserve la hauteur plein écran moins padding */
+  overflow-y: auto; /* Assure le défilement */
   font-size: 1.1rem; 
   line-height: 1.7;   
-  background-color: #fdfdfd; 
+  background-color: #fdfdfd;
+  /* Assurez-vous que flex n'est pas hérité de manière conflictuelle */
+  flex: none !important; 
+  max-height: none !important; /* Annule le max-height du mode normal */
 }
 
 .editor-toolbar {
   background-color: #f5f5f5; 
   border-radius: 4px;
   padding: 4px;
+  flex-shrink: 0; /* Empêche la barre d'outils de se réduire */
   .v-btn.is-active {
     background-color: rgba(var(--v-theme-primary), 0.2);
   }
@@ -484,18 +506,6 @@ defineExpose({ editor, triggerManualSave, handleApplySuggestionToEditor });
     padding: 0.1rem 0.3rem; 
     min-width: auto; 
   }
-}
-
-.v-row.fill-height {
-  height: 100%;
-  .v-col {
-    display: flex;
-    flex-direction: column;
-  }
-}
-
-.v-row.fill-height .v-col .editor-wrapper {
-   height: 100%;
 }
 
 /* Style pour le texte sous le spinner de l'overlay */
