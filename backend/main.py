@@ -8,13 +8,14 @@ from .config import settings
 from .models import GenerationRequest
 # MODIFIÉ: Ajout de l'import pour les routeurs export, scenes, analysis, style et agents
 from .routers import projects, characters, export, scenes, analysis, style, api_keys_config # agents supprimé, api_keys_config ajouté
+from .routers import projects, characters, export, scenes, analysis, style, api_keys_config, ideas # Ajout de ideas
 from .database import create_tables # Importer la fonction pour créer les tables
 import time
 import logging
 from typing import Optional # Ajouté pour Optional[str]
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+# logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s') # Géré par log_config.yaml
 
 app = FastAPI(
     title="CyberPlume",
@@ -60,6 +61,7 @@ app.include_router(scenes.router) # NOUVEAU: Inclusion du routeur pour les scèn
 app.include_router(analysis.router) # NOUVEAU: Inclusion du routeur pour l'analyse
 app.include_router(style.router) # NOUVEAU: Inclusion du routeur pour l'analyse de style
 app.include_router(api_keys_config.router) # NOUVEAU: Inclusion du routeur pour la configuration des clés API
+app.include_router(ideas.router, prefix="/ideas", tags=["ideas"]) # NOUVEAU: Inclusion du routeur pour la génération d'idées
 
 @app.get("/")
 async def root():

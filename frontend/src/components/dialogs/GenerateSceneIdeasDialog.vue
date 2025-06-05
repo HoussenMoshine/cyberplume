@@ -81,6 +81,40 @@
                   density="compact"
                 ></v-textarea>
               </v-col>
+               <!-- Nouveaux champs pour genre, thème principal, température -->
+              <v-col cols="12" sm="6" md="4">
+                <v-text-field
+                  v-model="generationParams.genre"
+                  label="Genre de l'histoire"
+                  placeholder="Ex: Science-Fiction, Romance"
+                  density="compact"
+                  clearable
+                  :disabled="isGenerating"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" sm="6" md="4">
+                <v-text-field
+                  v-model="generationParams.mainTheme"
+                  label="Thème principal"
+                  placeholder="Ex: La rédemption, La lutte contre l'oppression"
+                  density="compact"
+                  clearable
+                  :disabled="isGenerating"
+                ></v-text-field>
+              </v-col>
+              <v-col cols="12" sm="6" md="4">
+                <v-slider
+                  v-model.number="generationParams.temperature"
+                  label="Température (Créativité)"
+                  :min="0"
+                  :max="1"
+                  :step="0.1"
+                  thumb-label
+                  density="compact"
+                  :disabled="isGenerating"
+                  class="mt-2"
+                ></v-slider>
+              </v-col>
               <v-col cols="12" sm="6">
                 <v-select
                   v-model="generationParams.sceneType"
@@ -117,7 +151,7 @@
                   label="Nombre d'idées à générer"
                   type="number"
                   :min="1"
-                  :max="5"
+                  :max="10" 
                   density="compact"
                   :disabled="isGenerating"
                 ></v-text-field>
@@ -125,7 +159,7 @@
               <v-col cols="12">
                 <v-textarea
                   v-model="generationParams.keyElements"
-                  label="Éléments clés ou contraintes à inclure (optionnel)"
+                  label="Éléments clés ou contraintes (séparés par des virgules)"
                   placeholder="Ex: Doit contenir une révélation, se passer la nuit..."
                   rows="2"
                   auto-grow
@@ -154,10 +188,10 @@
                     border
                   >
                     <v-list-item-title class="font-weight-bold mb-1">Idée #{{ index + 1 }}</v-list-item-title>
-                    <v-list-item-subtitle style="white-space: pre-wrap;">{{ idea.text || idea }}</v-list-item-subtitle>
+                    <v-list-item-subtitle style="white-space: pre-wrap;">{{ idea }}</v-list-item-subtitle> <!-- Modifié: idea est maintenant une string -->
                      <!-- Actions par idée, ex: copier -->
                     <template v-slot:append>
-                      <v-btn icon variant="text" density="compact" title="Copier l'idée" @click="copyToClipboard(idea.text || idea)">
+                      <v-btn icon variant="text" density="compact" title="Copier l'idée" @click="copyIdeaText(idea)"> <!-- Modifié: utilise copyIdeaText et passe la string idea -->
                         <IconCopy size="18" />
                       </v-btn>
                     </template>
@@ -193,10 +227,11 @@ import { handleApiError } from '@/utils/errorHandler.js';
 import { 
   VDialog, VCard, VCardTitle, VCardText, VCardActions, VContainer, VRow, VCol, 
   VSelect, VTextField, VTextarea, VBtn, VSpacer, VProgressLinear, VAlert, VDivider,
-  VList, VListItem, VListItemTitle, VListItemSubtitle
+  VList, VListItem, VListItemTitle, VListItemSubtitle, VSlider
 } from 'vuetify/components';
 import { IconBulb, IconSparkles, IconCopy } from '@tabler/icons-vue';
 import SceneIdeaBackgroundURL from '@/assets/scene2.svg'; // Placeholder, à remplacer par une image pertinente
+import { useSceneIdeas } from '@/composables/useSceneIdeas';
 
 // Props & Emits
 const props = defineProps({
@@ -226,6 +261,15 @@ const selectedModel = ref(null);
 const selectedStyle = ref('normal');
 const modelSearch = ref('');
 
+// --- State pour la génération d'idées (via composable) ---
+const { 
+  isLoading: isGenerating, // Renommer isLoading en isGenerating pour ce contexte
+  generatedIdeas, 
+  error: generationError, 
+  generateIdeas,
+  copyToClipboard: copyIdeaText // Renommer pour éviter conflit si une fonction locale copyToClipboard existait
+} = useSceneIdeas();
+
 // --- State spécifique à la génération d'idées de scènes ---
 const generationParams = reactive({
   projectContext: '',
@@ -234,59 +278,65 @@ const generationParams = reactive({
   mood: '',
   keyElements: '',
   numberOfIdeas: 3,
-});
-const isGenerating = ref(false);
-const generationError = ref(null);
-const generatedIdeas = ref([]); // Tableau pour stocker les idées [{ text: '...' }, ...]
-
-// --- Computed ---
-const filteredModels = computed(() => {
-  const modelsForProvider = availableModels[selectedProvider.value] || [];
-  if (!modelSearch.value) return modelsForProvider;
-  const searchTerm = modelSearch.value.toLowerCase();
-  return modelsForProvider.filter(model =>
-    model.formattedName?.toLowerCase().includes(searchTerm) ||
-    model.description?.toLowerCase().includes(searchTerm) ||
-    model.id?.toLowerCase().includes(searchTerm)
-  );
+  // Nouveaux champs pour correspondre à SceneIdeaRequest
+  genre: '',
+  mainTheme: '',
+  temperature: 0.7,
 });
 
 const dialogBackgroundImageStyle = computed(() => ({
   backgroundImage: `url(${SceneIdeaBackgroundURL})`,
-  opacity: 0.05, // Plus subtil
-  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-  zIndex: 0, backgroundSize: 'cover', backgroundPosition: 'center center',
-  pointerEvents: 'none',
+  backgroundSize: 'cover',
+  backgroundPosition: 'center center',
+  opacity: 0.1, // Ajustez pour la visibilité souhaitée
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  zIndex: 0,
 }));
 
-// --- Methods ---
+const filteredModels = computed(() => {
+  const models = availableModels[selectedProvider.value] || [];
+  if (!modelSearch.value) {
+    return models;
+  }
+  return models.filter(model => 
+    model.formattedName.toLowerCase().includes(modelSearch.value.toLowerCase())
+  );
+});
+
 const closeDialog = () => {
   emit('update:modelValue', false);
 };
 
-const fetchModels = async (provider = selectedProvider.value) => {
+// --- Fonctions de gestion des modèles IA ---
+const fetchModels = async (provider) => {
   if (!provider) return;
   loadingModels.value = true;
   errorLoadingModels.value = false;
+  availableModels[provider] = []; // Vide la liste pour ce provider avant de fetcher
+
   try {
-    const response = await fetch(`${config.apiUrl}/models/${provider}`, { headers: { 'x-api-key': config.apiKey } });
-    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+    const response = await fetch(`/api/models/${provider}`, {
+      headers: { 'x-api-key': config.apiKey }
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ detail: 'Erreur inconnue lors du chargement des modèles.' }));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+    }
     const data = await response.json();
     if (data && data.models) {
-      const normalizedModels = data.models.map(model => {
-        const baseModel = typeof model === 'string' ? { id: model, name: model } : { ...model };
-        const name = baseModel.name?.toString() || baseModel.id?.toString() || '';
-        const formattedName = (provider === 'openrouter' && name.includes('/')) ? name : name.replace(/^models\//, '');
-        return { id: baseModel.id?.toString() || '', name, description: baseModel.description?.toString() || 'Aucune description', formattedName };
-      }).filter(m => m.id);
-      availableModels[provider] = normalizedModels;
+      availableModels[provider] = data.models.map(m => ({
+        ...m,
+        formattedName: `${m.name} (${m.id.split('/').pop()})` // Pour un affichage plus clair
+      }));
+      // Sélectionner le modèle par défaut si disponible, sinon le premier de la liste
+      const defaultModelIdShort = config.providers[provider]?.defaultModel;
+      const foundDefault = defaultModelIdShort ? availableModels[provider].find(m => m.id === defaultModelIdShort || m.id.endsWith('/' + defaultModelIdShort)) : null;
+      selectedModel.value = foundDefault ? foundDefault.id : (availableModels[provider][0]?.id || null);
 
-      const currentModelIsValid = availableModels[provider].some(m => m.id === selectedModel.value);
-      if (!currentModelIsValid || !selectedModel.value) {
-        const defaultModelIdShort = config.providers[provider]?.defaultModel;
-        const foundDefault = defaultModelIdShort ? availableModels[provider].find(m => m.id === defaultModelIdShort || m.id.endsWith('/' + defaultModelIdShort)) : null;
-        selectedModel.value = foundDefault ? foundDefault.id : (availableModels[provider][0]?.id || null);
-      }
     } else {
       throw new Error('Réponse API invalide.');
     }
@@ -315,85 +365,55 @@ const handleProviderChange = async (newProvider) => {
 };
 
 const submitGeneration = async () => {
+  // Validation initiale
   if (!generationParams.projectContext) {
-    generationError.value = "Le contexte du projet est requis pour générer des idées.";
+    // Le composable useSceneIdeas gère l'affichage des erreurs via Snackbar si l'appel API échoue.
+    // Pour les erreurs de validation client, on pourrait ajouter un appel direct à showSnackbar ici.
+    // Par exemple: useSnackbar().showSnackbar("Veuillez remplir tous les champs requis.", "error");
+    // Pour l'instant, on se fie aux :disabled du bouton et à la gestion d'erreur du composable.
+    console.warn("Validation échouée : projectContext, genre, ou mainTheme manquant.");
     return;
   }
-  isGenerating.value = true;
-  generationError.value = null;
-  generatedIdeas.value = [];
-
-  try {
-    const payload = {
-      provider: selectedProvider.value,
-      model: selectedModel.value,
-      style: selectedStyle.value,
-      project_context: generationParams.projectContext,
-      scene_type: generationParams.sceneType || null,
-      involved_characters: generationParams.involvedCharacters || null,
-      mood: generationParams.mood || null,
-      key_elements: generationParams.keyElements || null,
-      num_ideas: generationParams.numberOfIdeas || 3,
-    };
-    // TODO: Remplacer par l'appel API réel
-    // const response = await fetch(`${config.apiUrl}/api/ai/generate-scene-ideas`, {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey },
-    //   body: JSON.stringify(payload),
-    // });
-    // if (!response.ok) {
-    //   const errorData = await response.json().catch(() => ({ detail: 'Erreur inconnue lors de la génération.' }));
-    //   throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-    // }
-    // const result = await response.json();
-    // generatedIdeas.value = result.ideas || []; // Supposant que l'API retourne { ideas: [{text: '...'}, ...] }
-
-    // --- Simulation d'appel API ---
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    const numIdeas = payload.num_ideas;
-    const exampleIdeas = [];
-    for (let i = 0; i < numIdeas; i++) {
-      exampleIdeas.push({ 
-        text: `Exemple d'idée de scène #${i + 1} pour le contexte: ${payload.project_context.substring(0,50)}... (Style: ${payload.style})` 
-      });
-    }
-    generatedIdeas.value = exampleIdeas;
-    // --- Fin Simulation ---
-
-    if (generatedIdeas.value.length === 0) {
-        generationError.value = "L'IA n'a retourné aucune idée. Essayez d'affiner vos paramètres.";
-    } else {
-        emit('ideas-generated', generatedIdeas.value);
-    }
-
-  } catch (error) {
-    generationError.value = handleApiError(error, 'génération des idées de scènes');
-    console.error("Scene ideas generation error:", error);
-  } finally {
-    isGenerating.value = false;
+  if (!selectedProvider.value || !selectedModel.value) {
+    console.warn("Validation échouée : fournisseur ou modèle IA non sélectionné.");
+    return;
   }
+
+  const requestData = {
+    ai_provider: selectedProvider.value,
+    model: selectedModel.value,
+    genre: generationParams.genre,
+    main_theme: generationParams.mainTheme,
+    key_elements: generationParams.keyElements ? generationParams.keyElements.split(',').map(s => s.trim()).filter(s => s) : [],
+    writing_style: selectedStyle.value,
+    tone: generationParams.mood || null, // 'mood' du form correspond à 'tone' pour l'API
+    number_of_ideas: parseInt(generationParams.numberOfIdeas, 10) || 3,
+    story_context: generationParams.projectContext,
+    temperature: parseFloat(generationParams.temperature) || 0.7,
+    // Inclure d'autres champs si nécessaire, ex: sceneType, involvedCharacters
+    // scene_type: generationParams.sceneType || null,
+    // involved_characters: generationParams.involvedCharacters ? generationParams.involvedCharacters.split(',').map(s => s.trim()).filter(s => s) : [],
+  };
+
+  await generateIdeas(requestData); // Appel au composable
+
+  if (generatedIdeas.value && generatedIdeas.value.length > 0) {
+    emit('ideas-generated', generatedIdeas.value);
+  }
+  // isGenerating et generationError sont gérés par le composable useSceneIdeas
 };
 
-const copyToClipboard = async (text) => {
-  try {
-    await navigator.clipboard.writeText(text);
-    // Optionnel: afficher un snackbar de succès
-    // import { useSnackbar } from '@/composables/useSnackbar'; // à importer globalement ou passer en prop
-    // const { displaySnackbar } = useSnackbar();
-    // displaySnackbar('Idée copiée dans le presse-papiers !', 'success');
-    alert('Idée copiée dans le presse-papiers !'); // Simple alerte pour l'instant
-  } catch (err) {
-    console.error('Erreur lors de la copie : ', err);
-    alert('Erreur lors de la copie.');
-  }
-};
-
+// La fonction copyToClipboard est maintenant gérée par le composable via copyIdeaText
+// Il n'est plus nécessaire de la définir localement si on utilise copyIdeaText directement dans le template.
+// Si une logique spécifique était nécessaire ici avant d'appeler copyIdeaText, on pourrait la garder.
 
 // Charger les modèles pour le fournisseur initial lorsque la dialogue devient visible
 watch(() => props.modelValue, (newValue) => {
   if (newValue) {
-    generatedIdeas.value = []; // Reset des idées précédentes
-    generationError.value = null;
+    // Reset des idées précédentes et erreurs lors de l'ouverture
+    // generatedIdeas.value = []; // Déjà géré par le composable generateIdeas
+    // generationError.value = null; // Déjà géré par le composable generateIdeas
+    
     if (!availableModels[selectedProvider.value] || availableModels[selectedProvider.value].length === 0) {
       fetchModels(selectedProvider.value);
     } else if (!selectedModel.value || !availableModels[selectedProvider.value].some(m => m.id === selectedModel.value)) {
@@ -411,12 +431,9 @@ watch(() => props.modelValue, (newValue) => {
 .dialog-content-overlay {
   position: relative;
   z-index: 1;
-  background-color: transparent;
+  background-color: rgba(var(--v-theme-surface), 0.9); /* Légèrement transparent pour laisser voir le fond */
+  padding: 20px;
+  border-radius: inherit; /* Hérite du radius de la v-card */
 }
-.v-list-item {
-  background-color: rgba(0,0,0,0.02);
-}
-.v-list-item:hover {
-  background-color: rgba(0,0,0,0.04);
-}
+/* Autres styles si nécessaire */
 </style>

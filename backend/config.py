@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     mistral_api_key: Optional[str] = Field(None, validation_alias="MISTRAL_API_KEY")
     gemini_api_key: Optional[str] = Field(None, validation_alias="GEMINI_API_KEY")
     openrouter_api_key: Optional[str] = Field(None, validation_alias="OPENROUTER_API_KEY")
-    
+    default_max_tokens_scene_ideas: int = Field(default=500, validation_alias="DEFAULT_MAX_TOKENS_SCENE_IDEAS")
     cyberplume_fernet_key: Optional[str] = Field(None, validation_alias="CYBERPLUME_FERNET_KEY")
 
     @field_validator('cyberplume_fernet_key', mode='before')

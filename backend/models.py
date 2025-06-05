@@ -198,6 +198,23 @@ class SceneGenerateRequest(BaseModel):
     prompt_details: Optional[str] = None
     chapter_context: Optional[str] = None
 
+# --- Schémas pour la génération d'idées de scènes ---
+
+class SceneIdeaRequest(BaseModel):
+    ai_provider: str = Field(..., description="Fournisseur IA à utiliser (ex: gemini, mistral)")
+    model: Optional[str] = Field(None, description="Modèle IA spécifique à utiliser")
+    genre: str = Field(..., description="Genre de l'histoire")
+    main_theme: str = Field(..., description="Thème principal de l'histoire ou de la scène")
+    key_elements: List[str] = Field(default_factory=list, description="Éléments clés à inclure dans les idées de scènes")
+    writing_style: Optional[str] = Field(None, description="Style d'écriture souhaité pour les idées")
+    tone: Optional[str] = Field(None, description="Ton souhaité pour les idées de scènes")
+    number_of_ideas: int = Field(default=3, ge=1, le=10, description="Nombre d'idées de scènes à générer")
+    story_context: Optional[str] = Field(None, description="Contexte général de l'histoire pour aider à la génération")
+    temperature: Optional[float] = Field(default=0.7, ge=0.0, le=1.0, description="Température pour la génération IA")
+    # Potentiellement d'autres champs comme des personnages spécifiques à inclure, etc.
+
+class SceneIdeaResponse(BaseModel):
+    ideas: List[str] = Field(..., description="Liste des idées de scènes générées")
 class SceneGenerateResponse(BaseModel):
     generated_text: str
     raw_response: str

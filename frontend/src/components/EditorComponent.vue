@@ -236,6 +236,7 @@ import { useAIActions } from '@/composables/useAIActions.js';
 import { useSnackbar as useSnackbarComposable } from '@/composables/useSnackbar.js'; 
 import { useTiptapEditor } from '@/composables/useTiptapEditor.js';
 
+import { config } from '@/config.js';
 
 const props = defineProps({
   selectedChapterId: { type: [Number, null], default: null },
@@ -247,6 +248,7 @@ const emit = defineEmits([
   'update:isDistractionFree',
   'content-changed',
   'ai-action-insert-content',
+
   'ai-action-replace-content',
   'ai-action-error',
   'manual-save-requested' 
@@ -256,7 +258,7 @@ const { showSnackbar, snackbarMessage, snackbarColor, snackbarTimeout, displaySn
 
 const aiToolbarRef = ref(null); 
 const currentAiParamsFromToolbar = ref({
-  provider: '', 
+  provider: config.defaultProvider || 'gemini', // Fallback au cas où defaultProvider n'est pas défini 
   model: null,
   style: 'normal', 
   customStyleDescription: null
