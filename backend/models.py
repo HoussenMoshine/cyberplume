@@ -140,6 +140,7 @@ class ChapterReadBasic(BaseModel): # Utilisé dans ProjectRead
     title: str
     project_id: int
     order: int # NOUVEAU: Inclure l'ordre
+    summary: Optional[str] = None # NOUVEAU: Inclure le résumé pour l'affichage dans la liste
     scenes: List[SceneRead] = [] # Ajouté pour afficher les scènes dans la liste des chapitres
 
     class Config:

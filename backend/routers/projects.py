@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Set
+import logging
 # from pydantic import BaseModel # Plus nécessaire ici si ReorderItemsSchema est le seul schéma local
 
 # Importer les modèles SQLAlchemy, les schémas Pydantic et la dépendance get_db
@@ -207,15 +208,33 @@ async def update_chapter(chapter_id: int, chapter_update: models.ChapterUpdate, 
 @router.delete("/chapters/{chapter_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_chapter(chapter_id: int, db: Session = Depends(get_db)):
     """
-    Supprime un chapitre.
+    Supprime un chapitre spécifique par son ID.
     """
-    db_chapter = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
-    if db_chapter is None:
-        raise HTTPException(status_code=404, detail="Chapter not found")
+    logging.info(f"Attempting to delete chapter with ID: {chapter_id}")
+    try:
+        db_chapter = db.query(models.Chapter).filter(models.Chapter.id == chapter_id).first()
+        if db_chapter is None:
+            logging.warning(f"Chapter with ID {chapter_id} not found for deletion.")
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chapter not found")
 
-    db.delete(db_chapter)
-    db.commit()
-    return None
+        logging.debug(f"Chapter found: {db_chapter}. Proceeding to delete associated scenes.")
+        # Supprimer les scènes associées manuellement
+        num_deleted_scenes = db.query(models.Scene).filter(models.Scene.chapter_id == chapter_id).delete(synchronize_session='evaluate') # Modifié synchronize_session
+        logging.info(f"Deleted {num_deleted_scenes} scenes associated with chapter ID {chapter_id}.")
+
+        logging.debug(f"Deleting chapter object ID {chapter_id} itself.")
+        db.delete(db_chapter)
+        
+        logging.info(f"Committing changes to the database for chapter ID {chapter_id} deletion.")
+        db.commit()
+        logging.info(f"Successfully deleted chapter with ID: {chapter_id}")
+        return None # HTTP 204 ne retourne pas de contenu
+    except HTTPException: # Re-lever les HTTPException pour que FastAPI les gère
+        raise
+    except Exception as e:
+        logging.exception(f"An unexpected error occurred while deleting chapter ID {chapter_id}: {e}")
+        db.rollback() # Important de rollback en cas d'erreur
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error during chapter deletion.")
 
 
 @router.delete("/chapters/batch-delete", status_code=status.HTTP_204_NO_CONTENT)

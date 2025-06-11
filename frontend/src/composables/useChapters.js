@@ -12,6 +12,7 @@ export function useChapters(showSnackbar) {
   const deletingChapterItem = ref(false);
   const exportingChapterId = ref(null);
   const generatingSummaryChapterId = ref(null); // NOUVEAU: Pour le chargement de la génération de résumé
+  const errorOnAddChapter = ref(null); // Pour les erreurs spécifiques à l'ajout de chapitre
 
   const fetchChaptersForProject = async (projectId) => {
     if (!projectId) return [];
@@ -45,6 +46,7 @@ export function useChapters(showSnackbar) {
     if (!projectId || !title) return null;
     submittingChapter.value = true;
     chapterError.value = null; 
+    errorOnAddChapter.value = null; // Réinitialiser l'erreur spécifique à l'ajout 
     let newChapterResponse = null; // Renommé pour clarté
     try {
       const response = await fetch(`/api/projects/${projectId}/chapters`, {
@@ -65,7 +67,8 @@ export function useChapters(showSnackbar) {
       if (showSnackbar) showSnackbar('Chapitre ajouté avec succès');
     } catch (error) {
       const errorMessage = handleApiError(error, "Erreur ajout chapitre");
-      chapterError.value = errorMessage; 
+      chapterError.value = errorMessage; // Conserver pour l'erreur générale si besoin
+      errorOnAddChapter.value = errorMessage; // Assigner l'erreur spécifique à l'ajout 
       if (showSnackbar) showSnackbar(errorMessage, 'error');
       return null; 
     } finally {
@@ -215,12 +218,13 @@ export function useChapters(showSnackbar) {
   };
 
   // NOUVELLE FONCTION pour générer le résumé
-  const generateChapterSummary = async (chapterId) => {
-    if (!chapterId) return false;
+  const generateChapterSummary = async (projectId, chapterId) => {
+
+    if (!projectId || !chapterId) return false;
     generatingSummaryChapterId.value = chapterId;
     chapterError.value = null;
     let success = false;
-    let projectIdToUpdate = null;
+
     try {
       const response = await fetch(`/api/chapters/${chapterId}/generate-summary`, {
         method: 'POST',
@@ -231,32 +235,13 @@ export function useChapters(showSnackbar) {
         try { error.data = await response.json(); } catch (e) { /* ignore */ }
         throw error;
       }
-      const summaryData = await response.json(); // Contient le chapitre mis à jour avec le résumé
-
-      // Trouver le projectId pour re-fetch
-       for (const pid in chaptersByProjectId) {
-         if (chaptersByProjectId[pid]?.some(c => c.id === chapterId)) {
-           projectIdToUpdate = pid;
-           break;
-         }
-       }
-
-      if (projectIdToUpdate) {
-        await fetchChaptersForProject(projectIdToUpdate); // Re-fetch pour mettre à jour la liste
-      } else {
-        // Fallback: mise à jour locale si projectId non trouvé (moins idéal)
-        for (const projectId_loop in chaptersByProjectId) { // Renommer la variable de boucle
-            const index = chaptersByProjectId[projectId_loop]?.findIndex(c => c.id === chapterId);
-            if (index !== -1 && chaptersByProjectId[projectId_loop] && summaryData) {
-                // Assumer que summaryData est le chapitre mis à jour
-                chaptersByProjectId[projectId_loop][index] = { ...chaptersByProjectId[projectId_loop][index], summary: summaryData.summary }; // Ne propager que le résumé pour éviter la copie de contenu
-                break;
-            }
-        }
-      }
+      // La génération a réussi, re-fetch les chapitres pour mettre à jour la liste
+      await fetchChaptersForProject(projectId);
+      
       if (showSnackbar) showSnackbar('Résumé du chapitre généré et sauvegardé.');
       success = true;
     } catch (error) {
+console.error('Erreur détaillée lors de la tentative d\'appel API pour le résumé:', error);
       const errorMessage = handleApiError(error, "Erreur génération résumé chapitre");
       chapterError.value = errorMessage;
       if (showSnackbar) showSnackbar(errorMessage, 'error');
@@ -317,6 +302,7 @@ export function useChapters(showSnackbar) {
     deletingChapterItem,
     exportingChapterId,
     generatingSummaryChapterId,
+    errorOnAddChapter, // Ajout de l'erreur spécifique à l'ajout
     fetchChaptersForProject,
     addChapter,
     updateChapter,
@@ -324,6 +310,7 @@ export function useChapters(showSnackbar) {
     exportChapter,
     generateChapterSummary,
     clearChaptersForProject,
+    reorderChapters, // Ajout de reorderChapters pour la complétude
     reorderChapters,
   };
 }

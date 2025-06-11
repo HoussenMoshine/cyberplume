@@ -34,24 +34,25 @@
             <ChapterList
               :project-id="project.id"
               :chapters="chaptersByProjectId[project.id]"
-              :loading="loadingChapters[project.id]" 
-              :error="errorChapters[project.id]" 
-              :selectedChapterId="selectedChapterId"
+              :loading="loadingChapters[project.id] || false"
+              :error="errorChapters[project.id] || null"
+              :selectedChapterId="props.selectedChapterId"
               :selectedChapterIds="selectedChapterIds"
-              :exportingChapterId="exportingChapterIdComposable" 
+              :exportingChapterId="exportingChapterIdComposable"
               :exportingFormat="exportingFormat"
-              :submittingChapter="submittingChapter" 
-              :generatingSummaryChapterId="generatingSummaryChapterId" 
+              :submittingChapter="submittingChapter"
+              :generatingSummaryChapterId="generatingSummaryChapterId"
+              :addingChapterError="currentErrorAddingChapter"
+              :on-generate-summary="handleChapterGenerateSummaryRequested"
               @reordered="(event) => onChapterDrop(project.id, event)"
-              @select-chapter="(chapterId) => selectChapter(project.id, chapterId)"
+              @select-chapter="(chapterId) => emit('chapter-selected', { chapterId })"
               @toggle-selection="toggleChapterSelection"
               @handle-export="handleChapterExport"
               @open-delete="openDeleteConfirmDialog"
               @apply-suggestion="handleApplySuggestion"
               @request-add-chapter="handleChapterAddRequested"
               @request-update-chapter="handleChapterUpdateRequested"
-              @request-generate-summary="handleChapterGenerateSummaryRequested"
-              :showSnackbar="showSnackbar" 
+              :showSnackbar="showSnackbar"
             >
             </ChapterList>
           </template>
@@ -71,7 +72,7 @@
       :deleteTarget="deleteTarget"
       :targetCounts="{ projects: selectedProjectIds.length, chapters: selectedChapterIds.length }"
       @close="closeDeleteConfirmDialog"
-      @confirm="confirmDelete" 
+      @confirm="confirmDelete"
     />
     <EditProjectDialog :show="showEditProjectDialog" :loading="submittingProject" :error="editProjectError" :initialTitle="editingProject?.title || ''" :initialDescription="editingProject?.description || ''" @close="closeEditProjectDialog" @save="submitEditProject" />
 
@@ -137,6 +138,7 @@ const props = defineProps({
   currentAiModel: String,
   currentAiStyle: String,
   currentCustomAiDescription: String,
+  selectedChapterId: [String, Number, null],
 });
 
 const emit = defineEmits(['active-chapter-content-changed', 'ai-action-insert-content', 'chapter-selected']);
@@ -154,21 +156,22 @@ const showSnackbar = (text, color = 'success', timeout = 3000) => {
 const {
   projects, loadingProjects, errorProjects, submittingProject, deletingItem: deletingProjectItemState,
   exportingProjectId, exportingFormat, exportError,
-  fetchProjects: fetchProjectsComposable, addProject: addProjectComposable, 
+  fetchProjects: fetchProjectsComposable, addProject: addProjectComposable,
   updateProject: updateProjectComposable, deleteProject: deleteProjectInternalComposable,
   exportProject, getProjectById
 } = useProjects(showSnackbar);
 
 const {
-  chaptersByProjectId, loadingChapters, errorChapters, 
-  submittingChapter, 
-  deletingChapterItem, 
-  exportingChapterId: exportingChapterIdComposable, 
-  generatingSummaryChapterId, 
-  fetchChaptersForProject: fetchChaptersComposable, 
-  addChapter: addChapterComposable, 
-  updateChapter: updateChapterComposable, 
-  deleteChapter: deleteChapterComposable, 
+  chaptersByProjectId, loadingChapters, errorChapters,
+  submittingChapter,
+  deletingChapterItem,
+  exportingChapterId: exportingChapterIdComposable,
+  generatingSummaryChapterId,
+  errorOnAddChapter: currentErrorAddingChapter, // Récupérer l'erreur spécifique à l'ajout
+  fetchChaptersForProject: fetchChaptersComposable,
+  addChapter: addChapterComposable,
+  updateChapter: updateChapterComposable,
+  deleteChapter: deleteChapterComposable,
   reorderChapters: reorderChaptersComposable,
   exportChapter: exportChapterComposable,
   generateChapterSummary: generateChapterSummaryComposable,
@@ -176,14 +179,14 @@ const {
 } = useChapters(showSnackbar);
 
 
-const { 
-  providers, 
-  availableModels, 
-  providerInfo, 
-  loadingModels, 
-  errorLoadingModels, 
-  fetchModels, 
-  selectDefaultModel 
+const {
+  providers,
+  availableModels,
+  providerInfo,
+  loadingModels,
+  errorLoadingModels,
+  fetchModels,
+  selectDefaultModel
 } = useAIModels(showSnackbar, props);
 
 const {
@@ -197,273 +200,194 @@ const {
 } = useAnalysis(showSnackbar);
 
 
-// --- State (local) ---
-const activeProjectId = ref(null); // Pour suivre le projet actuellement actif/développé
-const selectedChapterId = ref(null); // ID du chapitre sélectionné pour l'édition
-const selectedProjectIds = ref([]); // Pour la sélection multiple de projets
-const selectedChapterIds = ref([]); // Pour la sélection multiple de chapitres
-
-
-// Dialogs visibility
+// --- Projects ---
+const selectedProjectIds = ref([]);
 const showAddProjectDialog = ref(false);
-const showDeleteConfirmDialog = ref(false);
-const deleteTarget = ref({ type: null, item: null }); // type: 'project' ou 'chapter'
+const addProjectError = ref('');
+const editingProject = ref(null);
 const showEditProjectDialog = ref(false);
-const editingProject = ref(null); // Projet en cours d'édition
-const addProjectError = ref(null);
-const editProjectError = ref(null);
+const editProjectError = ref('');
 
+// --- Chapters ---
+const selectedChapterIds = ref([]);
+const currentProjectIdForChapters = ref(null);
+
+// --- Deletion ---
+const showDeleteConfirmDialog = ref(false);
+const deleteTarget = ref(null);
+const deleteType = ref(''); // 'project' or 'chapter'
+
+// --- Analysis ---
 const showAnalysisDialog = ref(false);
 
 
-// --- Cycle de vie ---
-onMounted(async () => {
-  await fetchProjectsComposable();
-  // Optionnel: charger les chapitres du premier projet si la liste n'est pas vide
-  if (projects.value.length > 0) {
-    // activeProjectId.value = projects.value[0].id; // Décommentez si vous voulez un projet actif par défaut
-    // await fetchChaptersForProject(projects.value[0].id); // Décommentez pour charger les chapitres
-  }
+onMounted(() => {
+  fetchProjects();
 });
 
-// --- Gestion des Projets ---
-const fetchChaptersForProject = async (projectId) => {
-  activeProjectId.value = projectId;
-  await fetchChaptersComposable(projectId);
-};
+function fetchProjects() {
+  fetchProjectsComposable();
+}
 
-const submitNewProject = async (projectData) => {
-  addProjectError.value = null;
-  const newProject = await addProjectComposable(projectData);
-  if (newProject) {
-    handleAddProjectDialogClose();
-  } else {
-    addProjectError.value = "Erreur lors de l'ajout du projet."; // Ou utiliser l'erreur de useProjects
-  }
-};
+// ... (rest of the component logic for project/chapter management)
 
-const handleAddProjectDialogClose = () => {
-  showAddProjectDialog.value = false;
-  addProjectError.value = null;
-};
-
-const openEditProjectDialog = (project) => {
-  editingProject.value = { ...project }; // Copie pour éviter la modification directe
-  editProjectError.value = null;
-  showEditProjectDialog.value = true;
-};
-
-const closeEditProjectDialog = () => {
-  showEditProjectDialog.value = false;
-  editingProject.value = null;
-  editProjectError.value = null;
-};
-
-const submitEditProject = async (projectData) => {
-  editProjectError.value = null;
-  if (!editingProject.value) return;
-  const success = await updateProjectComposable(editingProject.value.id, projectData);
-  if (success) {
-    closeEditProjectDialog();
-  } else {
-    editProjectError.value = "Erreur lors de la modification du projet."; // Ou utiliser l'erreur de useProjects
-  }
-};
-
-const toggleProjectSelection = (projectId) => {
+function toggleProjectSelection(projectId) {
   const index = selectedProjectIds.value.indexOf(projectId);
   if (index > -1) {
     selectedProjectIds.value.splice(index, 1);
   } else {
     selectedProjectIds.value.push(projectId);
   }
-};
+}
 
-const handleProjectExport = async (projectId, format) => {
-    await exportProject(projectId, format);
-};
-
-
-// --- Gestion des Chapitres ---
-const selectChapter = (projectId, chapterId) => {
-  selectedChapterId.value = chapterId;
-  activeProjectId.value = projectId; // S'assurer que le projet parent est actif
-  emit('chapter-selected', { projectId, chapterId });
-  // fetchCharactersForProject(projectId); // SUPPRIMÉ pour l'instant
-};
-
-const toggleChapterSelection = (chapterId) => {
-  const index = selectedChapterIds.value.indexOf(chapterId);
-  if (index > -1) {
-    selectedChapterIds.value.splice(index, 1);
-  } else {
-    selectedChapterIds.value.push(chapterId);
-  }
-};
-
-const onChapterDrop = async (projectId, newOrderedChapters) => {
-  const orderedIds = newOrderedChapters.map(c => c.id);
-  await reorderChaptersComposable(projectId, orderedIds);
-};
-
-const handleChapterExport = async (chapterId, format) => {
-    await exportChapterComposable(chapterId, format);
-};
-
-const handleChapterAddRequested = async (projectId, chapterData) => {
-    await addChapterComposable(projectId, chapterData);
-};
-
-const handleChapterUpdateRequested = async (chapterId, chapterUpdateData) => {
-    await updateChapterComposable(chapterId, chapterUpdateData);
-};
-
-const handleChapterGenerateSummaryRequested = async (chapterId) => {
-    await generateChapterSummaryComposable(chapterId);
-};
-
-
-// --- Suppression (Projets & Chapitres) ---
-const openDeleteConfirmDialog = (type, item) => {
-  deleteTarget.value = { type, item };
-  showDeleteConfirmDialog.value = true;
-};
-
-const closeDeleteConfirmDialog = () => {
-  showDeleteConfirmDialog.value = false;
-  deleteTarget.value = { type: null, item: null };
-};
-
-const confirmDelete = async () => {
-  const { type, item } = deleteTarget.value;
-  let success = false;
-
-  if (type === 'project-selection' && selectedProjectIds.value.length > 0) {
-    // Logique pour supprimer plusieurs projets sélectionnés
-    // Pour l'instant, on va boucler, mais une API de suppression en masse serait mieux
-    let allSucceeded = true;
-    for (const projectId of selectedProjectIds.value) {
-      const result = await deleteProjectInternalComposable(projectId);
-      if (!result) allSucceeded = false;
+function toggleChapterSelection(chapterId) {
+    const index = selectedChapterIds.value.indexOf(chapterId);
+    if (index > -1) {
+        selectedChapterIds.value.splice(index, 1);
+    } else {
+        selectedChapterIds.value.push(chapterId);
     }
-    success = allSucceeded;
-    if (success) selectedProjectIds.value = [];
+}
 
-  } else if (type === 'chapter-selection' && selectedChapterIds.value.length > 0) {
-     // Logique pour supprimer plusieurs chapitres sélectionnés
-    let allSucceeded = true;
-    for (const chapterId of selectedChapterIds.value) {
-      const result = await deleteChapterComposable(chapterId);
-      if (!result) allSucceeded = false;
+function fetchChaptersForProject(projectId) {
+    currentProjectIdForChapters.value = projectId;
+    fetchChaptersComposable(projectId);
+}
+
+function onChapterDrop(projectId, event) {
+    reorderChaptersComposable(projectId, event);
+}
+
+function handleChapterAddRequested({ projectId, title, summary }) {
+    addChapterComposable(projectId, { title, summary });
+}
+
+function handleChapterUpdateRequested({ chapterId, title, summary }) {
+    const chapter = findChapterById(chapterId);
+    if (chapter) {
+        updateChapterComposable(chapter.project_id, chapterId, { title, summary });
     }
-    success = allSucceeded;
-    if (success) selectedChapterIds.value = [];
+}
 
-  } else if (type === 'project' && item) {
-    success = await deleteProjectInternalComposable(item.id);
-    if (success) selectedProjectIds.value = selectedProjectIds.value.filter(pid => pid !== item.id);
-  } else if (type === 'chapter' && item) {
-    success = await deleteChapterComposable(item.id);
-    if (success) selectedChapterIds.value = selectedChapterIds.value.filter(cid => cid !== item.id);
-  }
+function handleChapterGenerateSummaryRequested(projectId, chapterId) {
+    
+    generateChapterSummaryComposable(projectId, chapterId);
+}
 
+function handleProjectExport({ projectId, format }) {
+    exportProject(projectId, format);
+}
+
+function handleChapterExport({ chapterId, format }) {
+    const chapter = findChapterById(chapterId);
+    if (chapter) {
+        exportChapterComposable(chapter.project_id, chapterId, format);
+    }
+}
+
+function handleApplySuggestion(suggestionData) {
+    const chapter = findChapterById(suggestionData.chapterId);
+    if (chapter) {
+        applySuggestionToChapterContent(chapter.project_id, suggestionData.chapterId, suggestionData.suggestion);
+    }
+}
+
+// --- Dialogs management ---
+
+function openAddProjectDialog() {
+  addProjectError.value = '';
+  showAddProjectDialog.value = true;
+}
+
+function handleAddProjectDialogClose() {
+  showAddProjectDialog.value = false;
+}
+
+async function submitNewProject(projectData) {
+  const success = await addProjectComposable(projectData);
   if (success) {
-    showSnackbar(`${type === 'project' || type === 'project-selection' ? 'Projet(s)' : 'Chapitre(s)'} supprimé(s) avec succès.`, 'success');
-  } else {
-    showSnackbar(`Erreur lors de la suppression.`, 'error');
+    showAddProjectDialog.value = false;
+  }
+}
+
+function openEditProjectDialog(project) {
+  editingProject.value = project;
+  editProjectError.value = '';
+  showEditProjectDialog.value = true;
+}
+
+function closeEditProjectDialog() {
+  showEditProjectDialog.value = false;
+  editingProject.value = null;
+}
+
+async function submitEditProject(projectData) {
+  if (!editingProject.value) return;
+  const success = await updateProjectComposable(editingProject.value.id, projectData);
+  if (success) {
+    closeEditProjectDialog();
+  }
+}
+
+function openDeleteConfirmDialog(item, type) {
+  deleteTarget.value = item;
+  deleteType.value = type;
+  showDeleteConfirmDialog.value = true;
+}
+
+function closeDeleteConfirmDialog() {
+  showDeleteConfirmDialog.value = false;
+  deleteTarget.value = null;
+  deleteType.value = '';
+}
+
+async function confirmDelete() {
+  if (deleteType.value === 'project') {
+    const idsToDelete = selectedProjectIds.value.length > 0 ? [...selectedProjectIds.value] : [deleteTarget.value.id];
+    await deleteProjectInternalComposable(idsToDelete);
+    selectedProjectIds.value = [];
+  } else if (deleteType.value === 'chapter') {
+    const chapter = deleteTarget.value;
+    await deleteChapterComposable(chapter.project_id, chapter.id);
   }
   closeDeleteConfirmDialog();
-};
+}
 
-
-// --- Analyse ---
-const openAnalysisDialog = async (itemType, itemId) => {
-    errorAnalysis.value = null;
-    analysisResult.value = null; // Réinitialiser avant de charger
+function openAnalysisDialog(projectId) {
+    getProjectAnalysis(projectId);
     showAnalysisDialog.value = true;
+}
 
-    if (itemType === 'project') {
-        await getProjectAnalysis(itemId);
-    } else if (itemType === 'chapter') {
-        await getChapterAnalysis(itemId);
-    } else if (itemType === 'style') {
-        // Pour l'analyse de style, itemId pourrait être l'ID du chapitre ou du projet
-        // ou vous pourriez avoir une logique différente pour obtenir le texte.
-        // Pour l'instant, supposons que c'est l'ID du chapitre.
-        const chapter = getChapterById(itemId); // Vous devrez peut-être implémenter getChapterById dans useChapters
-        if (chapter && chapter.content) {
-             await getStyleAnalysis(chapter.content);
-        } else {
-            errorAnalysis.value = "Contenu du chapitre non trouvé pour l'analyse de style.";
-        }
-    }
-};
-
-const closeAnalysisDialog = () => {
+function closeAnalysisDialog() {
     showAnalysisDialog.value = false;
-    analysisResult.value = null;
-    errorAnalysis.value = null;
-};
+}
 
-const handleApplySuggestion = async (suggestionData) => {
-  if (selectedChapterId.value) {
-    // Utiliser la fonction applySuggestionToChapterContent de useChapters
-    const success = await applySuggestionToChapterContent(selectedChapterId.value, suggestionData.texte_modifie);
-    if (success) {
-      showSnackbar('Suggestion appliquée avec succès au chapitre.', 'success');
-      // L'état du contenu du chapitre devrait être mis à jour par useChapters,
-      // et EditorComponent devrait réagir à ce changement.
-      // On peut aussi émettre un événement pour forcer un re-fetch si nécessaire.
-      emit('active-chapter-content-changed', { chapterId: selectedChapterId.value, content: suggestionData.texte_modifie });
-
-    } else {
-      showSnackbar('Erreur lors de l\'application de la suggestion.', 'error');
+// --- Helper ---
+function findChapterById(chapterId) {
+    for (const projectId in chaptersByProjectId.value) {
+        const chapters = chaptersByProjectId.value[projectId];
+        const found = chapters.find(c => c.id === chapterId);
+        if (found) return found;
     }
-  } else {
-    showSnackbar('Aucun chapitre sélectionné pour appliquer la suggestion.', 'warning');
-  }
-};
+    return null;
+}
 
-
-// --- Watchers ---
-watch(projects, (newProjects) => {
-  // Si un projet actif n'existe plus (ex: supprimé), réinitialiser
-  if (activeProjectId.value && !newProjects.some(p => p.id === activeProjectId.value)) {
-    activeProjectId.value = null;
-    selectedChapterId.value = null; // Désélectionner aussi le chapitre
-    emit('chapter-selected', { projectId: null, chapterId: null });
-  }
-}, { deep: true });
-
-watch(() => chaptersByProjectId, (newChaptersMap) => {
-  // Si un chapitre sélectionné n'existe plus dans le projet actif, réinitialiser
-  if (activeProjectId.value && selectedChapterId.value) {
-    const chaptersOfActiveProject = newChaptersMap[activeProjectId.value];
-    if (chaptersOfActiveProject && !chaptersOfActiveProject.some(c => c.id === selectedChapterId.value)) {
-      selectedChapterId.value = null;
-      emit('chapter-selected', { projectId: activeProjectId.value, chapterId: null });
+watch(currentProjectIdForChapters, (newVal) => {
+    if (newVal) {
+        selectedChapterIds.value = [];
     }
-  }
-}, { deep: true });
-
-
-// Exposer les fonctions/états nécessaires au template
-defineExpose({
-  fetchProjects: fetchProjectsComposable,
-  fetchChaptersForProject,
-  // ... autres si nécessaire pour des tests ou accès parent
 });
 
 </script>
 
 <style scoped>
 .v-navigation-drawer {
-  border-right: 1px solid rgba(0,0,0,0.12);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
 }
-.project-item-container {
-  margin-bottom: 8px;
-}
-.text-disabled {
-  color: #9e9e9e !important; /* Gris pour le texte désactivé */
+.v-container {
+  flex-grow: 1;
+  overflow-y: auto;
 }
 </style>

@@ -1,11 +1,11 @@
 <template>
   <div class="chapters-container pl-2 pr-1 py-1">
-    <v-progress-linear v-if="loadingChapters" indeterminate color="secondary" height="2"></v-progress-linear>
-    <v-alert v-if="errorChapters" type="error" density="compact" variant="tonal" class="my-1 mx-2">
-      {{ errorChapters }}
+    <v-progress-linear v-if="props.loading" indeterminate color="secondary" height="2"></v-progress-linear>
+    <v-alert v-if="props.error" type="error" density="compact" variant="tonal" class="my-1 mx-2">
+      {{ props.error }}
     </v-alert>
 
-    <div v-if="!loadingChapters && localChapters && localChapters.length > 0">
+    <div v-if="!props.loading && localChapters && localChapters.length > 0">
       <draggable
         v-model="localChapters"
         item-key="id"
@@ -53,8 +53,8 @@
                       density="default"
                       variant="text"
                       size="default"
-                      @click.stop="$emit('request-generate-summary', chapter.id)" 
-                      :loading="props.generatingSummaryChapterId === chapter.id" 
+                      @click.stop="() => props.onGenerateSummary(props.projectId, chapter.id)"
+                      :loading="props.generatingSummaryChapterId === chapter.id"
                       :disabled="props.generatingSummaryChapterId === chapter.id"
                       class="action-btn"
                       title="Générer/Régénérer le résumé"
@@ -149,11 +149,11 @@
         </template>
       </draggable>
 
-      <v-list-item v-if="localChapters.length === 0 && !loadingChapters && !errorChapters" dense class="pl-2 py-1">
+      <v-list-item v-if="localChapters.length === 0 && !props.loading && !props.error" dense class="pl-2 py-1">
         <v-list-item-title class="text-caption font-italic text-disabled">Aucun chapitre</v-list-item-title>
       </v-list-item>
     </div>
-     <v-list-item v-else-if="!loadingChapters && !errorChapters && (!localChapters || localChapters.length === 0)" dense class="pl-2 py-1">
+     <v-list-item v-else-if="!props.loading && !props.error && (!localChapters || localChapters.length === 0)" dense class="pl-2 py-1">
         <v-list-item-title class="text-caption font-italic text-disabled">Aucun chapitre</v-list-item-title>
       </v-list-item>
 
@@ -166,20 +166,20 @@
 
       <AddChapterDialog
         :show="showAddChapterDialog"
-        :loading="props.submittingChapter" 
-        :error="addChapterError" 
+        :loading="props.submittingChapter"
+        :error="addChapterError"
         :project-name="getProjectNameById(props.projectId)"
         @close="handleAddChapterDialogClose"
         @save="handleAddChapterDialogSave"
       />
-      <EditChapterDialog 
-        :show="showEditChapterDialog" 
-        :loading="props.submittingChapter" 
-        :error="editChapterError" 
+      <EditChapterDialog
+        :show="showEditChapterDialog"
+        :loading="props.submittingChapter"
+        :error="editChapterError"
         :initialTitle="editingChapter?.title || ''"
-        :initialSummary="editingChapter?.summary || ''" 
-        @close="closeEditChapterDialog" 
-        @save="submitEditChapter" 
+        :initialSummary="editingChapter?.summary || ''"
+        @close="closeEditChapterDialog"
+        @save="submitEditChapter"
       />
       <ChapterAnalysisDialog
         :show="showChapterAnalysisDialog"
@@ -196,213 +196,139 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
 import draggable from 'vuedraggable';
-import { 
-  VList, VListItem, VListItemTitle, VListItemSubtitle, VProgressLinear, VAlert, VBtn, VIcon, 
-  VMenu, VListSubheader, VDivider, VProgressCircular, VCheckboxBtn, VTooltip
-} from 'vuetify/components'; // VListGroup retiré
-import { 
-  IconBook, IconDotsVertical, IconPencil, IconTrash, IconPlus, IconFileText, 
-  IconFileTypePdf, IconBookDownload, IconFileSearch, IconGripVertical
-} from '@tabler/icons-vue'; // IconSquarePlus retiré
+import {
+  VListItem, VListItemTitle, VListItemSubtitle, VProgressLinear, VAlert, VBtn, VIcon, VCheckboxBtn,
+  VMenu, VList, VListSubheader, VDivider, VProgressCircular
+} from 'vuetify/components';
+import { IconBook, IconPlus, IconTrash, IconPencil, IconGripVertical, IconDotsVertical, IconFileText, IconFileTypePdf, IconBookDownload, IconFileSearch } from '@tabler/icons-vue';
 
 import AddChapterDialog from './dialogs/AddChapterDialog.vue';
 import EditChapterDialog from './dialogs/EditChapterDialog.vue';
 import ChapterAnalysisDialog from './dialogs/ChapterAnalysisDialog.vue';
-
-// Import du composable useAnalysis
 import { useAnalysis } from '@/composables/useAnalysis.js';
+import { useSnackbar } from '@/composables/useSnackbar.js';
 
 
 const props = defineProps({
-  projectId: {
-    type: Number,
-    required: true
-  },
-  chapters: {
-    type: Array,
-    default: () => []
-  },
-  loading: { 
-    type: Boolean,
-    default: false
-  },
-  error: { 
-    type: [String, null],
-    default: null
-  },
-  selectedChapterId: {
-    type: [Number, null],
-    default: null
-  },
-  selectedChapterIds: {
-    type: Array,
-    default: () => []
-  },
-  exportingChapterId: {
-    type: [Number, null],
-    default: null
-  },
-  exportingFormat: {
-    type: [String, null],
-    default: null
-  },
-  submittingChapter: { 
-    type: Boolean,
-    default: false
-  },
-  generatingSummaryChapterId: { 
-    type: [Number, null],
-    default: null
-  },
-  showSnackbar: { 
-    type: Function,
-    default: () => {}
-  },
-  getProjectNameById: {
-    type: Function,
-    default: () => ''
-  }
+  projectId: { type: [Number, String], required: true },
+  chapters: { type: Array, default: () => [] },
+  loading: { type: Boolean, default: false },
+  error: { type: String, default: null },
+  selectedChapterId: { type: [Number, String, null], default: null },
+  selectedChapterIds: { type: Array, default: () => [] },
+  exportingChapterId: { type: [Number, null], default: null },
+  exportingFormat: { type: String, default: null },
+  submittingChapter: { type: Boolean, default: false },
+  generatingSummaryChapterId: { type: [Number, null], default: null },
+  addingChapterError: { type: String, default: null },
+  onGenerateSummary: { type: Function, required: true }
 });
 
 const emit = defineEmits([
-  'reordered', 
-  'select-chapter', 
-  'toggle-selection', 
-  'handle-export', 
+  'reordered',
+  'select-chapter',
+  'toggle-selection',
+  'handle-export',
   'open-delete',
-  'apply-suggestion', 
-  'request-add-chapter',    
-  'request-update-chapter', 
-  'request-generate-summary' 
+  'request-add-chapter',
+  'request-update-chapter',
+  'apply-suggestion'
 ]);
 
-const localChapters = ref([...props.chapters]);
-const loadingChapters = computed(() => props.loading); 
-const errorChapters = computed(() => props.error);     
+const { showSnackbar } = useSnackbar();
 
-watch(() => props.chapters, (newChapters) => {
-  localChapters.value = [...newChapters];
-}, { deep: true });
+const localChapters = ref([]);
+watch(() => props.chapters, (newVal) => {
+  localChapters.value = [...(newVal || [])];
+}, { immediate: true, deep: true });
 
 
 const showAddChapterDialog = ref(false);
-const addChapterError = ref(null); 
+const addChapterError = ref(null);
+watch(() => props.addingChapterError, (newVal) => {
+  addChapterError.value = newVal;
+});
+
+const openAddChapterDialogInternal = () => {
+  addChapterError.value = null;
+  showAddChapterDialog.value = true;
+};
+const handleAddChapterDialogClose = () => {
+  showAddChapterDialog.value = false;
+};
+const handleAddChapterDialogSave = (newTitle) => {
+  emit('request-add-chapter', { projectId: props.projectId, title: newTitle });
+};
+
 
 const showEditChapterDialog = ref(false);
 const editingChapter = ref(null);
-const editChapterError = ref(null); 
-
-const showChapterAnalysisDialog = ref(false);
-const analyzingChapterId = ref(null);
-const analyzingChapterTitle = ref(''); 
-
-const {
-    analysisResult: chapterAnalysisResult, 
-    loadingAnalysis: loadingChapterAnalysis,
-    errorAnalysis: errorChapterAnalysis,
-    getChapterAnalysis,
-} = useAnalysis(props.showSnackbar);
-
-
-const openAddChapterDialogInternal = () => {
-  addChapterError.value = null; 
-  showAddChapterDialog.value = true;
-};
-
-const handleAddChapterDialogClose = () => {
-  showAddChapterDialog.value = false;
-  addChapterError.value = null;
-};
-
-const handleAddChapterDialogSave = async (chapterData) => {
-  emit('request-add-chapter', props.projectId, chapterData);
-};
-
+const editChapterError = ref(null);
 
 const openEditChapterDialog = (chapter) => {
   editingChapter.value = { ...chapter };
-  editChapterError.value = null; 
+  editChapterError.value = null;
   showEditChapterDialog.value = true;
 };
-
 const closeEditChapterDialog = () => {
   showEditChapterDialog.value = false;
   editingChapter.value = null;
-  editChapterError.value = null;
+};
+const submitEditChapter = (updatedData) => {
+  emit('request-update-chapter', { chapterId: editingChapter.value.id, ...updatedData });
 };
 
-const submitEditChapter = async (chapterUpdateData) => {
-  if (!editingChapter.value) return;
-  emit('request-update-chapter', editingChapter.value.id, chapterUpdateData);
-};
+
+const {
+  analysisResult: chapterAnalysisResult,
+  loadingAnalysis: loadingChapterAnalysis,
+  errorAnalysis: errorChapterAnalysis,
+  getChapterAnalysis,
+  applySuggestionToChapter
+} = useAnalysis(showSnackbar);
+
+const showChapterAnalysisDialog = ref(false);
+const analyzingChapterId = ref(null);
+const analyzingChapterTitle = ref('');
 
 const openChapterAnalysisDialog = async (chapterId) => {
+  const chapter = localChapters.value.find(c => c.id === chapterId);
+  if (chapter) {
     analyzingChapterId.value = chapterId;
-    const chapter = localChapters.value.find(c => c.id === chapterId);
-    analyzingChapterTitle.value = chapter ? chapter.title : 'Chapitre';
-    errorChapterAnalysis.value = null; 
-    chapterAnalysisResult.value = null; 
+    analyzingChapterTitle.value = chapter.title;
     showChapterAnalysisDialog.value = true;
-    await getChapterAnalysis(chapterId); 
+    await getChapterAnalysis(chapterId);
+  }
 };
 
 const closeChapterAnalysisDialog = () => {
-    showChapterAnalysisDialog.value = false;
-    analyzingChapterId.value = null;
-    chapterAnalysisResult.value = null;
-    errorChapterAnalysis.value = null;
+  showChapterAnalysisDialog.value = false;
+  analyzingChapterId.value = null;
+  analyzingChapterTitle.value = '';
 };
 
-const handleApplySuggestionFromDialog = (suggestionData) => {
-    emit('apply-suggestion', suggestionData);
-    closeChapterAnalysisDialog(); 
+const handleApplySuggestionFromDialog = (suggestion) => {
+    if (analyzingChapterId.value) {
+        emit('apply-suggestion', { chapterId: analyzingChapterId.value, suggestion });
+    }
 };
 
+
+function getProjectNameById(projectId) {
+  return `Projet ${projectId}`;
+}
 
 </script>
 
 <style scoped>
 .chapters-container {
-  /* Styles pour le conteneur des chapitres */
+  background-color: #f9f9f9;
+  border: 1px solid #eee;
+  border-radius: 4px;
 }
-/* Retrait de .chapter-group car v-list-group n'est plus utilisé */
-
-.chapter-item.v-list-item--active {
-  /* background-color: rgba(var(--v-theme-primary), 0.1) !important; */
-  /* border-left-color: rgb(var(--v-theme-primary)) !important; */ /* Plus pertinent sans v-list-group */
-}
-.active-chapter {
-   background-color: rgba(var(--v-theme-primary), 0.10); 
-   /* border-left: 3px solid rgb(var(--v-theme-primary)); */ /* Moins pertinent sans v-list-group */
-}
-
-
-.list-item-hover-actions .v-btn {
-  opacity: 0.6;
-  transition: opacity 0.2s ease-in-out;
-}
-
-.list-item-hover-actions:hover .v-btn,
-.list-item-hover-actions .v-btn:focus, 
-.list-item-hover-actions .v-btn.v-btn--active, 
-.list-item-hover-actions .v-menu--active .action-menu-btn 
- {
-  opacity: 1;
-}
-.action-btn {
-  /* Pour s'assurer qu'ils ne prennent pas trop de place et s'alignent bien */
-}
-.action-menu-btn {
- /* Styles spécifiques si nécessaire */
-}
-
-
-.drag-handle {
-  cursor: grab;
-  opacity: 0.5;
-}
-.drag-handle:hover {
-  opacity: 1;
+.dark .chapters-container {
+    background-color: #2E2E2E;
+    border-color: #3A3A3A;
 }
 
 .ghost-item {
@@ -410,15 +336,37 @@ const handleApplySuggestionFromDialog = (suggestionData) => {
   background: #c8ebfb;
 }
 .drag-item {
-  /* background: #e0e0e0; */
-  /* box-shadow: 0 2px 5px rgba(0,0,0,0.1); */
+  background: #e2f3fe;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.drag-handle {
+  cursor: move;
+  color: #aaa;
+}
+.dark .drag-handle {
+    color: #555;
+}
+
+.list-item-hover-actions .action-btn {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.list-item-hover-actions:hover .action-btn {
+    visibility: visible;
+    opacity: 1;
 }
 .summary-preview {
   font-size: 0.75rem;
+  font-style: italic;
   color: grey;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px; /* Ajustez selon besoin */
+  max-width: 200px;
+}
+.active-chapter {
+  border-left: 3px solid currentColor;
 }
 </style>

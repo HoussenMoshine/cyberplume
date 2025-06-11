@@ -2,14 +2,14 @@
   <div class="editor-component-wrapper">
     <v-container :fluid="isDistractionFree" :class="{ 'pa-0': isDistractionFree }">
       <div class="mb-2 d-flex align-center" v-if="!isDistractionFree">
-        <v-chip v-if="activeType === 'chapter'" color="blue" label size="small">
+        <v-chip v-if="localChapterId" color="blue" label size="small">
           Chapitre Actif
         </v-chip>
         <v-chip v-else color="grey" label size="small">
           Aucun contenu sélectionné
         </v-chip>
 
-        <span v-if="activeTitle" class="ml-2 font-weight-bold text-subtitle-1">{{ activeTitle }}</span>
+        <span v-if="localTitle" class="ml-2 font-weight-bold text-subtitle-1">{{ localTitle }}</span>
         <v-spacer></v-spacer>
 
         <v-tooltip location="bottom">
@@ -36,7 +36,7 @@
               variant="tonal"
               color="primary"
               @click="triggerManualSave"
-              :disabled="isSaving || !activeId"
+              :disabled="isSaving || !localChapterId"
               :loading="isSaving"
               v-bind="tooltipProps"
               size="small"
@@ -85,7 +85,7 @@
         height="3"
       ></v-progress-linear>
 
-      <v-row :class="{ 'fill-height': isDistractionFree }" style="position: relative;"> <!-- Ajout de position relative pour l'overlay -->
+      <v-row :class="{ 'fill-height': isDistractionFree }" style="position: relative;">
         <v-col cols="12" :md="isDistractionFree ? 12 : 9">
           <div class="editor-wrapper mb-4" :class="{ 'distraction-free-editor': isDistractionFree }">
             <editor-content :editor="editor" />
@@ -115,7 +115,7 @@
             persistent
             contained 
             scrim="#E0E0E0" 
-          > <!-- Fond légèrement opaque --> 
+          >
             <v-progress-circular
               color="primary"
               indeterminate
@@ -123,6 +123,12 @@
             ></v-progress-circular>
             <div class="text-primary mt-2">Traitement IA en cours...</div>
           </v-overlay>
+
+          <chapter-summary 
+            :summary="localSummary" 
+            class="mb-4"
+            @refresh-summary="handleRefreshSummary"
+          />
 
           <ai-toolbar
             v-if="!isDistractionFree"
@@ -157,7 +163,7 @@
             density="compact"
             variant="tonal"
             closable
-            @update:model-value="clearLoadingError"
+            @update:model-value="loadingError = null"
             class="mt-4"
           >
             Erreur chargement: {{ loadingError }}
@@ -192,20 +198,16 @@
 
 
       <v-snackbar
-        v-model="showSnackbar"
-        :timeout="snackbarTimeout"
+        v-model="isSnackbarVisible"
         :color="snackbarColor"
+        :timeout="snackbarTimeout"
         location="bottom right"
-        multi-line
+        variant="tonal"
       >
         {{ snackbarMessage }}
         <template v-slot:actions>
-          <v-btn
-            color="white"
-            variant="text"
-            @click="showSnackbar = false"
-          >
-            Fermer
+          <v-btn icon @click="isSnackbarVisible = false">
+            <IconX />
           </v-btn>
         </template>
       </v-snackbar>
@@ -214,305 +216,259 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, watch, computed, toRef, nextTick } from 'vue';
-import { Editor, EditorContent, BubbleMenu } from '@tiptap/vue-3';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
+import { EditorContent, BubbleMenu } from '@tiptap/vue-3';
+import { useTiptapEditor } from '@/composables/useTiptapEditor.js';
+import { useAIActions } from '@/composables/useAIActions.js';
+import { useChapterContent } from '@/composables/useChapterContent.js';
+import { useSnackbar } from '@/composables/useSnackbar.js';
 
-import {
-  VContainer, VRow, VCol, VChip, VSpacer, VBtn, VToolbar, VProgressLinear, VAlert, 
-  VList, VListItem, VListItemTitle, VSnackbar, VTooltip, VDivider, VOverlay, VProgressCircular // Ajout VOverlay, VProgressCircular
-} from 'vuetify/components';
+import ActionPanel from './ActionPanel.vue';
+import AiToolbar from './ai-toolbar.vue';
+import ChapterSummary from './ChapterSummary.vue';
 
 import {
   IconBold, IconItalic, IconStrikethrough, IconTypography, IconH1, IconH2, IconMinus,
-  IconMaximize, IconMinimize
+  IconMaximize, IconMinimize, IconX
 } from '@tabler/icons-vue';
-
 import EnregistrerIconURL from '@/assets/enregistrer.svg';
-import ActionPanel from './ActionPanel.vue';
-import AiToolbar from './ai-toolbar.vue'; 
 
-import { useChapterContent } from '@/composables/useChapterContent.js';
-import { useAIActions } from '@/composables/useAIActions.js';
-import { useSnackbar as useSnackbarComposable } from '@/composables/useSnackbar.js'; 
-import { useTiptapEditor } from '@/composables/useTiptapEditor.js';
+// --- Composables ---
+const { 
+  displaySnackbar, 
+  showSnackbar: isSnackbarVisible, 
+  snackbarMessage, 
+  snackbarColor, 
+  snackbarTimeout 
+} = useSnackbar();
 
-import { config } from '@/config.js';
+const { editor, initializeEditor, destroyEditor } = useTiptapEditor();
 
-const props = defineProps({
-  selectedChapterId: { type: [Number, null], default: null },
-  activeChapterTitle: { type: [String, null], default: null },
-  isDistractionFree: { type: Boolean, default: false }
-});
+const { 
+  isLoading, isSaving, loadingError, savingError, 
+  fetchChapterContent, saveChapterContent 
+} = useChapterContent();
 
-const emit = defineEmits([
-  'update:isDistractionFree',
-  'content-changed',
-  'ai-action-insert-content',
+// --- Local State ---
+const localChapterId = ref(null);
+const localTitle = ref('');
+const localSummary = ref(null);
+const localProjectId = ref(null);
+const lastSavedContent = ref('');
 
-  'ai-action-replace-content',
-  'ai-action-error',
-  'manual-save-requested' 
-]);
+const isDistractionFree = ref(false);
+const aiToolbarRef = ref(null);
 
-const { showSnackbar, snackbarMessage, snackbarColor, snackbarTimeout, displaySnackbar } = useSnackbarComposable();
-
-const aiToolbarRef = ref(null); 
-const currentAiParamsFromToolbar = ref({
-  provider: config.defaultProvider || 'gemini', // Fallback au cas où defaultProvider n'est pas défini 
+// State for AI Actions
+const selectedAiParams = ref({
+  provider: null,
   model: null,
-  style: 'normal', 
+  style: 'standard',
   customStyleDescription: null
 });
 
-const handleModelSelection = (data) => {
-  console.log("Paramètres IA reçus de ai-toolbar:", data);
-  currentAiParamsFromToolbar.value = {
-    provider: data.provider,
-    model: data.model,
-    style: data.style,
-    customStyleDescription: data.customStyleDescription
-  };
-};
-
-const relevantCharactersForAI = ref(null);
-
-const { 
-  editor, 
-  initializeEditor: initTiptap, 
-  destroyEditor 
-} = useTiptapEditor(
-  undefined, 
-  (blurredEditorInstance) => { 
-    if (activeType.value === 'chapter' && editor.value) { 
-      saveCurrentChapterIfNeeded(); 
-    }
-  },
-  'Commencez à écrire votre chapitre ici...' 
-);
-
-const {
-  content: chapterContent,
-  isLoading: isLoadingChapter,
-  isSaving: isSavingChapter,
-  loadingError: chapterLoadingError,
-  savingError: chapterSavingError, 
-  hasUnsavedChanges: chapterHasUnsavedChanges,
-  // loadChapterContent, // N'est plus appelé directement ici
-  saveCurrentChapterIfNeeded, 
-  applySuggestionToChapter,
-  clearChapterLoadingError
-} = useChapterContent(toRef(props, 'selectedChapterId'), editor);
-
-
 const {
   isAIGenerating,
-  currentAIAction,
   aiGenerationError,
+  currentAIAction,
   suggestions,
-  cancelCurrentAction, 
-  triggerAIAction // Récupérer la fonction générique triggerAIAction
-  // Les fonctions spécifiques comme triggerSuggest, triggerContinue ne sont plus déstructurées ici
-} = useAIActions(editor, currentAiParamsFromToolbar, relevantCharactersForAI);
+  triggerAIAction, // Renamed for clarity
+  cancelCurrentAction,
+} = useAIActions(editor, selectedAiParams, ref(null)); // Pass correct refs
 
-
-
-// Wrappers pour les actions IA pour ajouter des logs et appeler triggerAIAction
-function triggerReformulate() {
-  
-  triggerAIAction('reformulate');
-}
-
-function triggerShorten() {
-  
-  triggerAIAction('shorten');
-}
-
-function triggerExpand() {
-  
-  triggerAIAction('expand');
-}
-
-function triggerSuggest() {
-  
-  triggerAIAction('suggest');
-}
-
-function triggerContinue() {
-  
-  triggerAIAction('continue');
-}
-
-function triggerDialogue() {
-  
-  triggerAIAction('dialogue');
-}
-
-
-const activeId = computed(() => props.selectedChapterId);
-const activeType = computed(() => {
-  if (props.selectedChapterId) return 'chapter';
-  return null;
+// --- Computed Properties ---
+const hasUnsavedChanges = computed(() => {
+  if (!editor.value || !localChapterId.value) {
+    return false;
+  }
+  const currentContent = editor.value.getHTML();
+  return currentContent !== lastSavedContent.value;
 });
-const activeTitle = computed(() => props.activeChapterTitle);
-const isLoading = computed(() => isLoadingChapter.value);
-const isSaving = computed(() => isSavingChapter.value);
-const loadingError = computed(() => chapterLoadingError.value);
-const savingError = computed(() => chapterSavingError.value); 
-const hasUnsavedChanges = computed(() => chapterHasUnsavedChanges.value);
 
+// --- AI Action Triggers ---
+// Wrapper functions to call triggerAIAction with the correct action name
+const triggerContinue = () => triggerAIAction('continue');
+const triggerSuggest = () => triggerAIAction('suggest');
+const triggerDialogue = () => triggerAIAction('dialogue');
+const triggerReformulate = () => triggerAIAction('reformulate');
+const triggerShorten = () => triggerAIAction('shorten');
+const triggerExpand = () => triggerAIAction('expand');
+
+
+// --- Core Logic Methods ---
+
+async function loadChapter(chapterId) {
+  if (!editor.value) return;
+
+  if (chapterId === null) {
+    editor.value.commands.setContent('<p style="color: grey; text-align: center;">Sélectionnez un chapitre pour commencer l\'édition.</p>');
+    lastSavedContent.value = '';
+    localChapterId.value = null;
+    localTitle.value = '';
+    localSummary.value = null;
+    localProjectId.value = null;
+    return;
+  }
+
+  editor.value.setEditable(false);
+  editor.value.commands.setContent(`<p>Chargement du chapitre ${chapterId}...</p>`);
+
+  const chapterData = await fetchChapterContent(chapterId);
+
+  if (chapterData) {
+    const contentToLoad = chapterData.content || '<p>Ce chapitre est vide.</p>';
+    editor.value.commands.setContent(contentToLoad);
+    lastSavedContent.value = contentToLoad;
+    localChapterId.value = chapterData.id;
+    localTitle.value = chapterData.title;
+    localSummary.value = chapterData.summary;
+    localProjectId.value = chapterData.project_id;
+  } else {
+    editor.value.commands.setContent(`<p>Erreur lors du chargement du chapitre ${chapterId}.</p>`);
+    lastSavedContent.value = '';
+    localChapterId.value = chapterId; // Keep id to show error context
+    localTitle.value = 'Erreur';
+    localSummary.value = null;
+    localProjectId.value = null;
+  }
+  editor.value.setEditable(true);
+  editor.value.commands.focus();
+}
+
+async function saveChapter(isManualSave = false) {
+  if (!localChapterId.value || !editor.value || isSaving.value) {
+    return false;
+  }
+
+  const currentContent = editor.value.getHTML();
+  
+  // Sauvegarde seulement si c'est manuel ou s'il y a des changements
+  if (!isManualSave && !hasUnsavedChanges.value) {
+      return true;
+  }
+
+  const chapterData = {
+    title: localTitle.value,
+    content: currentContent,
+    summary: localSummary.value,
+    project_id: localProjectId.value
+  };
+
+  const success = await saveChapterContent(localChapterId.value, chapterData);
+
+  if (success) {
+    lastSavedContent.value = currentContent;
+    if (isManualSave) {
+      displaySnackbar('Chapitre enregistré avec succès.', 'success');
+    }
+    return true;
+  } else {
+    displaySnackbar(`Erreur lors de la sauvegarde: ${savingError.value}`, 'error');
+    return false;
+  }
+}
+
+// --- Event Handlers ---
+
+function toggleDistractionFree() {
+  isDistractionFree.value = !isDistractionFree.value;
+}
+
+async function triggerManualSave() {
+  await saveChapter(true);
+}
+
+function handleModelSelection(model) {
+  selectedAiParams.value = { ...selectedAiParams.value, ...model };
+  displaySnackbar(`Modèle IA sélectionné: ${model.provider} - ${model.model}`, 'info');
+}
+
+async function handleRefreshSummary() {
+    if (!localChapterId.value) return;
+    // Pour l'instant, on recharge simplement les données du chapitre.
+    // Une future version pourrait appeler un endpoint de régénération.
+    await loadChapter(localChapterId.value);
+    displaySnackbar('Résumé rafraîchi.', 'info');
+}
+
+// --- Lifecycle & Exposed Methods ---
 
 onMounted(() => {
-  initTiptap({ 
-    onUpdate: () => {
-      if (activeType.value === 'chapter') {
-        chapterHasUnsavedChanges.value = true;
-      }
-      emit('content-changed', editor.value?.getHTML());
-    }
-  });
+  initializeEditor();
 });
 
 onBeforeUnmount(() => {
   destroyEditor();
 });
 
-const triggerManualSave = async () => {
-  if (!activeId.value) {
-    displaySnackbar('Aucun contenu actif à enregistrer.', 'warning');
-    return;
-  }
-  let success = false;
-  if (activeType.value === 'chapter' && props.selectedChapterId) {
-    success = await saveCurrentChapterIfNeeded(true); 
-     if (success) {
-      displaySnackbar('Chapitre enregistré.', 'success');
-    } else {
-      displaySnackbar(`Erreur lors de l'enregistrement du chapitre. ${savingError.value || ''}`, 'error');
-    }
-  } else {
-    displaySnackbar('Aucun chapitre actif à enregistrer.', 'warning');
-  }
-  emit('manual-save-requested', { type: activeType.value, id: activeId.value, success });
-};
-
-const clearLoadingError = () => {
-  if (activeType.value === 'chapter') {
-    clearChapterLoadingError();
-  }
-};
-
-const toggleDistractionFree = () => {
-  emit('update:isDistractionFree', !props.isDistractionFree);
-};
-
-const handleApplySuggestionToEditor = (suggestionData) => {
-  if (activeType.value === 'chapter' && props.selectedChapterId) {
-    applySuggestionToChapter(props.selectedChapterId, suggestionData);
-  }
-};
-
-defineExpose({ editor, triggerManualSave, handleApplySuggestionToEditor });
+defineExpose({
+  loadChapter,
+  saveChapter
+});
 
 </script>
 
 <style lang="scss">
 .editor-component-wrapper {
+  position: relative;
+  height: 100%;
   display: flex;
   flex-direction: column;
-  height: 100%; /* Prend la hauteur de son parent .editor-window-item */
-  min-height: 0; /* Permet de se réduire si nécessaire */
-}
 
-.editor-component-wrapper > .v-container {
-  flex: 1 1 auto; /* S'étend pour remplir .editor-component-wrapper */
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
+  .v-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
 
-.editor-component-wrapper > .v-container > .v-row {
-  flex: 1 1 auto; /* S'étend pour remplir .v-container */
-  display: flex;
-  min-height: 0;
-}
-
-/* Cible la v-col qui contient l'éditeur et le panneau d'action */
-.editor-component-wrapper > .v-container > .v-row > .v-col:first-child {
-  flex: 1 1 auto; /* Permet à cette colonne de prendre l'espace principal */
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  .v-row {
+    flex: 1;
+  }
 }
 
 .editor-wrapper {
-  border: 1px solid #ccc;
+  border: 1px solid #dcdcdc;
   border-radius: 4px;
-  padding: 8px;
+  padding: 1rem;
   background-color: #fff;
-  /* flex: 1 1 auto; Supprimé pour que max-height contrôle la hauteur */
-  overflow-y: auto; 
-  position: relative; 
-  max-height: 65vh; /* Hauteur maximale pour l'éditeur, ajustable */
-  min-height: 200px; 
+  min-height: 400px;
+  position: relative;
 
   .ProseMirror {
-    min-height: 180px; 
+    min-height: 350px;
     outline: none;
-    &:focus {
-      border-color: var(--v-theme-primary);
-    }
-    p.is-editor-empty:first-child::before {
-      content: attr(data-placeholder);
-      float: left;
-      color: #adb5bd;
-      pointer-events: none;
-      height: 0;
-    }
   }
 }
 
 .distraction-free-editor {
   border: none;
-  padding: 20px; 
-  height: calc(100vh - 40px); /* Conserve la hauteur plein écran moins padding */
-  overflow-y: auto; /* Assure le défilement */
-  font-size: 1.1rem; 
-  line-height: 1.7;   
+  padding: 2rem;
+  margin: 0 auto;
+  max-width: 800px;
   background-color: #fdfdfd;
-  /* Assurez-vous que flex n'est pas hérité de manière conflictuelle */
-  flex: none !important; 
-  max-height: none !important; /* Annule le max-height du mode normal */
+  min-height: 100vh;
 }
 
 .editor-toolbar {
-  background-color: #f5f5f5; 
+  border: 1px solid #dcdcdc;
   border-radius: 4px;
-  padding: 4px;
-  flex-shrink: 0; /* Empêche la barre d'outils de se réduire */
-  .v-btn.is-active {
-    background-color: rgba(var(--v-theme-primary), 0.2);
+  .v-btn {
+    &.is-active {
+      background-color: rgba(var(--v-theme-primary), 0.1);
+      color: rgb(var(--v-theme-primary));
+    }
   }
 }
 
 .bubble-menu-style {
   display: flex;
-  background-color: #333;
-  padding: 0.2rem 0.4rem;
+  background-color: #2c3e50;
+  padding: 0.2rem;
   border-radius: 0.5rem;
-  box-shadow: 0px 0px 3px rgba(0, 0, 0, 0.5), 0px 0px 10px rgba(0, 0, 0, 0.1);
+  color: white;
 
   .v-btn {
-    color: white !important;
-    text-transform: none; 
-    font-size: 0.8rem;
-    padding: 0.1rem 0.3rem; 
-    min-width: auto; 
+    color: white;
   }
-}
-
-/* Style pour le texte sous le spinner de l'overlay */
-.v-overlay .text-primary {
-  color: var(--v-theme-primary) !important; 
-  font-weight: 500;
 }
 </style>

@@ -67,7 +67,20 @@ async def generate_and_save_summary(db_chapter: models.Chapter, db: Session) -> 
     if not ai_service: # Double vérification, devrait être couvert par les exceptions ci-dessus
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Could not initialize AI service for {provider_name}")
 
-    prompt = f"Veuillez fournir un résumé concis du texte suivant, en mettant en évidence les événements clés, l'évolution des personnages et les nouveaux éléments d'intrigue introduits. Le résumé doit faire environ 100 à 150 mots.:\n\n---\n{plain_text_content}\n---\n\nRésumé:"
+    prompt = f"""
+&lt;instruction&gt;
+Tu es un synthétiseur de texte expert. Ta seule fonction est de produire un résumé d'un seul paragraphe du texte fourni.
+Le résumé doit capturer les points essentiels de l'intrigue, les développements de personnages et les informations clés.
+NE PAS inclure de titres, de listes, de suggestions de reformulation, ou tout autre texte en dehors du paragraphe de résumé.
+La sortie doit être un unique paragraphe de texte brut.
+&lt;/instruction&gt;
+
+&lt;texte_a_resumer&gt;
+{plain_text_content}
+&lt;/texte_a_resumer&gt;
+
+&lt;resume_un_paragraphe&gt;
+"""
 
     try:
         # Placeholder pour l'appel réel - À REMPLACER

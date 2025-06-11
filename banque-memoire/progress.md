@@ -1,84 +1,41 @@
-# Progression - CyberPlume (Mise à jour : 05/06/2025 - 09:50)
+# Progression - CyberPlume (Mise à jour : 11/06/2025 - 13:35)
 
-## Ce qui Fonctionne (État Actuel Partiel)
+## Ce qui Fonctionne (État Actuel)
 
-### Fonctionnalités Clés
-*   **Démarrage Application :** Le backend démarre (avec `log_config.yaml`). Le frontend se lance correctement.
-*   **Logging Applicatif :** Fonctionnel et détaillé via `log_config.yaml`.
-*   **Éditeur Tiptap :**
-    *   Le contenu des chapitres s'affiche dans l'éditeur.
-    *   La barre d'outils de formatage de l'éditeur est visible et fonctionnelle.
-    *   L'erreur `Unknown node type: undefined` est résolue.
-    *   Le défilement de l'éditeur (avec texte long) et de la page globale est fonctionnel.
-*   **Actions IA de base (Éditeur, Personnages) :** Fonctionnent (selon le retour utilisateur).
-    *   L'animation de chargement (`v-overlay`) est visible et fonctionnelle pendant les opérations IA.
-    *   L'initialisation de `currentAiParamsFromToolbar.provider` dans [`frontend/src/components/EditorComponent.vue`](frontend/src/components/EditorComponent.vue) est corrigée.
-*   **Nouvelle Fonctionnalité "Idées de Scènes" :** Opérationnelle.
-    *   Le backend gère correctement la requête `/ideas/scene/generate`.
-    *   L'adaptateur IA utilise le prompt détaillé fourni par l'utilisateur.
-    *   Les erreurs 500 précédentes sont résolues.
-    *   L'erreur `TypeError: showSnackbar is not a function` dans le frontend (liée à cette fonctionnalité) était déjà résolue.
-*   **Gestion des Projets et Chapitres (Frontend - Liste) :** Fonctionnelle.
-*   **Gestion des Clés API :** Fonctionnelle.
+*   **Démarrage Application & Logging :** Stables.
+*   **Gestion des Projets (CRUD) :** Fonctionnel.
+*   **Affichage de la liste des chapitres :** Fonctionnel.
+*   **Éditeur de texte :** Fonctionnalité de base restaurée.
+*   **Sauvegarde et chargement des chapitres :** Le flux "Data Airlock" est en place.
+*   **Génération de résumé de chapitre :** Fonctionnel.
 
-### Backend & Frontend (Général)
-*   **Communication API :**
-    *   Problème des appels backend multiples lors de la sélection de chapitres corrigé.
-*   **Fonctionnalités CRUD de base (Projets, Chapitres - via API) :** Présumées fonctionnelles (mais voir nouveaux problèmes ci-dessous).
+## Ce qui Reste à Construire / Améliorer
 
-## Ce qui Reste à Construire / Améliorer (Prochaine Session)
-
-1.  **Bugs liés aux Chapitres (Signalés par l'utilisateur) :**
-    *   **Suppression de Chapitre :** Investiguer l'erreur "Erreur lors de la suppression" qui s'affiche sans logs d'erreur apparents (ni backend, ni frontend).
-    *   **Ajout de Chapitre :** Corriger le comportement du dialogue d'ajout de chapitre qui reste ouvert après la création effective du chapitre.
-2.  **Tests approfondis** de toutes les fonctionnalités après les récentes corrections et évolutions.
-3.  **(Observation Antérieure) Boucle de requêtes après génération de résumé :** À retester si la fonctionnalité de résumé est utilisée/développée.
-4.  **(Placeholder) Appel IA pour la génération de résumé dans `summary_service.py` :** À implémenter si la fonctionnalité est prioritaire.
-
-## Problèmes Actuels (État Actuel - Fin de Session 05/06)
-
-*   **Suppression de Chapitre :** Erreur "Erreur lors de la suppression" sans logs d'erreur clairs.
-*   **Ajout de Chapitre :** Le dialogue modal ne se ferme pas automatiquement après la création.
-*   **(Mineur/Observation Antérieure) Redirections 307 :** Pour les appels à `/api/characters` (à vérifier si toujours pertinent ou impactant).
+*   **Tests de non-régression :** Pousser les tests sur la génération de résumé pour s'assurer qu'aucun effet de bord n'a été introduit.
+*   **Fonctionnalités futures :** Reprendre le développement des fonctionnalités prévues au `projectbrief.md`.
 
 ## Évolution des Décisions
 
-### Session 05 Juin (Débogage et Amélioration "Idées de Scènes")
-*   **Objectif :** Résoudre l'erreur 500 sur `/ideas/scene/generate`.
+### Session 11 Juin (Après-midi - Correction du bug résumé)
+*   **Objectif :** Corriger le bug de la génération de résumé.
 *   **Actions Clés :**
-    *   Implémentation d'une configuration de logging robuste avec `log_config.yaml` pour Uvicorn, permettant d'obtenir des traces d'erreurs détaillées.
-    *   Correction d'une `IndentationError` dans `backend/routers/ideas.py`.
-    *   Correction d'un `TypeError` dans `backend/routers/ideas.py` (argument `provider_name` vs `provider` pour `create_adapter`).
-    *   Standardisation de la récupération des clés API dans `backend/routers/ideas.py` via `get_decrypted_api_key`.
-    *   Ajout du paramètre `action="generer_idees_scene"` à l'appel `ai_service.generate()` dans `backend/routers/ideas.py`.
-    *   Modification de `backend/ai_services/gemini_adapter.py` pour reconnaître la nouvelle action et utiliser directement le prompt fourni par le routeur.
-    *   Correction d'une `SyntaxError` (indentation) dans `backend/ai_services/gemini_adapter.py`.
-*   **Résultat (Fin de Session) :**
-    *   Fonctionnalité "Idées de Scènes" pleinement opérationnelle.
-    *   Qualité des idées générées améliorée.
-*   **Nouveaux points pour prochaine session :** Bugs sur la suppression et l'ajout de chapitres signalés.
+    1.  Instrumentation du code avec des `console.log` pour tracer le flux d'appel.
+    2.  **Diagnostic :** Le flux s'arrêtait dans `ProjectManager.vue` car la fonction `findChapterById` retournait `null`.
+    3.  **Correction :** Modification du flux de données pour passer le `projectId` directement depuis `ChapterList.vue` à `ProjectManager.vue`, évitant ainsi une recherche faillible.
+*   **Résultat :** Le bug est résolu. La fonctionnalité est de nouveau opérationnelle.
 
-### Session 03 Juin (Après-midi - Tentatives de Correction Idées de Scènes)
-*   **Objectif :** Corriger l'erreur 500 (backend) et `TypeError` (frontend) pour "Idées de Scènes".
-*   **Actions :**
-    *   Correction de la récupération de clé API dans `backend/routers/ideas.py`.
-    *   Correction de l'utilisation de `useSnackbar` dans `frontend/src/composables/useSceneIdeas.js` (TypeError résolue).
-    *   Correction du nom de la méthode de l'adaptateur IA (`generate` au lieu de `generate_text`) dans `backend/routers/ideas.py`.
-    *   Correction des arguments passés à `create_adapter` dans `backend/routers/ideas.py`.
-*   **Résultat (Fin de Session) :**
-    *   L'erreur `TypeError` frontend est résolue.
-    *   L'erreur 500 du backend pour `/ideas/scene/generate` persiste. Aucune trace d'erreur Python détaillée n'est visible dans les logs backend fournis.
-*   **Décision :** Fin de session. Mise à jour de la banque de mémoire. L'erreur 500 backend reste le principal point de blocage pour cette fonctionnalité.
+### Session 11 Juin (Matin - Débogage du résumé)
+*   **Objectif :** Corriger le bug de la génération de résumé.
+*   **Actions Clés :**
+    1.  Correction de la signature de la fonction `generateChapterSummary` dans `useChapters.js`.
+    2.  Refonte de la communication entre `ChapterList.vue` et `ProjectManager.vue` pour utiliser une `prop` de fonction au lieu d'un événement émis.
+*   **Résultat :** Les corrections n'ont pas résolu le problème. La session s'est terminée sur un constat d'échec et la décision de reprendre l'investigation avec des outils de débogage plus poussés.
 
-### Session 03 Juin (Matin - Fonctionnalité Idées de Scènes & Corrections Multiples)
-*   **Objectif :** Finaliser "Idées de Scènes", corriger initialisation `currentAiParamsFromToolbar.provider`.
-*   **Actions :**
-    *   Développement backend et frontend pour "Idées de Scènes".
-    *   Correction de l'initialisation de `currentAiParamsFromToolbar.provider`.
-    *   Corrections successives : `IndentationError` (config backend), `ImportError` (router backend), erreur de compilation SFC (EditorComponent frontend), erreur 404 (fetchModels frontend), conditions de validation/désactivation du bouton "Générer les Idées".
-*   **Résultat (Fin de Session Matin) :**
-    *   Backend et Frontend démarrent. Dialogue "Idées de Scènes" s'ouvre, charge les modèles.
-    *   **Nouveau Problème (avant session après-midi) :** Erreur 500 du backend et `TypeError: showSnackbar is not a function` dans le frontend lors de la tentative de génération d'idées.
-*   **Décision :** Poursuivre le débogage dans la session de l'après-midi.
+### Session 10 Juin (Analyse de Robustesse)
+*   **Objectif :** Vérifier la sécurité de la fonctionnalité de génération de résumé.
+*   **Actions Clés :** Analyse complète du flux de données de la fonctionnalité.
+*   **Résultat :** La logique avait été jugée robuste, mais cette analyse s'est avérée incomplète car elle n'a pas décelé le bug d'implémentation.
 
-*(Les détails des sessions antérieures sont conservés dans activeContext.md)*
+### Session 10 Juin (Réparation des Régressions)
+*   **Objectif :** Mettre en œuvre le plan de réparation suite à la refonte "Data Airlock".
+*   **Résultat :** Les régressions critiques (éditeur, erreurs de script) ont été résolues, rendant l'application de nouveau fonctionnelle, à l'exception du bug de résumé.

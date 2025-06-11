@@ -7,7 +7,7 @@
     <v-app-bar app color="primary" density="compact" v-if="!isDistractionFree" elevation="0">
       <img src="@/assets/cyberplume.svg" alt="CyberPlume Logo" height="30" class="mr-3 ml-3" />
       <v-tabs v-model="activeTab" align-tabs="center">
-        <v-tab value="editor" @click="handleEditorTabClick">
+        <v-tab value="editor">
           <IconFileText size="20" class="mr-2" />
           Éditeur
         </v-tab>
@@ -30,7 +30,8 @@
     <!-- Masquer le gestionnaire de projet en mode sans distraction ou si l'onglet config ou sceneIdeas est actif -->
     <project-manager
       v-if="!isDistractionFree && activeTab !== 'config' && activeTab !== 'sceneIdeas'"
-      @chapter-selected="handleChapterSelection"
+      :selected-chapter-id="currentChapterId"
+      @chapter-selected="handleChapterAirlock"
       @insert-generated-content="handleInsertGeneratedContent"
       @apply-suggestion-to-editor="handleApplySuggestionToEditor"
       :current-ai-provider="globalAIProvider"
@@ -45,8 +46,6 @@
         <v-window-item value="editor" class="editor-window-item">
           <editor-component
             ref="editorComponentRef"
-            :selected-chapter-id="currentChapterId"
-            :active-chapter-title="currentChapterTitle"
             :is-distraction-free="isDistractionFree"
             @toggle-distraction-free="toggleDistractionFreeMode"
             @ai-settings-changed="updateGlobalAISettings"
@@ -126,18 +125,14 @@ const globalCustomAIDescription = ref(null);
 // State pour l'onglet actif
 const activeTab = ref('editor');
 
-// State pour l'ID et le titre du chapitre sélectionné
+// State pour l'ID du chapitre sélectionné
 const currentChapterId = ref(null);
-const currentChapterTitle = ref(null);
 
 // Référence vers l'instance de EditorComponent
 const editorComponentRef = ref(null);
 
 // State pour le mode sans distraction
 const isDistractionFree = ref(false);
-
-// Flag pour différencier un clic sur l'onglet d'une sélection de contenu
-let isSelectionEvent = false;
 
 const toggleDistractionFreeMode = () => {
   isDistractionFree.value = !isDistractionFree.value;
@@ -151,10 +146,10 @@ const handleKeyboardShortcuts = (event) => {
   const isCtrlOrCmd = event.ctrlKey || event.metaKey;
   if (isCtrlOrCmd && event.key === 's') {
     event.preventDefault();
-    if (editorComponentRef.value && typeof editorComponentRef.value.triggerManualSave === 'function') {
-      editorComponentRef.value.triggerManualSave();
+    if (editorComponentRef.value && typeof editorComponentRef.value.saveChapter === 'function') {
+      editorComponentRef.value.saveChapter(true); // true for manual save
     } else {
-      console.warn("EditorComponent reference or triggerManualSave method not found!");
+      console.warn("EditorComponent reference or saveChapter method not found!");
     }
   }
 };
@@ -167,23 +162,37 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyboardShortcuts);
 });
 
-const handleChapterSelection = (payload) => {
-  console.log("App.vue: handleChapterSelection payload:", payload);
-  isSelectionEvent = true;
-  currentChapterId.value = payload && payload.chapterId !== undefined ? payload.chapterId : null;
-  console.log("App.vue: currentChapterId.value set to", currentChapterId.value);
-  currentChapterTitle.value = null; // Sera mis à jour par EditorComponent via une prop ou un watch interne
-  if (payload && payload.chapterId !== null) {
-    // Si un chapitre est sélectionné, s'assurer que l'onglet éditeur est actif
-    // et que le mode sans distraction est désactivé si besoin.
-    activeTab.value = 'editor';
-    if (isDistractionFree.value) {
-        toggleDistractionFreeMode();
-    }
+/**
+ * Gère la sélection d'un chapitre en orchestrant la sauvegarde et le chargement.
+ * C'est le "Data Airlock" pour prévenir les race conditions.
+ */
+async function handleChapterAirlock(payload) {
+  if (!editorComponentRef.value) {
+    console.error("La référence du composant éditeur n'est pas disponible.");
+    return;
   }
-  // Réinitialiser le flag après un court délai pour permettre au changement d'onglet de se terminer
-  setTimeout(() => { isSelectionEvent = false; }, 50);
-};
+
+  // 1. Sauvegarder le chapitre actuel (la méthode interne vérifie s'il y a des changements)
+  const saveSuccess = await editorComponentRef.value.saveChapter(false); // false for auto-save
+
+  if (!saveSuccess) {
+    // Pour l'instant, on avertit et on continue. On pourrait demander confirmation à l'utilisateur.
+    console.warn("La sauvegarde du chapitre précédent a échoué. Le chargement continue, mais des changements pourraient être perdus.");
+  }
+
+  // 2. Mettre à jour l'ID du chapitre sélectionné globalement
+  const newChapterId = payload && payload.chapterId !== undefined ? payload.chapterId : null;
+  currentChapterId.value = newChapterId;
+
+  // 3. Charger le nouveau chapitre dans l'éditeur
+  await editorComponentRef.value.loadChapter(newChapterId);
+  
+  // 4. S'assurer que l'onglet éditeur est actif si un chapitre est sélectionné
+  if (newChapterId !== null) {
+    activeTab.value = 'editor';
+  }
+}
+
 
 const handleInsertGeneratedContent = (content) => {
   if (editorComponentRef.value && typeof editorComponentRef.value.insertGeneratedContent === 'function') {
@@ -202,18 +211,6 @@ const handleApplySuggestionToEditor = (suggestionData) => {
   }
 };
 
-
-const handleEditorTabClick = () => {
-  if (isSelectionEvent) {
-    // Si c'était une sélection de contenu qui a changé l'onglet, ne rien faire de plus
-    return;
-  }
-  // Si l'utilisateur clique manuellement sur l'onglet Éditeur
-  // et qu'aucun chapitre n'est actuellement sélectionné (ou si on veut forcer le rechargement du dernier),
-  // on pourrait ajouter une logique ici. Pour l'instant, on laisse Vuetify gérer le changement d'onglet.
-  // Si currentChapterId.value est null, ProjectManager devrait afficher la liste des projets.
-};
-
 const updateGlobalAISettings = (settings) => {
   if (settings.provider) globalAIProvider.value = settings.provider;
   if (settings.model) globalAIModel.value = settings.model;
@@ -221,76 +218,37 @@ const updateGlobalAISettings = (settings) => {
   if (settings.customDescription) globalCustomAIDescription.value = settings.customDescription;
 };
 
-// Logique pour s'assurer que ProjectManager est masqué si un onglet autre que 'editor' ou 'characters' est actif
-// Ceci est géré par le v-if sur le composant ProjectManager directement dans le template.
-// Cependant, il faut s'assurer que si on clique sur "Personnages" ou "Idées de Scènes" ou "Config",
-// le currentChapterId est désélectionné pour éviter que l'éditeur ne reste sur un chapitre.
-// Ou alors, on laisse l'éditeur afficher le dernier chapitre, et seul ProjectManager est masqué.
-// L'approche actuelle masque ProjectManager si activeTab n'est pas 'editor' ou 'characters'.
-// J'ai modifié le v-if pour inclure 'sceneIdeas' dans les conditions de masquage de ProjectManager.
-
 </script>
 
 <style>
-/* Ajustement pour la densité compacte de la barre d'outils */
-:root {
-  --v-layout-top: 48px; /* Hauteur de la barre d'app compacte */
-}
-
-html, body {
+html, body, #app {
   height: 100%;
   margin: 0;
-  padding: 0;
-  /* overflow: hidden; Supprimé pour permettre le défilement de la page si nécessaire */
+  overflow: hidden; /* Empêche le défilement au niveau de la page entière */
 }
 
 .v-application {
-  font-family: 'Roboto', sans-serif;
-  background-color: #f5f5f5; /* Un gris clair pour le fond général */
-  min-height: 100vh; /* Utiliser min-height pour permettre l'expansion */
+  height: 100vh;
   display: flex;
   flex-direction: column;
-}
-
-.v-application__wrap {
-  flex: 1 1 auto; 
-  display: flex;
-  flex-direction: column;
-  /* overflow: hidden; Supprimé */
 }
 
 .v-main {
-  padding-top: var(--v-layout-top);
-  flex: 1 1 auto; /* Permet à v-main de prendre l'espace vertical */
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto; /* Permet à v-main de défiler si son contenu (v-window) est trop grand */
-                   /* C'est un fallback si la gestion flex interne ne suffit pas */
+  flex: 1;
+  overflow-y: auto; /* Permet le défilement uniquement dans la zone principale */
+  height: calc(100vh - 48px); /* 48px est la hauteur de la barre d'app */
 }
 
-.v-window {
-  flex: 1 1 auto; /* Permet à v-window de s'étendre dans v-main */
-  display: flex;
-  flex-direction: column;
-  min-height: 0; /* Important pour que les enfants flex puissent se réduire */
-}
-
-.v-window-item {
-  flex: 1 1 auto; /* Permet à v-window-item de s'étendre dans v-window */
-  display: flex;
-  flex-direction: column;
-  min-height: 0; /* Important pour que les enfants flex puissent se réduire */
-}
-
-/* Spécifique pour l'éditeur, s'assure qu'il prend toute la hauteur de son parent .v-window-item */
 .editor-window-item {
-  height: 100%; 
+  height: 100%;
 }
 
-/* Mode sans distraction */
-.distraction-free .v-main {
-  padding-left: 0 !important;
-  padding-top: 0 !important; /* En mode sans distraction, la barre d'app est cachée */
+.v-navigation-drawer {
+  border-right: 1px solid #e0e0e0;
 }
 
+.distraction-free .v-navigation-drawer,
+.distraction-free .v-app-bar {
+  display: none;
+}
 </style>
