@@ -258,15 +258,14 @@ function onChapterDrop(projectId, event) {
     reorderChaptersComposable(projectId, event);
 }
 
-function handleChapterAddRequested({ projectId, title, summary }) {
-    addChapterComposable(projectId, { title, summary });
+// CORRIGÉ: L'appel passe maintenant le titre (string) et non un objet
+function handleChapterAddRequested({ projectId, title }) {
+    addChapterComposable(projectId, title);
 }
 
+// CORRIGÉ: L'appel passe maintenant les bons arguments dans le bon ordre
 function handleChapterUpdateRequested({ chapterId, title, summary }) {
-    const chapter = findChapterById(chapterId);
-    if (chapter) {
-        updateChapterComposable(chapter.project_id, chapterId, { title, summary });
-    }
+    updateChapterComposable(chapterId, { title, summary });
 }
 
 function handleChapterGenerateSummaryRequested(projectId, chapterId) {
@@ -281,7 +280,8 @@ function handleProjectExport({ projectId, format }) {
 function handleChapterExport({ chapterId, format }) {
     const chapter = findChapterById(chapterId);
     if (chapter) {
-        exportChapterComposable(chapter.project_id, chapterId, format);
+        // CORRIGÉ: Appel avec les bons arguments
+        exportChapterComposable(chapterId, format);
     }
 }
 
@@ -348,7 +348,10 @@ async function confirmDelete() {
     selectedProjectIds.value = [];
   } else if (deleteType.value === 'chapter') {
     const chapter = deleteTarget.value;
-    await deleteChapterComposable(chapter.project_id, chapter.id);
+    if (chapter && chapter.project_id && chapter.id) {
+        // Appel corrigé dans useChapters.js, cet appel est maintenant correct
+        await deleteChapterComposable(chapter.project_id, chapter.id);
+    }
   }
   closeDeleteConfirmDialog();
 }
@@ -364,10 +367,13 @@ function closeAnalysisDialog() {
 
 // --- Helper ---
 function findChapterById(chapterId) {
-    for (const projectId in chaptersByProjectId.value) {
-        const chapters = chaptersByProjectId.value[projectId];
-        const found = chapters.find(c => c.id === chapterId);
-        if (found) return found;
+    // La réactivité de `chaptersByProjectId` est gérée par `reactive`, pas besoin de .value
+    for (const projectId in chaptersByProjectId) {
+        const chapters = chaptersByProjectId[projectId];
+        if (chapters) {
+            const found = chapters.find(c => c.id === chapterId);
+            if (found) return found;
+        }
     }
     return null;
 }

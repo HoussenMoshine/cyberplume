@@ -43,7 +43,10 @@ export function useChapters(showSnackbar) {
   };
 
   const addChapter = async (projectId, title) => {
-    if (!projectId || !title) return null;
+    // Assurer que le titre est une chaîne de caractères valide, sinon utiliser un titre par défaut.
+    const chapterTitle = (typeof title === 'string' && title.trim() !== '') ? title : 'Nouveau Chapitre';
+
+    if (!projectId) return null;
     submittingChapter.value = true;
     chapterError.value = null; 
     errorOnAddChapter.value = null; // Réinitialiser l'erreur spécifique à l'ajout 
@@ -52,7 +55,8 @@ export function useChapters(showSnackbar) {
       const response = await fetch(`/api/projects/${projectId}/chapters`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-api-key': config.apiKey },
-        body: JSON.stringify({ title: title, content: '' }), // Ajout de content vide par défaut si nécessaire
+        // Utiliser le titre validé
+        body: JSON.stringify({ title: chapterTitle, content: '' }), 
       });
       if (!response.ok) {
         const error = new Error(`HTTP error! status: ${response.status}`);
@@ -61,7 +65,7 @@ export function useChapters(showSnackbar) {
       }
       newChapterResponse = await response.json(); // Le chapitre créé par l'API
 
-      // MODIFIÉ: Re-fetch la liste des chapitres pour assurer la réactivité et l'ordre correct
+      // Re-fetch la liste des chapitres pour assurer la réactivité et l'ordre correct
       await fetchChaptersForProject(projectId); 
 
       if (showSnackbar) showSnackbar('Chapitre ajouté avec succès');
@@ -129,21 +133,13 @@ export function useChapters(showSnackbar) {
      return success;
   };
 
-  const deleteChapter = async (chapterId) => {
-    if (!chapterId) return false;
+  // MODIFIÉ: La fonction accepte maintenant projectId pour un re-fetch fiable
+  const deleteChapter = async (projectId, chapterId) => {
+    if (!projectId || !chapterId) return false;
     deletingChapterItem.value = true;
     chapterError.value = null; 
     let success = false;
-    let deletedChapterProjectId = null;
-
-    // Trouver le projectId avant la suppression pour le re-fetch
-    for (const pid in chaptersByProjectId) {
-        if (chaptersByProjectId[pid]?.some(c => c.id === chapterId)) {
-            deletedChapterProjectId = pid;
-            break;
-        }
-    }
-
+    
     try {
       const response = await fetch(`/api/chapters/${chapterId}`, {
         method: 'DELETE',
@@ -155,17 +151,9 @@ export function useChapters(showSnackbar) {
         throw error;
       }
       
-      if (deletedChapterProjectId) {
-        await fetchChaptersForProject(deletedChapterProjectId); // Re-fetch
-      } else {
-        // Fallback si projectId n'a pas été trouvé (ne devrait pas arriver si le chapitre existait)
-        for (const projectId_loop in chaptersByProjectId) { // Renommer la variable de boucle
-          if (chaptersByProjectId[projectId_loop]?.some(c => c.id === chapterId)) { 
-              chaptersByProjectId[projectId_loop] = chaptersByProjectId[projectId_loop]?.filter(c => c.id !== chapterId); 
-              break; 
-          }
-        }
-      }
+      // Utiliser le projectId fourni pour un re-fetch fiable
+      await fetchChaptersForProject(projectId); 
+      
       if (showSnackbar) showSnackbar('Chapitre supprimé');
       success = true;
     } catch (error) {
@@ -175,8 +163,7 @@ export function useChapters(showSnackbar) {
     } finally {
       deletingChapterItem.value = false;
     }
-    // Retourner le projectId est toujours utile si l'appelant veut faire quelque chose avec
-    return { success, projectId: deletedChapterProjectId }; 
+    return { success, projectId: projectId }; 
   };
 
   const exportChapter = async (chapterId, format) => {
@@ -201,15 +188,15 @@ export function useChapters(showSnackbar) {
       }
       const blob = await response.blob();
       const link = document.createElement('a');
-      link.href = window.URL.createObjectURL(blob);
+      link.href = URL.createObjectURL(blob);
       link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(link.href);
-      if (showSnackbar) showSnackbar(`Chapitre exporté en ${format.toUpperCase()} : ${filename}`);
+      URL.revokeObjectURL(link.href);
+      if (showSnackbar) showSnackbar('Export terminé', 'success');
     } catch (error) {
-      const errorMessage = handleApiError(error, `Erreur lors de l'export en ${format.toUpperCase()}`);
+      const errorMessage = handleApiError(error, `Erreur export (${format})`);
       chapterError.value = errorMessage; 
       if (showSnackbar) showSnackbar(errorMessage, 'error');
     } finally {
@@ -217,15 +204,13 @@ export function useChapters(showSnackbar) {
     }
   };
 
-  // NOUVELLE FONCTION pour générer le résumé
+  // NOUVEAU: Génération de résumé de chapitre
   const generateChapterSummary = async (projectId, chapterId) => {
-
-    if (!projectId || !chapterId) return false;
+    if (!chapterId) return;
     generatingSummaryChapterId.value = chapterId;
     chapterError.value = null;
-    let success = false;
-
     try {
+      // Note: Le corps de la requête est vide car le backend a déjà tout ce dont il a besoin.
       const response = await fetch(`/api/chapters/${chapterId}/generate-summary`, {
         method: 'POST',
         headers: { 'x-api-key': config.apiKey },
@@ -235,37 +220,33 @@ export function useChapters(showSnackbar) {
         try { error.data = await response.json(); } catch (e) { /* ignore */ }
         throw error;
       }
-      // La génération a réussi, re-fetch les chapitres pour mettre à jour la liste
+      // Re-fetch les chapitres pour mettre à jour la liste avec le nouveau résumé
       await fetchChaptersForProject(projectId);
-      
-      if (showSnackbar) showSnackbar('Résumé du chapitre généré et sauvegardé.');
-      success = true;
+      if (showSnackbar) showSnackbar('Résumé généré avec succès', 'success');
     } catch (error) {
-console.error('Erreur détaillée lors de la tentative d\'appel API pour le résumé:', error);
-      const errorMessage = handleApiError(error, "Erreur génération résumé chapitre");
+      const errorMessage = handleApiError(error, 'Erreur génération résumé');
       chapterError.value = errorMessage;
       if (showSnackbar) showSnackbar(errorMessage, 'error');
     } finally {
       generatingSummaryChapterId.value = null;
     }
-    return success;
   };
 
-
+  // NOUVEAU: Fonction pour vider les chapitres d'un projet (utile lors de la suppression de projet)
   const clearChaptersForProject = (projectId) => {
     if (chaptersByProjectId[projectId]) {
       delete chaptersByProjectId[projectId];
     }
   };
 
-  // Fonction pour réordonner les chapitres
+  // NOUVEAU: Réordonnancement des chapitres
   const reorderChapters = async (projectId, orderedIds) => {
-    if (!projectId || !orderedIds || !Array.isArray(orderedIds)) {
-      if (showSnackbar) showSnackbar("Données de réordonnancement invalides.", "error");
-      return false;
-    }
-    submittingChapter.value = true; // Utiliser un état de chargement générique ou spécifique
-    chapterError.value = null;
+    if (!projectId || !orderedIds) return;
+    // Optimistic update: Mettre à jour l'état local immédiatement
+    const originalOrder = [...chaptersByProjectId[projectId]];
+    const reordered = orderedIds.map(id => originalOrder.find(c => c.id === id)).filter(Boolean);
+    chaptersByProjectId[projectId] = reordered;
+
     try {
       const response = await fetch(`/api/projects/${projectId}/chapters/reorder`, {
         method: 'POST',
@@ -273,22 +254,20 @@ console.error('Erreur détaillée lors de la tentative d\'appel API pour le rés
         body: JSON.stringify({ ordered_ids: orderedIds }),
       });
       if (!response.ok) {
+        // Si l'API échoue, revenir à l'état précédent
+        chaptersByProjectId[projectId] = originalOrder;
         const error = new Error(`HTTP error! status: ${response.status}`);
         try { error.data = await response.json(); } catch (e) { /* ignore */ }
         throw error;
       }
-      // Après un réordonnancement réussi, re-fetch les chapitres pour ce projet
-      // pour s'assurer que l'état local est synchronisé avec le backend.
-      await fetchChaptersForProject(projectId);
-      if (showSnackbar) showSnackbar('Chapitres réordonnés avec succès.');
-      return true;
+      // Pas besoin de re-fetch, l'état est déjà à jour
+      if (showSnackbar) showSnackbar('Ordre des chapitres sauvegardé', 'success');
     } catch (error) {
-      const errorMessage = handleApiError(error, "Erreur lors du réordonnancement des chapitres");
+      // Assurer le retour à l'état précédent en cas d'erreur
+      chaptersByProjectId[projectId] = originalOrder;
+      const errorMessage = handleApiError(error, 'Erreur réorganisation chapitres');
       chapterError.value = errorMessage;
       if (showSnackbar) showSnackbar(errorMessage, 'error');
-      return false;
-    } finally {
-      submittingChapter.value = false;
     }
   };
 
@@ -302,7 +281,7 @@ console.error('Erreur détaillée lors de la tentative d\'appel API pour le rés
     deletingChapterItem,
     exportingChapterId,
     generatingSummaryChapterId,
-    errorOnAddChapter, // Ajout de l'erreur spécifique à l'ajout
+    errorOnAddChapter,
     fetchChaptersForProject,
     addChapter,
     updateChapter,
@@ -310,7 +289,6 @@ console.error('Erreur détaillée lors de la tentative d\'appel API pour le rés
     exportChapter,
     generateChapterSummary,
     clearChaptersForProject,
-    reorderChapters, // Ajout de reorderChapters pour la complétude
     reorderChapters,
   };
 }
