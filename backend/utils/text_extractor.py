@@ -7,6 +7,7 @@ import docx
 from odf import opendocument, text as odf_text
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
+from bs4 import BeautifulSoup # Ajout de l'import pour BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
@@ -102,3 +103,29 @@ def extract_text_from_file(file_content: bytes, filename: str) -> str:
 
     logger.info(f"Successfully extracted text from {filename} (length: {len(text)} chars)")
     return text
+
+# NOUVELLE FONCTION AJOUTÉE
+def extract_text_from_html(html_content: str) -> str:
+    """
+    Extracts plain text from HTML content.
+
+    Args:
+        html_content: A string containing HTML.
+
+    Returns:
+        The extracted plain text.
+    """
+    if not html_content:
+        return ""
+    try:
+        soup = BeautifulSoup(html_content, "html.parser")
+        # Remove script and style elements
+        for script_or_style in soup(["script", "style"]):
+            script_or_style.decompose()
+        # Get text
+        text = soup.get_text(separator=" ", strip=True)
+        return text
+    except Exception as e:
+        logger.error(f"Error extracting text from HTML: {e}")
+        # Depending on desired behavior, could raise an error or return empty/original string
+        return "" # Return empty string on error for now

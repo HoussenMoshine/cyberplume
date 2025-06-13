@@ -1,26 +1,40 @@
 <template>
-  <v-dialog :model-value="show" @update:model-value="handleClose" persistent max-width="500px">
+  <v-dialog :model-value="show" @update:model-value="handleClose" persistent max-width="600px">
     <v-card>
       <v-card-title>
-        <span class="text-h5 font-weight-bold" style="font-family: 'Merriweather', serif;">Renommer le chapitre</span>
+        <span class="text-h5 font-weight-bold" style="font-family: 'Merriweather', serif;">Modifier le chapitre</span>
       </v-card-title>
       <v-card-text>
         <v-container>
           <v-row>
             <v-col cols="12">
               <v-text-field
-                label="Nouveau titre du chapitre*"
+                label="Titre du chapitre*"
                 v-model="internalChapterTitle"
                 required
                 autofocus
-                :error-messages="localError ? [localError] : []"
+                :error-messages="titleError ? [titleError] : []"
                 @keyup.enter="submit"
                 :disabled="loading"
+                variant="outlined"
+                density="compact"
               ></v-text-field>
+            </v-col>
+            <v-col cols="12">
+              <v-textarea
+                label="Résumé du chapitre"
+                v-model="internalChapterSummary"
+                :disabled="loading"
+                variant="outlined"
+                rows="5"
+                auto-grow
+                hint="Résumé généré ou manuel du contenu du chapitre."
+                persistent-hint
+              ></v-textarea>
             </v-col>
           </v-row>
         </v-container>
-        <small>*champ requis</small>
+        <small>*champ titre requis</small>
       </v-card-text>
       <v-card-actions class="pa-4">
         <v-spacer></v-spacer>
@@ -36,7 +50,7 @@
            color="primary"
            variant="flat"
            @click="submit"
-           :disabled="!internalChapterTitle.trim() || loading"
+           :disabled="!canSubmit"
            :loading="loading"
         >
           Enregistrer
@@ -47,7 +61,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 
 const props = defineProps({
   show: {
@@ -58,11 +72,15 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
-  error: {
+  error: { // Erreur générale passée par le parent (ex: erreur réseau)
     type: String,
     default: null,
   },
   initialTitle: {
+      type: String,
+      default: ''
+  },
+  initialSummary: { // NOUVELLE PROP
       type: String,
       default: ''
   }
@@ -71,26 +89,53 @@ const props = defineProps({
 const emit = defineEmits(['close', 'save']);
 
 const internalChapterTitle = ref('');
-const localError = ref(null);
+const internalChapterSummary = ref(''); // NOUVEAU
+const titleError = ref(null); // Erreur spécifique au titre
+const generalError = ref(null); // Pour les erreurs venant du parent
 
-// Initialize with initialTitle when dialog opens
+// Initialize with initial values when dialog opens or props change
 watch(() => props.show, (newValue) => {
   if (newValue) {
-    internalChapterTitle.value = props.initialTitle;
-    localError.value = null;
+    internalChapterTitle.value = props.initialTitle || '';
+    internalChapterSummary.value = props.initialSummary || '';
+    titleError.value = null;
+    generalError.value = props.error; // Synchroniser l'erreur générale
   }
 });
 
-watch(() => props.error, (newError) => {
-    localError.value = newError;
+watch(() => props.initialTitle, (newVal) => {
+    if (props.show) internalChapterTitle.value = newVal || '';
+});
+watch(() => props.initialSummary, (newVal) => {
+    if (props.show) internalChapterSummary.value = newVal || '';
 });
 
-// Clear local error when user starts typing
-watch(internalChapterTitle, () => {
-    if (localError.value) {
-        localError.value = null;
+
+watch(() => props.error, (newError) => {
+    generalError.value = newError;
+});
+
+// Clear title error when user starts typing title
+watch(internalChapterTitle, (newVal) => {
+    if (titleError.value && newVal.trim()) {
+        titleError.value = null;
+    }
+    // Si l'erreur générale était due au titre vide, on la retire aussi
+    if (generalError.value && newVal.trim()) {
+        generalError.value = null;
     }
 });
+
+const hasChanged = computed(() => {
+    const titleChanged = (internalChapterTitle.value || '').trim() !== (props.initialTitle || '').trim();
+    const summaryChanged = (internalChapterSummary.value || '').trim() !== (props.initialSummary || '').trim();
+    return titleChanged || summaryChanged;
+});
+
+const canSubmit = computed(() => {
+    return (internalChapterTitle.value || '').trim() && hasChanged.value && !props.loading;
+});
+
 
 const handleClose = () => {
   if (!props.loading) {
@@ -99,12 +144,23 @@ const handleClose = () => {
 };
 
 const submit = () => {
-  // Only emit save if title has changed and is not empty
-  if (internalChapterTitle.value.trim() && internalChapterTitle.value.trim() !== props.initialTitle && !props.loading) {
-    localError.value = null;
-    emit('save', internalChapterTitle.value.trim());
-  } else if (internalChapterTitle.value.trim() === props.initialTitle && !props.loading) {
-      // If title hasn't changed, just close the dialog
+  const trimmedTitle = (internalChapterTitle.value || '').trim();
+  const trimmedSummary = (internalChapterSummary.value || '').trim();
+
+  if (!trimmedTitle) {
+      titleError.value = "Le titre ne peut pas être vide.";
+      return;
+  }
+  titleError.value = null; // Clear error if title is not empty
+
+  if (canSubmit.value) { // Utilise la computed property canSubmit
+    generalError.value = null;
+    emit('save', { 
+        title: trimmedTitle, 
+        summary: trimmedSummary // Envoyer le résumé même s'il n'a pas changé, le backend gère exclude_unset
+    });
+  } else if (!hasChanged.value && !props.loading) { 
+      // If nothing changed, just close
       handleClose();
   }
 };

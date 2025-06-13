@@ -1,4 +1,4 @@
-# Contexte Technique - CyberPlume (Mise à jour : 27/05/2025 - 07:20)
+# Contexte Technique - CyberPlume (Mise à jour : 05/06/2025 - 09:50)
 
 ## Technologies Principales
 
@@ -9,6 +9,7 @@
 *   **ORM :** SQLAlchemy
 *   **Validation des Données (API) :** Pydantic
 *   **Environnement Virtuel (pour dev manuel) :** `venv`
+*   **Configuration du Logging :** Gérée pour Uvicorn via un fichier externe ([`log_config.yaml`](log_config.yaml:0)) en développement manuel.
 
 ### Frontend
 *   **Langage :** JavaScript (ES6+)
@@ -65,7 +66,7 @@
     *   [`backend/.env`](backend/.env.example:0) : Utilisé par `pydantic-settings` dans [`backend/config.py`](backend/config.py:1) pour charger les clés API des LLM et la `API_KEY` de CyberPlume.
     *   [`frontend/.env`](frontend/.env.example:0) : Utilisé par Vite pour `VITE_API_KEY` et `VITE_API_URL`.
 *   **Lancement Manuel :**
-    *   Backend : `source venv/bin/activate && uvicorn backend.main:app --reload --port 8080`.
+    *   Backend : `source venv/bin/activate && uvicorn backend.main:app --reload --port 8080 --log-config log_config.yaml`.
     *   Frontend : `npm run dev` (dans le dossier `frontend/`).
 *   **Tests Backend :** `pytest`. Configuration via [`backend/tests/conftest.py`](backend/tests/conftest.py:0).
 

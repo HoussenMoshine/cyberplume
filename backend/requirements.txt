@@ -12,6 +12,7 @@ chardet>=5.0.0 # Ajouté pour la détection d'encodage
 python-multipart>=0.0.7 # NOUVEAU: Requis pour l'upload de fichiers FastAPI
 cryptography>=42.0.0 # NOUVEAU: Pour le chiffrement des clés API
 
+alembic>=1.13.1 # NOUVEAU: Pour les migrations de base de données
 # Text Extraction libraries
 pypdf>=4.0.0 # Ajouté pour l'extraction PDF
 odfpy>=1.4.0 # Ajouté pour l'extraction ODT

@@ -6,24 +6,24 @@
         Confirmer la suppression
       </v-card-title>
       <v-card-text>
-        <span v-if="deleteTarget.type === 'project'">
-          Êtes-vous sûr de vouloir supprimer le projet "<strong>{{ deleteTarget.item?.title }}</strong>" et tous ses chapitres ?
+        <!-- Cas de la suppression simple -->
+        <span v-if="deleteTarget && deleteType === 'project'">
+          Êtes-vous sûr de vouloir supprimer le projet "<strong>{{ deleteTarget.title }}</strong>" et tous ses chapitres ?
         </span>
-        <span v-else-if="deleteTarget.type === 'chapter'">
-          Êtes-vous sûr de vouloir supprimer le chapitre "<strong>{{ deleteTarget.item?.title }}</strong>" ?
+        <span v-else-if="deleteTarget && deleteType === 'chapter'">
+          Êtes-vous sûr de vouloir supprimer le chapitre "<strong>{{ deleteTarget.title }}</strong>" ?
         </span>
-         <span v-else-if="deleteTarget.type === 'scene'"> <!-- Ajout cas pour scène -->
-          Êtes-vous sûr de vouloir supprimer la scène "<strong>{{ deleteTarget.item?.title || 'sans titre' }}</strong>" ?
-        </span>
-        <span v-else-if="deleteTarget.type === 'multiple-projects' || deleteTarget.type === 'multiple-chapters'"> <!-- Renommage 'batch' -->
+
+        <!-- Cas de la suppression par sélection -->
+        <span v-else-if="deleteType === 'project-selection' || deleteType === 'chapter-selection'">
           Êtes-vous sûr de vouloir supprimer :
           <ul>
-            <li v-if="targetCounts.projects > 0">{{ targetCounts.projects }} projet(s) (et leurs chapitres/scènes)</li>
-            <li v-if="targetCounts.chapters > 0">{{ targetCounts.chapters }} chapitre(s) (et leurs scènes)</li>
-             <!-- Ajouter cas pour scènes multiples si nécessaire -->
+            <li v-if="targetCounts.projects > 0">{{ targetCounts.projects }} projet(s) sélectionné(s) (et leurs chapitres)</li>
+            <li v-if="targetCounts.chapters > 0">{{ targetCounts.chapters }} chapitre(s) sélectionné(s)</li>
           </ul>
         </span>
-        <br>
+        
+        <br><br>
         <strong>Cette action est irréversible.</strong>
       </v-card-text>
       <v-card-actions class="pa-4">
@@ -50,7 +50,7 @@
 
 <script setup>
 import { IconAlertTriangle } from '@tabler/icons-vue';
-import { VDialog, VCard, VCardTitle, VCardText, VCardActions, VBtn, VSpacer, VIcon } from 'vuetify/components'; // VIcon est utilisé implicitement par l'ancienne icône, mais peut être retiré si plus aucune mdi-icon n'est présente
+import { VDialog, VCard, VCardTitle, VCardText, VCardActions, VBtn, VSpacer } from 'vuetify/components';
 
 const props = defineProps({
   show: {
@@ -61,10 +61,13 @@ const props = defineProps({
     type: Boolean,
     default: false,
   },
+deleteType: {
+    type: String,
+    default: ''
+  },
   deleteTarget: {
     type: [Object, null], // Autoriser null
-    // required: true, // Ne peut plus être requis si null est autorisé
-    default: null // Définir une valeur par défaut
+    default: null 
   },
   // Pour l'affichage de la suppression multiple
   targetCounts: {

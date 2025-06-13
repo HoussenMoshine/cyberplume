@@ -34,16 +34,16 @@ class GeminiAdapter(AIAdapter):
             logging.info("Fetching models from Gemini API...")
             models = genai.list_models()
             gemini_models = []
-            for model in models:
+            for model_obj in models: # Renommé model en model_obj pour éviter conflit avec self.model
                  # Filtrer pour les modèles utilisables pour la génération de texte
-                 if 'generateContent' in model.supported_generation_methods:
+                 if 'generateContent' in model_obj.supported_generation_methods:
                      # Utiliser l'ID complet (ex: models/gemini-pro) comme ID unique
-                     model_id = model.name
+                     model_id = model_obj.name
                      gemini_models.append({
                          "id": model_id,
-                         "name": model.display_name, # Utiliser display_name si disponible
-                         "description": model.description,
-                         "version": model.version,
+                         "name": model_obj.display_name, # Utiliser display_name si disponible
+                         "description": model_obj.description,
+                         "version": model_obj.version,
                          # Ajouter d'autres métadonnées utiles si nécessaire
                      })
             logging.info(f"Successfully fetched {len(gemini_models)} usable models from Gemini.")
@@ -80,19 +80,19 @@ class GeminiAdapter(AIAdapter):
                  raise ValueError("Pour générer une scène sans description, fournissez au moins un objectif, des personnages ou des éléments clés.")
 
 
-        current_model = self.model # Modèle demandé par le frontend (ou défaut)
+        current_model_name = self.model # Modèle demandé par le frontend (ou défaut)
 
         # --- Construction du contexte personnage (si fourni et action pertinente) ---
         character_context_str = ""
-        # MODIFIÉ: Inclure 'generer_scene' dans les actions pertinentes pour le contexte personnage détaillé
-        if character_context and action in ["continuer", "generer_dialogue", None, "suggest", "reformuler", "raccourcir", "développer", "generer_scene"]: # Inclure None et autres actions générales
+        # MODIFIÉ: Inclure 'generer_scene' et 'generer_idees_scene' dans les actions pertinentes pour le contexte personnage détaillé
+        if character_context and action in ["continuer", "generer_dialogue", None, "suggest", "reformuler", "raccourcir", "développer", "generer_scene", "generer_idees_scene"]:
             context_lines = ["Contexte des personnages pertinents :"]
-            for char in character_context:
-                context_lines.append(f"- Nom: {char.name}")
-                if char.description:
-                    context_lines.append(f"  Description: {char.description}")
-                if char.backstory:
-                    context_lines.append(f"  Backstory: {char.backstory}")
+            for char_ctx in character_context: # Renommé char en char_ctx
+                context_lines.append(f"- Nom: {char_ctx.name}")
+                if char_ctx.description:
+                    context_lines.append(f"  Description: {char_ctx.description}")
+                if char_ctx.backstory:
+                    context_lines.append(f"  Backstory: {char_ctx.backstory}")
             character_context_str = "\n".join(context_lines) + "\n\n---\n\n" # Séparateur
             logging.info(f"Injecting character context for action '{action}'.")
         # -----------------------------------------------------------------------
@@ -175,6 +175,9 @@ Dialogue :"""
             action_prompt = "\n".join(context_parts)
             logging.info(f"Action: {action}. Constructed detailed prompt (v4 - character-centric with detailed context).")
         # --- Fin Prompt v4 ---
+        elif action == "generer_idees_scene": # Correction d'indentation ici
+            action_prompt = prompt # Utilise le prompt reçu qui est déjà détaillé
+            logging.info(f"Action: {action}. Using prompt provided by router directly.")
         # TODO: Ajouter d'autres actions (decrire_scene, changer_ton...)
         else:
             # Comportement par défaut (si action=None ou inconnue) -> Suggestion/Reformulation générale
@@ -200,97 +203,90 @@ Dialogue :"""
             instruction = STYLE_INSTRUCTIONS.get(style)
             if instruction:
                 style_instruction = instruction
-                logging.info(f"Applying standard style '{style}'.")
+                logging.info(f"Applying standard style: {style}")
                 applied_style_type = style
             else:
-                logging.warning(f"Standard style '{style}' unknown, no style instruction applied.")
-
+                logging.warning(f"Style standard '{style}' non reconnu. Utilisation du style normal.")
+        
         if style_instruction:
-             # Appliquer le style après le contexte personnage et le prompt d'action
-             final_prompt = f"{style_instruction}\n\n{base_prompt_with_context}"
-        # ------------------------------------
+            final_prompt = f"{style_instruction}\n\n---\n\n{final_prompt}"
+            logging.info(f"Style instruction applied. Final style type: {applied_style_type}")
 
-        # --- Configuration des Safety Settings ---
+        # Configuration de la génération
+        generation_config = GenerationConfig(
+            candidate_count=1, # On ne veut qu'une seule proposition pour l'instant
+            # stop_sequences=["fin_generation"], # Exemple, à adapter
+            max_output_tokens=max_tokens or 1024, # Valeur par défaut si non fournie
+            temperature=temperature if temperature is not None else 0.7 # Valeur par défaut si non fournie
+            # top_p=0.9, # Exemple
+            # top_k=40   # Exemple
+        )
+        logging.debug(f"Setting max_output_tokens: {generation_config.max_output_tokens}")
+        logging.debug(f"Setting temperature: {generation_config.temperature}")
+
+
+        # Définir les safety settings pour autoriser plus de contenu si le style le demande
+        # BLOCK_NONE permet tout, BLOCK_ONLY_HIGH bloque peu, BLOCK_MEDIUM_AND_ABOVE est plus strict.
+        # Par défaut, on est plus permissif, mais on pourrait ajuster en fonction du style.
+        safety_threshold = HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE
+        if style in ["adulte", "langage_cru"]:
+            safety_threshold = HarmBlockThreshold.BLOCK_NONE # Plus permissif pour ces styles
+            logging.info(f"Using more permissive safety settings (BLOCK_NONE) for style '{style}'.")
+        
         safety_settings = {
-            # Par défaut, utiliser les seuils standards de Gemini
-            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
-            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE,
+            HarmCategory.HARM_CATEGORY_HARASSMENT: safety_threshold,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: safety_threshold,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: safety_threshold,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: safety_threshold,
         }
+        logging.debug(f"Using safety settings: {safety_settings}")
+        logging.debug(f"Using generation config: {generation_config}")
 
-        # MODIFIÉ: Inclure 'langage_cru' dans l'ajustement des safety settings
-        # On ajuste si le style standard est 'adulte' ou 'langage_cru', OU si un style personnalisé est appliqué
-        # (car on ne connaît pas la nature du style personnalisé, on relâche un peu la censure par défaut)
-        if (style in ['adulte', 'langage_cru']) or custom_style_description:
-            log_reason = f"style '{style}'" if style in ['adulte', 'langage_cru'] else "custom style"
-            logging.warning(f"Adjusting safety settings (BLOCK_ONLY_HIGH) due to {log_reason}.")
-            # Utilisons BLOCK_ONLY_HIGH comme compromis initial.
-            safety_settings = {
-                HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-                HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
-            }
-        # ---------------------------------------
-
-        # --- Configuration de la Génération (max_tokens, temperature) ---
-        generation_config = GenerationConfig()
-        if max_tokens is not None:
-            generation_config.max_output_tokens = max_tokens
-            logging.debug(f"Setting max_output_tokens: {max_tokens}")
-        if temperature is not None:
-            generation_config.temperature = temperature
-            logging.debug(f"Setting temperature: {temperature}")
-        # Ajouter d'autres paramètres si nécessaire (top_p, top_k...)
-        # -------------------------------------------------------------
 
         try:
-            logging.info(f"Generating text with Gemini model: {current_model} for action: {action or 'default'}, style: {applied_style_type}")
-            logging.debug(f"Final prompt sent to Gemini:\n{final_prompt}") # Log le prompt final
-            logging.debug(f"Using safety settings: {safety_settings}") # Log les safety settings
-            logging.debug(f"Using generation config: {generation_config}") # Log la config
-
-            model_instance = genai.GenerativeModel(current_model)
-
-            # Passer les safety_settings et generation_config à l'appel generate_content
-            response = await model_instance.generate_content_async( # Utiliser la version async
-                final_prompt,
-                safety_settings=safety_settings,
-                generation_config=generation_config
+            logging.info(f"Generating text with Gemini model: {current_model_name} for action: {action or 'default'}, style: {applied_style_type}")
+            logging.debug(f"Final prompt sent to Gemini:\n{final_prompt}")
+            
+            model_instance = genai.GenerativeModel(
+                model_name=current_model_name,
+                generation_config=generation_config,
+                safety_settings=safety_settings
             )
+            response = await model_instance.generate_content_async(final_prompt) # Utiliser generate_content_async
 
-            # Gestion améliorée de la réponse
-            # Vérifier d'abord si le contenu a été bloqué
-            if response.prompt_feedback and response.prompt_feedback.block_reason:
-                 block_reason = response.prompt_feedback.block_reason.name # Obtenir le nom de la raison
-                 logging.warning(f"Gemini content generation blocked. Reason: {block_reason}")
-                 # Essayer de voir si des candidats existent malgré le blocage (parfois le cas)
-                 if response.candidates and response.candidates[0].content:
-                     logging.warning("Content found in candidates despite block reason. Returning candidate content.")
-                     # Attention: ce contenu peut être celui qui a causé le blocage. À utiliser avec prudence.
-                     # return "".join(part.text for part in response.candidates[0].content.parts if hasattr(part, 'text'))
-                     # Préférable de renvoyer une erreur claire à l'utilisateur
-                     raise ValueError(f"La génération a été bloquée par Gemini (Raison: {block_reason}).")
-                 else:
-                     raise ValueError(f"La génération a été bloquée par Gemini (Raison: {block_reason}). Aucun contenu alternatif disponible.")
+            # Gestion de la réponse
+            if response.parts:
+                # logging.debug(f"Gemini response parts: {response.parts}")
+                # S'assurer que la réponse est bien du texte et la retourner
+                # Concaténer toutes les parties de texte si elles existent
+                text_parts = [part.text for part in response.parts if hasattr(part, 'text')]
+                generated_text = "".join(text_parts)
+                
+                # Vérifier si le contenu a été bloqué par les filtres de sécurité
+                if not generated_text and response.prompt_feedback and response.prompt_feedback.block_reason:
+                    block_reason_message = response.prompt_feedback.block_reason_message or "Contenu bloqué par les filtres de sécurité."
+                    logging.warning(f"Gemini content generation blocked. Reason: {response.prompt_feedback.block_reason}. Message: {block_reason_message}")
+                    # Lever une exception spécifique ou retourner un message d'erreur clair
+                    raise GoogleAPIError(f"Génération de contenu bloquée par les filtres de sécurité: {block_reason_message}")
 
-            # Si non bloqué, extraire le texte
-            if hasattr(response, 'text'):
-                return response.text
-            elif hasattr(response, 'parts') and response.parts:
-                # Concaténer le texte de toutes les parties
-                return "".join(part.text for part in response.parts if hasattr(part, 'text'))
-            elif response.candidates and response.candidates[0].content: # Vérifier les candidats comme fallback
-                 logging.info("Extracting text from response candidates.")
-                 return "".join(part.text for part in response.candidates[0].content.parts if hasattr(part, 'text'))
+                logging.info("Text generated successfully by Gemini.")
+                # logging.debug(f"Generated text (first 100 chars): {generated_text[:100]}")
+                return generated_text
+            elif response.prompt_feedback and response.prompt_feedback.block_reason:
+                # Gérer le cas où le prompt lui-même est bloqué
+                block_reason_message = response.prompt_feedback.block_reason_message or "Prompt bloqué par les filtres de sécurité."
+                logging.warning(f"Gemini prompt blocked. Reason: {response.prompt_feedback.block_reason}. Message: {block_reason_message}")
+                raise GoogleAPIError(f"Prompt bloqué par les filtres de sécurité: {block_reason_message}")
             else:
-                 logging.error(f"Unexpected or empty response structure from Gemini API: {response}")
-                 raise ValueError("Réponse inattendue ou vide de l'API Gemini.")
+                # Cas où il n'y a pas de parts et pas de blocage de prompt explicite (inattendu)
+                logging.warning("Gemini response has no parts and no explicit prompt block reason.")
+                # logging.debug(f"Full Gemini response object: {response}")
+                return "Réponse vide ou inattendue de l'IA."
+
 
         except GoogleAPIError as e:
-            logging.error(f"Gemini API error during generation with model {current_model}: {e}", exc_info=True)
-            raise ValueError(f"Erreur lors de la génération avec Gemini ({current_model}): {str(e)}")
+            logging.error(f"Une erreur API Google est survenue: {e}", exc_info=True)
+            raise  # Re-lever l'exception pour qu'elle soit gérée par le routeur
         except Exception as e:
-             logging.error(f"Unexpected error during Gemini generation: {e}", exc_info=True)
-             raise ValueError(f"Erreur inattendue lors de la génération avec Gemini ({current_model}): {str(e)}")
+            logging.error(f"Erreur inattendue lors de la génération de texte avec Gemini: {e}", exc_info=True)
+            raise # Re-lever pour gestion par le routeur

@@ -1,175 +1,112 @@
-# Fichier .gitignore racine
+# Fichier .gitignore unifié et nettoyé
 
-# --- Bases de données ---
-# Fichiers de base de données principaux (souvent locaux/embarqués ou des sauvegardes complètes)
-
-# Votre fichier de base de données principal et autres extensions courantes
-*.db
-*.sqlite
-*.sqlite3
-*.sqlitedb # Autre variante pour SQLite
-
-# Microsoft SQL Server / SQL Server Express
-# *.mdf (Master Data File)
-# *.ldf (Log Data File)
-# *.ndf (Secondary Data File)
-# Si vous avez des sauvegardes locales :
-*.bak
-
-# Microsoft SQL Server Compact Edition
-*.sdf
-
-# Microsoft Access (moins courant en dev web moderne, mais existe)
-*.mdb
-*.accdb
-
-# PostgreSQL (généralement pas de fichier DB unique, mais des sauvegardes peuvent l'être)
-# Si vous faites des dumps locaux avec des extensions spécifiques :
-# pg_dump.out
-# *.pgdump
-# *.backup (peut être générique, attention)
-
-# MySQL/MariaDB (idem, généralement pas de fichier DB unique, mais des sauvegardes)
-# Si vous faites des dumps locaux avec des extensions spécifiques :
-# *.mysql
-# *.dump (peut être générique, attention)
-
-# Fichiers de dump SQL génériques
-# ATTENTION : Si vous versionnez des fichiers .sql de définition de schéma ou de migration,
-# cette ligne est trop agressive. Préférez ignorer un dossier spécifique de dumps
-# ou des noms de fichiers de dump spécifiques (ex: `*_dump.sql`, `backup_*.sql`).
-# *.sql
-
-# Berkeley DB (souvent utilisé par des bibliothèques)
-# *.db (déjà couvert plus haut, mais explicitement pour Berkeley DB)
-
-# HSQLDB (Java) - souvent un ensemble de fichiers
-# *.script
-# *.properties
-# *.data
-# *.log (attention, le .log générique est déjà listé plus bas pour les logs d'app)
-
-# H2 Database Engine (Java)
-# *.mv.db
-# *.trace.db
-
-# Derby (Java)
-# Répertoire de la base de données, ex: myDB/
-
-# Realm (mobile)
-*.realm
-*.realm.lock
-*.realm.note
-*.realm.management/
-
-# DuckDB (gagnant en popularité pour l'analytique)
-*.duckdb
-*.wal # Write-Ahead Log pour DuckDB et SQLite
-
-# Fichier de base de données de test que vous aviez déjà
-test_temp.db
-
-# --- Environnements virtuels Python ---
-venv/
-.venv/
-env/
-ENV/
-# Fichiers compilés Python et cache
-__pycache__/
-*.py[cod]  # .pyc, .pyo, .pyd
-*.so      # Fichiers d'objets partagés compilés (ex: extensions C)
-
-# --- Fichiers d'environnement ---
+# --- Fichiers d'environnement et secrets ---
+# Ne jamais commiter les fichiers .env contenant des secrets
 .env
 .env.*
+# Sauf les fichiers d'exemple qui ne contiennent pas de secrets
 !.env.example
 
-# --- Fichiers spécifiques aux IDE ---
+# --- Fichiers générés par les IDE et éditeurs ---
 .vscode/
 .idea/
-# JetBrains (PyCharm, WebStorm, etc.)
+*.sublime-project
+*.sublime-workspace
+# JetBrains (PyCharm, etc.)
 *.iml
-*.ipr
-*.iws
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/dictionaries
-.idea/shelf/
-# VS Code (permet de partager certains fichiers de config de projet)
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-# NetBeans
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
 # Eclipse
 .classpath
 .project
 .settings/
-# Sublime Text
-*.sublime-workspace
-*.sublime-project
 
-# --- Fichiers de logs ---
+# --- Fichiers système (macOS, Windows) ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+._*
+.AppleDouble
+.LSOverride
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+
+# --- Logs ---
 *.log
 logs/
-# Logs spécifiques à Node.js/npm/yarn (si outils JS à la racine)
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# --- Fichiers de build et de dépendances (génériques pour la racine) ---
-# build/
-# dist/
+# --- Bases de données locales ---
+# Fichiers de bases de données locales, sauvegardes et dumps
+*.db
+*.sqlite
+*.sqlite3
+*.sqlitedb
+*.bak
+*.sdf
+*.mdb
+*.accdb
+*.sql # Attention : à n'utiliser que si vous ne versionnez aucun fichier .sql
+*.mv.db
+*.trace.db
+*.realm
+*.duckdb
+*.wal
 
-# --- Dépendances Node.js (si applicable à la racine) ---
-# node_modules/
-# pnpm-lock.yaml
+# Ignorer le contenu du dossier 'instance' mais pas le dossier lui-même
+# Utile pour que le dossier existe mais que son contenu (ex: la BD) soit ignoré.
+/instance/*
+!/instance/.gitkeep
 
-# --- Fichiers de système d'exploitation ---
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-# Thumbnails
-._*
-# Fichiers temporaires de type Spotlight
-.Spotlight-V100
-.Trashes
-# Windows
-ehthumbs.db
-Thumbs.db
-# Desktop.ini (souvent dans les archives ZIP aussi)
-Desktop.ini
+# --- Python ---
+# Environnements virtuels
+venv/
+.venv/
+env/
+ENV/
+pyenv/
 
-# --- Fichiers de couverture de test ---
+# Cache et fichiers compilés
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Fichiers de distribution et de build
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Dépendances et caches (JavaScript si utilisé) ---
+node_modules/
+bower_components/
+jspm_packages/
+
+# --- Fichiers de test et de couverture ---
+.pytest_cache/
 .coverage
 .coverage.*
-coverage/
 htmlcov/
-.pytest_cache/
+.tox/
 nosetests.xml
 coverage.xml
-# Jacoco (Java)
-jacoco.exec
-jacoco.xml
-# Istanbul/NYC (JavaScript)
-.nyc_output/
 
-# --- Fichiers temporaires et de packaging Python ---
-*.egg-info/
-sdist/
-*.egg
-# MANIFEST
-
-# --- Fichiers divers ---
-# Fichiers créés par certains éditeurs en cas de crash ou comme backup
+# --- Fichiers temporaires ---
 *~
 *.swp
 *.swo

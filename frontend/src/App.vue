@@ -7,13 +7,17 @@
     <v-app-bar app color="primary" density="compact" v-if="!isDistractionFree" elevation="0">
       <img src="@/assets/cyberplume.svg" alt="CyberPlume Logo" height="30" class="mr-3 ml-3" />
       <v-tabs v-model="activeTab" align-tabs="center">
-        <v-tab value="editor" @click="handleEditorTabClick">
+        <v-tab value="editor">
           <IconFileText size="20" class="mr-2" />
           Éditeur
         </v-tab>
         <v-tab value="characters">
           <IconUsers size="20" class="mr-2" />
           Personnages
+        </v-tab>
+        <v-tab value="sceneIdeas">
+          <IconBulb size="20" class="mr-2" />
+          Idées de Scènes
         </v-tab>
         <v-tab value="config">
           <IconSettings size="20" class="mr-2" />
@@ -23,11 +27,11 @@
     </v-app-bar>
 
 
-    <!-- Masquer le gestionnaire de projet en mode sans distraction ou si l'onglet config est actif -->
+    <!-- Masquer le gestionnaire de projet en mode sans distraction ou si l'onglet config ou sceneIdeas est actif -->
     <project-manager
-      v-if="!isDistractionFree && activeTab !== 'config'"
-      @chapter-selected="handleChapterSelection"
-      @scene-selected="handleSceneSelection"
+      v-if="!isDistractionFree && activeTab !== 'config' && activeTab !== 'sceneIdeas'"
+      :selected-chapter-id="currentChapterId"
+      @chapter-selected="handleChapterAirlock"
       @insert-generated-content="handleInsertGeneratedContent"
       @apply-suggestion-to-editor="handleApplySuggestionToEditor"
       :current-ai-provider="globalAIProvider"
@@ -42,10 +46,6 @@
         <v-window-item value="editor" class="editor-window-item">
           <editor-component
             ref="editorComponentRef"
-            :selected-chapter-id="currentChapterId"
-            :selected-scene-id="currentSceneId"
-            :active-chapter-title="currentChapterTitle"
-            :active-scene-title="currentSceneTitle"
             :is-distraction-free="isDistractionFree"
             @toggle-distraction-free="toggleDistractionFreeMode"
             @ai-settings-changed="updateGlobalAISettings"
@@ -54,6 +54,10 @@
         <v-window-item value="characters">
           <!-- Le CharacterManager ne s'affiche que si l'onglet characters est actif et pas en mode sans distraction -->
           <character-manager v-if="!isDistractionFree && activeTab === 'characters'" />
+        </v-window-item>
+        <v-window-item value="sceneIdeas">
+          <!-- Le SceneIdeasManager ne s'affiche que si l'onglet sceneIdeas est actif et pas en mode sans distraction -->
+          <scene-ideas-manager v-if="!isDistractionFree && activeTab === 'sceneIdeas'" />
         </v-window-item>
         <v-window-item value="config">
            <!-- Le ApiKeysManager ne s'affiche que si l'onglet config est actif et pas en mode sans distraction -->
@@ -90,25 +94,25 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import EditorComponent from './components/EditorComponent.vue';
 import ProjectManager from './components/ProjectManager.vue';
 import CharacterManager from './components/CharacterManager.vue';
+import SceneIdeasManager from './components/SceneIdeasManager.vue'; // Ajout de l'import
 import ApiKeysManager from './components/ApiKeysManager.vue';
 
 // Import des composants Vuetify utilisés
 import {
-  VApp, VAppBar, VTabs, VTab, VMain, VWindow, VWindowItem, VSnackbar, VBtn // Ajout VSnackbar, VBtn
+  VApp, VAppBar, VTabs, VTab, VMain, VWindow, VWindowItem, VSnackbar, VBtn
 } from 'vuetify/components';
 
 // Import des icônes Tabler
-import { IconFileText, IconUsers, IconSettings } from '@tabler/icons-vue';
+import { IconFileText, IconUsers, IconSettings, IconBulb } from '@tabler/icons-vue'; // Ajout de IconBulb
 import { config } from '@/config.js';
 
 // Import et utilisation du composable Snackbar
 import { useSnackbar } from '@/composables/useSnackbar.js';
 const { 
-  showSnackbar: isSnackbarVisible, // Renommer pour clarté (c'est la ref booléenne)
+  showSnackbar: isSnackbarVisible, 
   snackbarMessage, 
   snackbarColor, 
   snackbarTimeout 
-  // displaySnackbar n'est pas appelé directement ici, mais par les autres composants
 } = useSnackbar();
 
 
@@ -121,20 +125,14 @@ const globalCustomAIDescription = ref(null);
 // State pour l'onglet actif
 const activeTab = ref('editor');
 
-// State pour l'ID et le titre du chapitre/scène sélectionné
+// State pour l'ID du chapitre sélectionné
 const currentChapterId = ref(null);
-const currentChapterTitle = ref(null);
-const currentSceneId = ref(null);
-const currentSceneTitle = ref(null);
 
 // Référence vers l'instance de EditorComponent
 const editorComponentRef = ref(null);
 
 // State pour le mode sans distraction
 const isDistractionFree = ref(false);
-
-// Flag pour différencier un clic sur l'onglet d'une sélection de contenu
-let isSelectionEvent = false;
 
 const toggleDistractionFreeMode = () => {
   isDistractionFree.value = !isDistractionFree.value;
@@ -148,10 +146,10 @@ const handleKeyboardShortcuts = (event) => {
   const isCtrlOrCmd = event.ctrlKey || event.metaKey;
   if (isCtrlOrCmd && event.key === 's') {
     event.preventDefault();
-    if (editorComponentRef.value && typeof editorComponentRef.value.triggerManualSave === 'function') {
-      editorComponentRef.value.triggerManualSave();
+    if (editorComponentRef.value && typeof editorComponentRef.value.saveChapter === 'function') {
+      editorComponentRef.value.saveChapter(true); // true for manual save
     } else {
-      console.warn("EditorComponent reference or triggerManualSave method not found!");
+      console.warn("EditorComponent reference or saveChapter method not found!");
     }
   }
 };
@@ -164,94 +162,93 @@ onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyboardShortcuts);
 });
 
-const handleChapterSelection = (chapterId) => {
-  console.log("App.vue: handleChapterSelection", chapterId);
-  isSelectionEvent = true;
-  currentChapterId.value = chapterId ?? null;
-  currentChapterTitle.value = null;
-  currentSceneId.value = null;
-  currentSceneTitle.value = null;
-  if (chapterId !== null) {
-    activeTab.value = 'editor';
-    if (isDistractionFree.value) {
-        toggleDistractionFreeMode();
-    }
+/**
+ * Gère la sélection d'un chapitre en orchestrant la sauvegarde et le chargement.
+ * C'est le "Data Airlock" pour prévenir les race conditions.
+ */
+async function handleChapterAirlock(payload) {
+  if (!editorComponentRef.value) {
+    console.error("La référence du composant éditeur n'est pas disponible.");
+    return;
   }
-  setTimeout(() => { isSelectionEvent = false; }, 50);
-};
 
-const handleSceneSelection = (sceneId) => {
-  console.log("App.vue: handleSceneSelection", sceneId);
-  isSelectionEvent = true;
-  currentSceneId.value = sceneId ?? null;
-  currentSceneTitle.value = null;
-  if (sceneId !== null) {
-    currentChapterId.value = null;
-    currentChapterTitle.value = null;
-    activeTab.value = 'editor';
-    if (isDistractionFree.value) {
-        toggleDistractionFreeMode();
-    }
+  // 1. Sauvegarder le chapitre actuel (la méthode interne vérifie s'il y a des changements)
+  const saveSuccess = await editorComponentRef.value.saveChapter(false); // false for auto-save
+
+  if (!saveSuccess) {
+    // Pour l'instant, on avertit et on continue. On pourrait demander confirmation à l'utilisateur.
+    console.warn("La sauvegarde du chapitre précédent a échoué. Le chargement continue, mais des changements pourraient être perdus.");
   }
-  setTimeout(() => { isSelectionEvent = false; }, 50);
-};
+
+  // 2. Mettre à jour l'ID du chapitre sélectionné globalement
+  const newChapterId = payload && payload.chapterId !== undefined ? payload.chapterId : null;
+  currentChapterId.value = newChapterId;
+
+  // 3. Charger le nouveau chapitre dans l'éditeur
+  await editorComponentRef.value.loadChapter(newChapterId);
+  
+  // 4. S'assurer que l'onglet éditeur est actif si un chapitre est sélectionné
+  if (newChapterId !== null) {
+    activeTab.value = 'editor';
+  }
+}
+
 
 const handleInsertGeneratedContent = (content) => {
-  console.log("App.vue: handleInsertGeneratedContent");
-  if (editorComponentRef.value && typeof editorComponentRef.value.insertContentAtCursor === 'function') {
-    editorComponentRef.value.insertContentAtCursor(content);
-    activeTab.value = 'editor';
+  if (editorComponentRef.value && typeof editorComponentRef.value.insertGeneratedContent === 'function') {
+    editorComponentRef.value.insertGeneratedContent(content);
   } else {
-    console.error("EditorComponent reference or insertContentAtCursor method not found!");
+     console.warn("EditorComponent reference or insertGeneratedContent method not found for direct insertion!");
+     // Fallback: Peut-être copier dans le presse-papiers ou afficher dans un dialogue
   }
 };
 
 const handleApplySuggestionToEditor = (suggestionData) => {
-  console.log("App.vue: handleApplySuggestionToEditor");
-  if (editorComponentRef.value && typeof editorComponentRef.value.applySuggestion === 'function') {
-    editorComponentRef.value.applySuggestion(suggestionData);
-    activeTab.value = 'editor';
+  if (editorComponentRef.value && typeof editorComponentRef.value.handleApplySuggestionToEditor === 'function') {
+    editorComponentRef.value.handleApplySuggestionToEditor(suggestionData);
   } else {
-    console.error("EditorComponent reference or applySuggestion method not found!");
+    console.warn("EditorComponent reference or handleApplySuggestionToEditor method not found!");
   }
 };
 
 const updateGlobalAISettings = (settings) => {
-  if (settings) {
-    globalAIProvider.value = settings.provider;
-    globalAIModel.value = settings.model;
-    globalAIStyle.value = settings.style;
-    globalCustomAIDescription.value = settings.customDescription;
-  }
-};
-
-const handleEditorTabClick = () => {
-  if (!isSelectionEvent) {
-    activeTab.value = 'editor';
-  }
+  if (settings.provider) globalAIProvider.value = settings.provider;
+  if (settings.model) globalAIModel.value = settings.model;
+  if (settings.style) globalAIStyle.value = settings.style;
+  if (settings.customDescription) globalCustomAIDescription.value = settings.customDescription;
 };
 
 </script>
 
-<style> 
+<style>
+html, body, #app {
+  height: 100%;
+  margin: 0;
+  overflow: hidden; /* Empêche le défilement au niveau de la page entière */
+}
+
 .v-application {
-  background-color: var(--v-theme-background-lighten-1) !important; 
-}
-
-.distraction-free .v-main {
-  padding: 0 !important;
-  margin: 0 !important;
   height: 100vh;
-  width: 100vw;
-  overflow: hidden; 
-}
-
-.editor-window-item {
-  height: 100%; 
+  display: flex;
+  flex-direction: column;
 }
 
 .v-main {
-  overflow-y: auto; 
+  flex: 1;
+  overflow-y: auto; /* Permet le défilement uniquement dans la zone principale */
+  height: calc(100vh - 48px); /* 48px est la hauteur de la barre d'app */
 }
 
+.editor-window-item {
+  height: 100%;
+}
+
+.v-navigation-drawer {
+  border-right: 1px solid #e0e0e0;
+}
+
+.distraction-free .v-navigation-drawer,
+.distraction-free .v-app-bar {
+  display: none;
+}
 </style>

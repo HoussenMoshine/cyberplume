@@ -53,7 +53,10 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
 
   // --- Core API Call Function ---
 
-  async function triggerAIAction(action) {
+  async function triggerAIAction(action, customPrompt = null) {
+    
+    
+    
 
     // Vérifications initiales (éditeur, paramètres IA, contexte)
     if (!editorRef.value) {
@@ -66,11 +69,21 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
         generationError.value = "Veuillez sélectionner un fournisseur, un modèle et un style IA.";
         return;
     }
-    const context = getContextText(action);
-    const promptTextForApi = context.text;
-    if (context.isEmpty && ['continue', 'reformulate', 'shorten', 'expand'].includes(action)) {
-        console.warn(`useAIActions: Action '${action}' requires text context, but it's empty.`);
-        generationError.value = `L'action "${action}" nécessite du texte (sélectionné ou complet).`;
+    let promptTextForApi;
+    if (customPrompt) {
+      promptTextForApi = customPrompt;
+    } else {
+      const context = getContextText(action);
+      promptTextForApi = context.text;
+      if (context.isEmpty && ['continue', 'reformulate', 'shorten', 'expand'].includes(action) && !customPrompt) { // Vérifier customPrompt ici aussi
+          console.warn(`useAIActions: Action '${action}' requires text context, but it's empty.`);
+          generationError.value = `L'action "${action}" nécessite du texte (sélectionné ou complet).`;
+          return;
+      }
+    }
+    if (!promptTextForApi && !['suggest'].includes(action)) { // 'suggest' peut fonctionner sans prompt initial si le backend le gère
+        console.warn(`useAIActions: Action '${action}' ended up with no prompt text.`);
+        generationError.value = `L'action "${action}" n'a pas pu déterminer de texte de prompt.`;
         return;
     }
 
@@ -97,7 +110,9 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
     }
 
     console.log(`useAIActions: Calling backend for action: ${apiAction} (original: ${action})`, { provider, model, style, customStyleDescription, characterContextPayload, promptLength: promptTextForApi.length }); // Log amélioré
+    
     isGenerating.value = true;
+    
     currentAction.value = action;
     generationError.value = null;
     if (action === 'suggest') suggestions.value = [];
@@ -154,7 +169,9 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
         if (action === 'suggest') suggestions.value = [];
       }
     } finally {
+      
       isGenerating.value = false;
+      
       currentAction.value = null;
       // NOUVEAU: Nettoyer l'AbortController
       if (activeAbortController.value === controller) { // S'assurer qu'on nettoie le bon contrôleur
@@ -189,50 +206,57 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
         if (!editorRef.value.state.selection.empty) {
           editorRef.value.chain().focus().deleteSelection().insertContent(generatedText).run();
         } else {
-          editorRef.value.chain().focus().insertContent(" " + generatedText).run();
-          console.warn(`useAIActions: Action '${action}' executed without selection, inserting at cursor.`);
+          // Si pas de sélection, insérer à la position du curseur ou remplacer le contenu existant ?
+          // Pour l'instant, on insère à la fin si pas de sélection.
+          // Ou on pourrait afficher une erreur/warning.
+          // Alternative: remplacer tout le contenu: editorRef.value.chain().focus().selectAll().insertContent(generatedText).run();
+          editorRef.value.chain().focus().insertContent(generatedText).run();
+          console.warn(`useAIActions: Action '${action}' a été exécutée sans sélection. Le texte a été inséré.`);
         }
         break;
       default:
-        console.warn(`useAIActions: Action '${action}' success handler not fully implemented.`);
-         editorRef.value.chain().focus().insertContent(" " + generatedText).run();
+        console.warn(`useAIActions: Action IA inconnue ou non gérée dans le succès: ${action}`);
     }
   }
 
-  // --- Analyse de Style ---
+
+  // --- Style Analysis ---
+  // TODO: Intégrer la logique d'analyse de style ici si elle doit partager l'état isAnalyzing, etc.
+  // Pour l'instant, elle est séparée dans useAnalysis.js mais pourrait être fusionnée
+  // si les indicateurs de chargement doivent être unifiés.
+
   /**
-   * Envoie un fichier au backend pour analyse de style.
+   * Gère le téléversement et l'analyse d'un fichier pour le style.
    * @param {File} file - Le fichier à analyser.
-   * @returns {Promise<string|null>} - La description du style analysé ou null en cas d'erreur.
    */
   async function analyzeStyleUpload(file) { // file ici devrait être un objet File
     if (!file) {
       generationError.value = "Aucun fichier sélectionné pour l'analyse de style.";
       return null;
     }
-
-    isAnalyzing.value = true;
-    generationError.value = null;
-    const formData = new FormData();
-    formData.append("file", file);
-
-    // Annuler toute action précédente si elle est encore en cours
-    if (activeAbortController.value) {
-        activeAbortController.value.abort();
+    if (!selectedAiParamsRef.value || !selectedAiParamsRef.value.provider || !selectedAiParamsRef.value.model) {
+        generationError.value = "Veuillez sélectionner un fournisseur et un modèle IA pour l'analyse.";
+        return null;
     }
-    const controller = new AbortController();
-    activeAbortController.value = controller;
+
+    console.log("useAIActions: analyzeStyleUpload - Starting analysis for file:", file.name);
+    isAnalyzing.value = true; // Utiliser isAnalyzing pour cette opération
+    generationError.value = null; // Réinitialiser les erreurs précédentes
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('provider', selectedAiParamsRef.value.provider);
+    formData.append('model', selectedAiParamsRef.value.model);
 
     try {
       // MODIFIÉ: Utilisation d'un chemin relatif pour l'API
       const response = await fetch(`/api/style/analyze-upload`, {
         method: 'POST',
         headers: {
-          // 'Content-Type': 'multipart/form-data' est défini automatiquement par le navigateur pour FormData
-          'x-api-key': config.apiKey // config.apiKey est toujours utilisé
+          // 'Content-Type': 'multipart/form-data' est automatiquement défini par le navigateur pour FormData
+          'x-api-key': config.apiKey
         },
-        body: formData,
-        signal: controller.signal,
+        body: formData
       });
 
       if (!response.ok) {
@@ -242,62 +266,59 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
         error.response = { status: response.status, data: errorBody };
         throw error;
       }
+
       const data = await response.json();
-      if (data && data.style_description) {
-        return data.style_description;
-      } else {
-        throw new Error("La réponse de l'API ne contient pas la description du style attendue.");
-      }
+      console.log("useAIActions: analyzeStyleUpload - Analysis successful:", data);
+      // Retourner la description de style pour que le composant appelant puisse la gérer
+      // (par exemple, la stocker dans selectedAiParamsRef.value.customStyleDescription)
+      return data.style_description;
+
     } catch (error) {
-      if (error.name === 'AbortError') {
-        console.log("useAIActions: Style analysis was cancelled by the user.");
-      } else {
-        const userMessage = handleApiError(error, "analyse de style");
-        generationError.value = userMessage;
-        console.error("useAIActions: Failed style analysis:", error);
-      }
-      return null;
+      const userMessage = handleApiError(error, "analyse de style du fichier");
+      generationError.value = userMessage;
+      console.error("useAIActions: analyzeStyleUpload - Failed:", error);
+      return null; // Retourner null en cas d'erreur
     } finally {
       isAnalyzing.value = false;
-      if (activeAbortController.value === controller) {
-          activeAbortController.value = null;
-      }
+      console.log("useAIActions: analyzeStyleUpload - Finished analysis attempt for file:", file.name);
     }
   }
+
 
   // NOUVEAU: Fonction pour annuler l'action en cours
+  /**
+   * Annule l'action IA actuellement en cours.
+   */
   function cancelCurrentAction() {
     if (activeAbortController.value) {
-      console.log("useAIActions: User requested cancellation of the current AI action.");
-      activeAbortController.value.abort(); // Déclenche l'événement 'abort'
-      // Le `finally` block dans `triggerAIAction` ou `analyzeStyleUpload` nettoiera
-      // isGenerating/isAnalyzing et activeAbortController.
+      console.log("useAIActions: User requested cancellation of current AI action.");
+      activeAbortController.value.abort(); // Déclenche l'AbortError
+      // Le reste de la gestion (isGenerating = false, etc.) se fait dans le bloc finally de triggerAIAction
+    } else {
+      console.log("useAIActions: No active AI action to cancel.");
     }
   }
 
 
-// Fonctions spécifiques pour chaque action, appelant triggerAIAction
-  const triggerSuggest = () => triggerAIAction('suggest');
-  const triggerContinue = () => triggerAIAction('continue');
-  const triggerDialogue = () => triggerAIAction('dialogue');
-  const triggerReformulate = () => triggerAIAction('reformulate');
-  const triggerShorten = () => triggerAIAction('shorten');
-  const triggerExpand = () => triggerAIAction('expand');
-  // --- Return ---
+  // --- Exposed ---
+  // Retourner isGenerating sous le nom isAIGenerating pour correspondre à l'usage dans EditorComponent
+  // et pour éviter la confusion avec une potentielle variable locale isGenerating dans le composant.
+  // Cependant, pour la cohérence interne du composable, on garde isGenerating.
+  // L'EditorComponent s'attend à `isAIGenerating`.
+  // On va renommer ici pour la clarté de ce que le composable expose.
+  // **Correction**: Le plan mentionne `isAIGenerating` comme venant de `useAIActions`.
+  // Donc, il faut que ce composable expose `isAIGenerating`.
+  // La variable interne est `isGenerating`. On va la retourner en tant que `isAIGenerating`.
+
   return {
-    isGenerating,
-    isAnalyzing,
+    isAIGenerating: isGenerating, // Exposer isGenerating en tant que isAIGenerating
+    isAnalyzing, // Pour l'analyse de style si on l'utilise
     generationError,
-    triggerSuggest,
-    triggerContinue,
-    triggerDialogue,
-    triggerReformulate,
-    triggerShorten,
-    triggerExpand,
     suggestions,
     currentAction,
     triggerAIAction,
     analyzeStyleUpload,
     cancelCurrentAction, // Exposer la fonction d'annulation
+    getContextText // Exposer pour d'éventuels tests ou usages externes directs
   };
 }

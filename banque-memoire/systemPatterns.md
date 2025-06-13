@@ -1,4 +1,4 @@
-# Patrons Système - CyberPlume (Mise à jour : 27/05/2025 - 07:21)
+# Patrons Système - CyberPlume (Mise à jour : 05/06/2025 - 09:50)
 
 ## Architecture Générale
 
@@ -71,7 +71,7 @@ La structure de code vise à séparer clairement les responsabilités :
 ```
 cyberplume/
 ├── backend/            # API FastAPI
-│   ├── main.py         # Point d'entrée, routers principaux, config CORS, middleware
+│   ├── main.py         # Point d'entrée, routers principaux, config CORS, middleware, config logging Uvicorn
 │   ├── database.py     # Configuration et session SQLAlchemy
 │   ├── models.py       # Modèles SQLAlchemy (tables DB) & Pydantic (validation API)
 │   ├── crud_*.py       # Fonctions d'accès et de manipulation de la base de données
@@ -95,6 +95,7 @@ cyberplume/
 ├── docker-compose.yml  # Configuration pour le lancement multi-conteneurs
 ├── Dockerfile.backend  # Instructions de build pour l'image Docker backend
 ├── Dockerfile.frontend-dev # Instructions de build pour l'image Docker frontend
+├── log_config.yaml     # Configuration du logging pour Uvicorn (utilisé en dev manuel)
 └── README.md
 ```
 
@@ -106,6 +107,7 @@ cyberplume/
 *   **Factory Pattern (Backend - `ai_services/factory.py`) :** Pour les adaptateurs IA.
 *   **Adapter Pattern (Backend - `ai_services/*_adapter.py`) :** Pour les adaptateurs IA.
 *   **Injection de Dépendances (Backend - via FastAPI) :** Standard.
+*   **Configuration Externe du Logging (Backend) :** Utilisation d'un fichier de configuration (`log_config.yaml`) pour Uvicorn afin de gérer le logging de manière centralisée et détaillée.
 
 ## Relations et Flux Critiques
 

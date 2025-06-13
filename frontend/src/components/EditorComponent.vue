@@ -2,17 +2,14 @@
   <div class="editor-component-wrapper">
     <v-container :fluid="isDistractionFree" :class="{ 'pa-0': isDistractionFree }">
       <div class="mb-2 d-flex align-center" v-if="!isDistractionFree">
-        <v-chip v-if="activeType === 'chapter'" color="blue" label size="small">
+        <v-chip v-if="localChapterId" color="blue" label size="small">
           Chapitre Actif
-        </v-chip>
-        <v-chip v-else-if="activeType === 'scene'" color="green" label size="small">
-          Scène Active
         </v-chip>
         <v-chip v-else color="grey" label size="small">
           Aucun contenu sélectionné
         </v-chip>
 
-        <span v-if="activeTitle" class="ml-2 font-weight-bold text-subtitle-1">{{ activeTitle }}</span>
+        <span v-if="localTitle" class="ml-2 font-weight-bold text-subtitle-1">{{ localTitle }}</span>
         <v-spacer></v-spacer>
 
         <v-tooltip location="bottom">
@@ -26,7 +23,6 @@
               size="small"
               class="mr-2"
             >
-              <!-- Utilisation directe de l'icône importée -->
               <component :is="isDistractionFree ? IconMinimize : IconMaximize" size="20" />
             </v-btn>
           </template>
@@ -40,12 +36,11 @@
               variant="tonal"
               color="primary"
               @click="triggerManualSave"
-              :disabled="isSaving || !activeId"
+              :disabled="isSaving || !localChapterId"
               :loading="isSaving"
               v-bind="tooltipProps"
               size="small"
             >
-              <!-- Remplacement par l'icône SVG personnalisée -->
               <img :src="EnregistrerIconURL" alt="Enregistrer" width="20" height="20" />
             </v-btn>
           </template>
@@ -73,24 +68,24 @@
         <v-btn icon size="small" @click="editor.chain().focus().toggleHeading({ level: 2 }).run()" :class="{ 'is-active': editor.isActive('heading', { level: 2 }) }">
           <IconH2 size="20" />
         </v-btn>
-        <!-- Bouton pour ajouter une règle horizontale (si souhaité) -->
         
         <v-divider vertical inset class="mx-1"></v-divider>
         <v-btn icon size="small" @click="editor.chain().focus().setHorizontalRule().run()">
           <IconMinus size="20" />
         </v-btn>
-        -->
+        
       </v-toolbar>
 
+      <!-- Indicateur de chargement chapitre / sauvegarde -->
       <v-progress-linear
         indeterminate
         color="primary"
-        v-if="isLoading || isSaving || isAIGenerating"
+        v-if="isLoading || isSaving" 
         class="mb-1"
         height="3"
       ></v-progress-linear>
 
-      <v-row :class="{ 'fill-height': isDistractionFree }">
+      <v-row :class="{ 'fill-height': isDistractionFree }" style="position: relative;">
         <v-col cols="12" :md="isDistractionFree ? 12 : 9">
           <div class="editor-wrapper mb-4" :class="{ 'distraction-free-editor': isDistractionFree }">
             <editor-content :editor="editor" />
@@ -98,7 +93,7 @@
               v-if="editor && !isDistractionFree"
               :editor="editor"
               :tippy-options="{ duration: 100, placement: 'top-start' }"
-              plugin-key="textActions"
+              plugin-key="textActionsBubbleMenu"
               class="bubble-menu-style"
             >
               <v-btn density="compact" variant="text" @click="triggerReformulate" :disabled="isAIGenerating" class="ma-1">
@@ -112,6 +107,28 @@
               </v-btn>
             </bubble-menu>
           </div>
+
+          <!-- Overlay pour le chargement IA -->
+          <v-overlay
+            :model-value="isAIGenerating"
+            class="align-center justify-center"
+            persistent
+            contained 
+            scrim="#E0E0E0" 
+          >
+            <v-progress-circular
+              color="primary"
+              indeterminate
+              size="64"
+            ></v-progress-circular>
+            <div class="text-primary mt-2">Traitement IA en cours...</div>
+          </v-overlay>
+
+          <chapter-summary 
+            :summary="localSummary" 
+            class="mb-4"
+            @refresh-summary="handleRefreshSummary"
+          />
 
           <ai-toolbar
             v-if="!isDistractionFree"
@@ -146,7 +163,7 @@
             density="compact"
             variant="tonal"
             closable
-            @update:model-value="clearLoadingError"
+            @update:model-value="loadingError = null"
             class="mt-4"
           >
             Erreur chargement: {{ loadingError }}
@@ -155,7 +172,7 @@
         </v-col>
         <v-col cols="12" md="3" v-if="!isDistractionFree">
           <action-panel
-            :loading="isAIGenerating"
+            :loading="isAIGenerating" 
             :current-action="currentAIAction"
             @suggest="triggerSuggest"
             @continue="triggerContinue"
@@ -176,385 +193,268 @@
          title="Quitter le mode sans distraction"
          elevation="4"
        >
-         <!-- Utilisation directe de l'icône importée -->
          <IconMinimize size="22" />
        </v-btn>
 
 
       <v-snackbar
-        v-model="showSnackbar"
-        :timeout="snackbarTimeout"
+        v-model="isSnackbarVisible"
         :color="snackbarColor"
+        :timeout="snackbarTimeout"
         location="bottom right"
-        multi-line
+        variant="tonal"
       >
         {{ snackbarMessage }}
         <template v-slot:actions>
-          <v-btn
-            variant="text"
-            @click="showSnackbar = false"
-          >
-            Fermer
+          <v-btn icon @click="isSnackbarVisible = false">
+            <IconX />
           </v-btn>
         </template>
       </v-snackbar>
-
     </v-container>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, toRef, computed, defineExpose, defineEmits, defineProps } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue';
 import { EditorContent, BubbleMenu } from '@tiptap/vue-3';
-import AiToolbar from './ai-toolbar.vue';
-import ActionPanel from './ActionPanel.vue';
-
-// Import des composants Vuetify utilisés
-import {
-  VContainer, VChip, VSpacer, VTooltip, VBtn, VToolbar, VDivider, VProgressLinear,
-  VRow, VCol, VList, VListItem, VListItemTitle, VAlert, VSnackbar
-} from 'vuetify/components';
-
-// Import des icônes Tabler nécessaires (importation nommée)
-import {
-  IconMinimize, IconMaximize, IconBold, IconItalic, // IconDeviceFloppy supprimée
-  IconStrikethrough, IconTypography, IconH1, IconH2, IconMinus // Ajout IconMinus pour hr si besoin
-} from '@tabler/icons-vue';
-import EnregistrerIconURL from '@/assets/enregistrer.svg'; // Ajout de l'import pour l'icône SVG
-
-// Import des composables
 import { useTiptapEditor } from '@/composables/useTiptapEditor.js';
-import { useChapterContent } from '@/composables/useChapterContent.js';
-import { useSceneContent } from '@/composables/useSceneContent.js';
 import { useAIActions } from '@/composables/useAIActions.js';
+import { useChapterContent } from '@/composables/useChapterContent.js';
 import { useSnackbar } from '@/composables/useSnackbar.js';
 
-// --- Props ---
-const props = defineProps({
-  selectedChapterId: { type: [Number, null], default: null },
-  selectedSceneId: { type: [Number, null], default: null },
-  activeChapterTitle: { type: [String, null], default: null },
-  activeSceneTitle: { type: [String, null], default: null },
-  isDistractionFree: { type: Boolean, default: false }
-});
+import ActionPanel from './ActionPanel.vue';
+import AiToolbar from './ai-toolbar.vue';
+import ChapterSummary from './ChapterSummary.vue';
 
-// --- Emits ---
-const emit = defineEmits(['toggle-distraction-free', 'ai-settings-changed']);
-
-// --- Snackbar ---
-const { showSnackbar, snackbarMessage, snackbarColor, snackbarTimeout, displaySnackbar } = useSnackbar(); // Ajout de displaySnackbar
+import {
+  IconBold, IconItalic, IconStrikethrough, IconTypography, IconH1, IconH2, IconMinus,
+  IconMaximize, IconMinimize, IconX
+} from '@tabler/icons-vue';
+import EnregistrerIconURL from '@/assets/enregistrer.svg';
 
 // --- Composables ---
-const { editor } = useTiptapEditor();
-const {
-  content: chapterContent,
-  isLoading: isLoadingChapter,
-  isSaving: isSavingChapter,
-  loadingError: chapterLoadingError,
-  savingError: chapterSavingError,
-  hasUnsavedChanges: chapterHasUnsavedChanges,
-  fetchChapterContent: loadChapterContent,
-  // saveChapterContent, // Garder pour l'instant, mais ne pas utiliser directement pour la sauvegarde manuelle
-  saveCurrentChapterIfNeeded, // CORRIGÉ: Déstructurer la bonne fonction
-  applySuggestionToChapter,
-  clearChapterLoadingError
-} = useChapterContent(toRef(props, 'selectedChapterId'), editor); // Appel corrigé
+const { 
+  displaySnackbar, 
+  showSnackbar: isSnackbarVisible, 
+  snackbarMessage, 
+  snackbarColor, 
+  snackbarTimeout 
+} = useSnackbar();
+
+const { editor, initializeEditor, destroyEditor } = useTiptapEditor();
+
+const { 
+  isLoading, isSaving, loadingError, savingError, 
+  fetchChapterContent, saveChapterContent 
+} = useChapterContent();
+
+// --- Local State ---
+const localChapterId = ref(null);
+const localTitle = ref('');
+const localSummary = ref(null);
+const localProjectId = ref(null);
+const lastSavedContent = ref('');
+
+const isDistractionFree = ref(false);
+const aiToolbarRef = ref(null);
+
+// State for AI Actions
+const selectedAiParams = ref({
+  provider: null,
+  model: null,
+  style: 'standard',
+  customStyleDescription: null
+});
 
 const {
-  content: sceneContent,
-  isLoading: isLoadingScene,
-  isSaving: isSavingScene,
-  loadingError: sceneLoadingError,
-  savingError: sceneSavingError,
-  hasUnsavedChanges: sceneHasUnsavedChanges,
-  loadSceneContent,
-  // saveSceneContent, // Garder pour l'instant, mais ne pas utiliser directement pour la sauvegarde manuelle
-  saveCurrentSceneIfNeeded, // CORRIGÉ: Déstructurer la bonne fonction
-  applySuggestionToScene,
-  clearSceneLoadingError
-} = useSceneContent(toRef(props, 'selectedSceneId'), editor); // Appel corrigé
-
-const aiToolbarRef = ref(null); // Référence pour le composant ai-toolbar (pourrait être utile pour autre chose)
-const selectedAiParams = ref(null); // Référence pour stocker les paramètres IA sélectionnés
-
-// Appel corrigé à useAIActions: passer la ref des paramètres IA
-// relevantCharactersRef n'est pas géré ici, on passe null pour l'instant
-const {
+  isAIGenerating,
+  aiGenerationError,
+  currentAIAction,
   suggestions,
-  isGenerating: isAIGenerating,
-  error: aiGenerationError,
-  currentAction: currentAIAction,
-  // Récupérer les fonctions spécifiques exportées par le composable
-  triggerSuggest: triggerSuggestFromComposable,
-  triggerContinue: triggerContinueFromComposable,
-  triggerDialogue: triggerDialogueFromComposable,
-  triggerReformulate: triggerReformulateFromComposable,
-  triggerShorten: triggerShortenFromComposable,
-  triggerExpand: triggerExpandFromComposable,
-  cancelCurrentAction // Récupérer la fonction d'annulation
-} = useAIActions(editor, selectedAiParams, ref(null)); // Passer editor, selectedAiParams, et ref(null) pour characters
-
+  triggerAIAction, // Renamed for clarity
+  cancelCurrentAction,
+} = useAIActions(editor, selectedAiParams, ref(null)); // Pass correct refs
 
 // --- Computed Properties ---
-const activeId = computed(() => props.selectedChapterId ?? props.selectedSceneId);
-const activeType = computed(() => {
-  if (props.selectedChapterId) return 'chapter';
-  if (props.selectedSceneId) return 'scene';
-  return null;
-});
-const activeTitle = computed(() => props.activeChapterTitle ?? props.activeSceneTitle);
-const isLoading = computed(() => isLoadingChapter.value || isLoadingScene.value);
-const isSaving = computed(() => isSavingChapter.value || isSavingScene.value);
-const loadingError = computed(() => chapterLoadingError.value ?? sceneLoadingError.value);
-const savingError = computed(() => chapterSavingError.value ?? sceneSavingError.value); // Non utilisé directement, mais disponible
-const hasUnsavedChanges = computed(() => chapterHasUnsavedChanges.value || sceneHasUnsavedChanges.value);
-
-// --- Watchers ---
-watch(() => props.selectedChapterId, (newId, oldId) => {
-  if (newId !== oldId && newId !== null) {
-    console.log(`EditorComponent: Watching chapter change. New ID: ${newId}`);
-    loadChapterContent(newId);
-  } else if (newId === null && props.selectedSceneId === null) {
-    editor.value?.commands.setContent('<p style="color: grey; text-align: center;">Sélectionnez un chapitre ou une scène pour commencer l\'édition.</p>'); // Message par défaut
+const hasUnsavedChanges = computed(() => {
+  if (!editor.value || !localChapterId.value) {
+    return false;
   }
+  const currentContent = editor.value.getHTML();
+  return currentContent !== lastSavedContent.value;
 });
 
-watch(() => props.selectedSceneId, (newId, oldId) => {
-  if (newId !== oldId && newId !== null) {
-    console.log(`EditorComponent: Watching scene change. New ID: ${newId}`);
-    loadSceneContent(newId);
-  } else if (newId === null && props.selectedChapterId === null) {
-    editor.value?.commands.setContent('<p style="color: grey; text-align: center;">Sélectionnez un chapitre ou une scène pour commencer l\'édition.</p>'); // Message par défaut
+// --- AI Action Triggers ---
+// Wrapper functions to call triggerAIAction with the correct action name
+const triggerContinue = () => triggerAIAction('continue');
+const triggerSuggest = () => triggerAIAction('suggest');
+const triggerDialogue = () => triggerAIAction('dialogue');
+const triggerReformulate = () => triggerAIAction('reformulate');
+const triggerShorten = () => triggerAIAction('shorten');
+const triggerExpand = () => triggerAIAction('expand');
+
+
+// --- Core Logic Methods ---
+
+async function loadChapter(chapterId) {
+  if (!editor.value) return;
+
+  if (chapterId === null) {
+    editor.value.commands.setContent('<p style="color: grey; text-align: center;">Sélectionnez un chapitre pour commencer l\'édition.</p>');
+    lastSavedContent.value = '';
+    localChapterId.value = null;
+    localTitle.value = '';
+    localSummary.value = null;
+    localProjectId.value = null;
+    return;
   }
-});
 
-// --- Methods ---
-// CORRIGÉ: Utiliser les fonctions ...IfNeeded et rendre async
-const triggerManualSave = async () => {
-  if (activeType.value === 'chapter' && props.selectedChapterId) {
-    console.log(`EditorComponent: Triggering manual save for chapter ${props.selectedChapterId}`);
-    const success = await saveCurrentChapterIfNeeded(true); // Appeler la bonne fonction avec forceSave=true
-    if (success) {
-      displaySnackbar('Chapitre enregistré.', 'success');
-    } else {
-      displaySnackbar('Erreur lors de la sauvegarde du chapitre.', 'error');
+  editor.value.setEditable(false);
+  editor.value.commands.setContent(`<p>Chargement du chapitre ${chapterId}...</p>`);
+
+  const chapterData = await fetchChapterContent(chapterId);
+
+  if (chapterData) {
+    const contentToLoad = chapterData.content || '<p>Ce chapitre est vide.</p>';
+    editor.value.commands.setContent(contentToLoad);
+    lastSavedContent.value = contentToLoad;
+    localChapterId.value = chapterData.id;
+    localTitle.value = chapterData.title;
+    localSummary.value = chapterData.summary;
+    localProjectId.value = chapterData.project_id;
+  } else {
+    editor.value.commands.setContent(`<p>Erreur lors du chargement du chapitre ${chapterId}.</p>`);
+    lastSavedContent.value = '';
+    localChapterId.value = chapterId; // Keep id to show error context
+    localTitle.value = 'Erreur';
+    localSummary.value = null;
+    localProjectId.value = null;
+  }
+  editor.value.setEditable(true);
+  editor.value.commands.focus();
+}
+
+async function saveChapter(isManualSave = false) {
+  if (!localChapterId.value || !editor.value || isSaving.value) {
+    return false;
+  }
+
+  const currentContent = editor.value.getHTML();
+  
+  // Sauvegarde seulement si c'est manuel ou s'il y a des changements
+  if (!isManualSave && !hasUnsavedChanges.value) {
+      return true;
+  }
+
+  const chapterData = {
+    title: localTitle.value,
+    content: currentContent,
+    summary: localSummary.value,
+    project_id: localProjectId.value
+  };
+
+  const success = await saveChapterContent(localChapterId.value, chapterData);
+
+  if (success) {
+    lastSavedContent.value = currentContent;
+    if (isManualSave) {
+      displaySnackbar('Chapitre enregistré avec succès.', 'success');
     }
-  } else if (activeType.value === 'scene' && props.selectedSceneId) {
-    console.log(`EditorComponent: Triggering manual save for scene ${props.selectedSceneId}`);
-    const success = await saveCurrentSceneIfNeeded(true); // Appeler la bonne fonction avec forceSave=true
-     if (success) {
-      displaySnackbar('Scène enregistrée.', 'success');
-    } else {
-      displaySnackbar('Erreur lors de la sauvegarde de la scène.', 'error');
-    }
+    return true;
   } else {
-    console.warn("EditorComponent: Manual save triggered but no active chapter or scene ID found.");
-    displaySnackbar('Aucun chapitre ou scène active à enregistrer.', 'warning');
+    displaySnackbar(`Erreur lors de la sauvegarde: ${savingError.value}`, 'error');
+    return false;
   }
-};
+}
 
-const clearLoadingError = () => {
-  if (activeType.value === 'chapter') {
-    clearChapterLoadingError();
-  } else if (activeType.value === 'scene') {
-    clearSceneLoadingError();
-  }
-};
+// --- Event Handlers ---
 
-const toggleDistractionFree = () => {
-  emit('toggle-distraction-free');
-};
+function toggleDistractionFree() {
+  isDistractionFree.value = !isDistractionFree.value;
+}
 
-// --- AI Actions ---
-// La fonction getAIActionContext est supprimée car les paramètres IA sont maintenant
-// passés directement au composable useAIActions via la ref selectedAiParams.
+async function triggerManualSave() {
+  await saveChapter(true);
+}
 
+function handleModelSelection(model) {
+  selectedAiParams.value = { ...selectedAiParams.value, ...model };
+  displaySnackbar(`Modèle IA sélectionné: ${model.provider} - ${model.model}`, 'info');
+}
 
+async function handleRefreshSummary() {
+    if (!localChapterId.value) return;
+    // Pour l'instant, on recharge simplement les données du chapitre.
+    // Une future version pourrait appeler un endpoint de régénération.
+    await loadChapter(localChapterId.value);
+    displaySnackbar('Résumé rafraîchi.', 'info');
+}
 
-// Fonctions locales appelant les fonctions correspondantes du composable
-const triggerReformulate = () => {
-  if (!editor.value?.state.selection.empty) {
-    triggerReformulateFromComposable(); // Appel de la fonction du composable
-  } else {
-    displaySnackbar("Veuillez sélectionner du texte à reformuler.", "warning");
-  }
-};
+// --- Lifecycle & Exposed Methods ---
 
-const triggerShorten = () => {
-  if (!editor.value?.state.selection.empty) {
-    triggerShortenFromComposable(); // Appel de la fonction du composable
-  } else {
-    displaySnackbar("Veuillez sélectionner du texte à raccourcir.", "warning");
-  }
-};
+onMounted(() => {
+  initializeEditor();
+});
 
-const triggerExpand = () => {
-  if (!editor.value?.state.selection.empty) {
-    triggerExpandFromComposable(); // Appel de la fonction du composable
-  } else {
-    displaySnackbar("Veuillez sélectionner du texte à développer.", "warning");
-  }
-};
+onBeforeUnmount(() => {
+  destroyEditor();
+});
 
-const triggerSuggest = () => {
-  triggerSuggestFromComposable(); // Appel de la fonction du composable
-};
-
-const triggerContinue = () => {
-  triggerContinueFromComposable(); // Appel de la fonction du composable
-};
-
-const triggerDialogue = () => {
-  triggerDialogueFromComposable(); // Appel de la fonction du composable
-};
-
-// La fonction cancelCurrentAction est fournie par useAIActions et peut être appelée directement
-// depuis le template si nécessaire (ex: @cancel="cancelCurrentAction" dans ActionPanel)
-
-// --- Insertion & Application ---
-const insertContentAtCursor = (content) => {
-  if (editor.value) {
-    editor.value.chain().focus().insertContent(content).run();
-  }
-};
-
-const applySuggestion = (suggestionData) => {
-  if (activeType.value === 'chapter' && props.selectedChapterId) {
-    applySuggestionToChapter(props.selectedChapterId, suggestionData);
-  } else if (activeType.value === 'scene' && props.selectedSceneId) {
-    applySuggestionToScene(props.selectedSceneId, suggestionData);
-  }
-};
-
-// Met à jour la référence des paramètres IA lorsque la sélection change dans ai-toolbar
-const handleModelSelection = (modelInfo) => {
-  console.log('EditorComponent: handleModelSelection called with:', modelInfo);
-  selectedAiParams.value = modelInfo; // Mettre à jour la référence réactive
-emit('ai-settings-changed', modelInfo);
-};
-
-
-// --- Expose ---
-// Exposer les méthodes nécessaires pour App.vue ou autres parents
 defineExpose({
-  triggerManualSave,
-  insertContentAtCursor,
-  applySuggestion
-  // focusEditor: () => editor.value?.commands.focus() // Si besoin pour le mode sans distraction
+  loadChapter,
+  saveChapter
 });
 
 </script>
 
 <style lang="scss">
 .editor-component-wrapper {
+  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
+
+  .v-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .v-row {
+    flex: 1;
+  }
 }
 
 .editor-wrapper {
-  border: 1px solid #ccc;
-  border-radius: 4px; /* Ajusté pour correspondre aux defaults */
+  border: 1px solid #dcdcdc;
+  border-radius: 4px;
+  padding: 1rem;
   background-color: #fff;
-  min-height: 400px; /* Hauteur minimale pour l'éditeur */
-  padding: 10px;
-  position: relative; /* Pour le positionnement du bubble menu */
-  flex-grow: 1; /* Permet à l'éditeur de grandir */
-  overflow-y: auto; /* Ajoute une scrollbar si nécessaire */
-
-  &.distraction-free-editor {
-    border: none;
-    border-radius: 0;
-    min-height: 100%;
-    height: 100%;
-    width: 100%;
-    padding: 20px 40px; /* Plus de padding en mode sans distraction */
-    box-shadow: none;
-  }
+  min-height: 400px;
+  position: relative;
 
   .ProseMirror {
+    min-height: 350px;
     outline: none;
-    min-height: inherit; /* Hérite de la hauteur minimale du wrapper */
-    height: 100%; /* Occupe toute la hauteur disponible */
-    font-family: 'Lato', 'Roboto', sans-serif; // Police Lato prioritaire pour le contenu
-    font-size: 1.1rem; /* Taille de police augmentée */
-    color: #000000; /* Couleur de texte principale en noir pur */
-    line-height: 1.6; /* Hauteur de ligne confortable par défaut */
-
-    p {
-      margin-bottom: 0.75em; /* Espace entre les paragraphes */
-      line-height: 1.6; /* Hauteur de ligne confortable */
-    }
-
-    h1, h2 {
-      font-family: 'Merriweather', serif; /* Appliquer la police de titre */
-      margin-top: 1.5em;
-      margin-bottom: 0.5em;
-      line-height: 1.3;
-    }
-    h1 { font-size: 1.8em; } /* Maintenir la taille relative des titres */
-    h2 { font-size: 1.4em; } /* Maintenir la taille relative des titres */
-
-    a {
-      color: rgb(var(--v-theme-primary));
-      text-decoration: none;
-      cursor: pointer;
-
-      &:hover {
-        text-decoration: underline;
-      }
-    }
-
-    ul, ol {
-      padding-left: 1.5em; // Indentation standard pour les listes
-      margin-bottom: 0.75em;
-      li {
-        margin-bottom: 0.25em; // Espace entre les items de liste
-        p { // Si les items de liste contiennent des paragraphes
-          margin-bottom: 0.25em;
-        }
-      }
-    }
-
-    blockquote {
-      border-left: 3px solid rgb(var(--v-theme-primary));
-      margin-left: 0;
-      margin-right: 0;
-      padding-left: 1em;
-      font-style: italic;
-      color: rgba(0, 0, 0, 0.7); // Ajusté pour être basé sur le noir pur
-      margin-bottom: 0.75em;
-
-      p {
-        margin-bottom: 0.25em; // Réduire l'espace si le dernier élément est un p
-        &:last-child {
-          margin-bottom: 0;
-        }
-      }
-    }
-
-    hr {
-      border: none;
-      border-top: 1px solid rgba(0, 0, 0, 0.12); // Style pour règle horizontale
-      margin-top: 1.5em;
-      margin-bottom: 1.5em;
-    }
-
-    &:focus {
-      outline: none;
-    }
   }
 }
 
-.editor-toolbar {
-  border: 1px solid rgba(0, 0, 0, 0.12); // Bordure adoucie
-  border-radius: var(--v-border-radius-lg, 8px); /* Utiliser variable Vuetify si possible, sinon fallback */
-  padding: 4px;
-  background-color: rgb(var(--v-theme-surface)); /* Utiliser couleur surface du thème */
+.distraction-free-editor {
+  border: none;
+  padding: 2rem;
+  margin: 0 auto;
+  max-width: 800px;
+  background-color: #fdfdfd;
+  min-height: 100vh;
+}
 
+.editor-toolbar {
+  border: 1px solid #dcdcdc;
+  border-radius: 4px;
   .v-btn {
     &.is-active {
-      background-color: rgba(var(--v-theme-primary), 0.2);
+      background-color: rgba(var(--v-theme-primary), 0.1);
       color: rgb(var(--v-theme-primary));
     }
   }
@@ -562,27 +462,13 @@ defineExpose({
 
 .bubble-menu-style {
   display: flex;
-  background-color: rgb(var(--v-theme-surface)); /* Utiliser couleur surface */
-  padding: 0.4rem; /* Augmentation du padding */
-  border-radius: var(--v-border-radius-lg, 8px); /* Utiliser arrondi Vuetify */
-  box-shadow: 0px 3px 5px -1px rgba(0,0,0,0.2), /* Élévation standard Vuetify */
-              0px 6px 10px 0px rgba(0,0,0,0.14),
-              0px 1px 18px 0px rgba(0,0,0,0.12);
+  background-color: #2c3e50;
+  padding: 0.2rem;
+  border-radius: 0.5rem;
+  color: white;
 
   .v-btn {
-    /* Les props density, size, class="ma-1" sont déjà dans le template */
-    /* Le variant="text" est maintenant appliqué dans le template */
-    border: none;
-    text-transform: none; /* Assuré par les defaults maintenant */
-    letter-spacing: normal; /* Assuré par les defaults maintenant */
-    font-size: 0.9rem; /* Augmentation de la taille de police */
-    /* Le hover est géré par Vuetify pour variant="text" */
+    color: white;
   }
 }
-
-/* Ajustement pour le bouton flottant en mode sans distraction */
-.v-btn--fixed {
-  z-index: 1007; /* Assurer qu'il est au-dessus de l'éditeur */
-}
-
 </style>
