@@ -26,7 +26,7 @@ CyberPlume offre une suite d'outils intégrés pour accompagner les écrivains �
 *   **Assistance IA Contextuelle :**
     *   **Génération de Texte :** Des fonctionnalités comme "Continuer", "Suggérer un dialogue" pour surmonter le syndrome de la page blanche.
     *   **Manipulation de Texte :** Outils pour "Reformuler", "Raccourcir", ou "Étendre" des passages existants.
-    *   **Aide Spécifique :** Assistance pour la génération et le développement de personnages et de scènes.
+    *   **Aide Spécifique (Refondue) :** Profitez d'outils améliorés pour la génération de personnages et d'idées de scènes, offrant des suggestions plus riches et contextuelles.
 *   **Gestion de Projet d'Écriture Avancée :**
     *   **Organisation Structurée :** Gérez vos écrits de manière hiérarchique avec des Projets, Chapitres, et Scènes (création, lecture, mise à jour, suppression, et ordonnancement facile).
     *   **Métadonnées :** Attribuez des informations détaillées (métadonnées) à vos chapitres et scènes pour une meilleure organisation.
@@ -36,12 +36,14 @@ CyberPlume offre une suite d'outils intégrés pour accompagner les écrivains �
     *   **Sélection Dynamique :** Choisissez facilement le fournisseur et le modèle IA que vous souhaitez utiliser via l'interface.
     *   **Personnalisation :** Ajustez les paramètres de l'IA (comme la température, la longueur maximale) et guidez le style de génération.
     *   **Gestion des Clés API Intégrée :** Configurez et gérez vos clés API pour les différents fournisseurs d'IA directement depuis l'interface de l'application, offrant une alternative sécurisée au stockage dans des fichiers `.env`.
-*   **Outils d'Analyse Intégrés :**
+*   **Outils d'Analyse et de Synthèse Intégrés :**
+    *   **Génération de Résumé de Chapitre :** Obtenez un résumé concis et pertinent de n'importe quel chapitre en un seul clic, idéal pour avoir une vue d'ensemble rapide.
     *   **Analyse de Contenu Assistée par IA :** Obtenez des suggestions pertinentes pour améliorer la qualité et le style de vos chapitres.
     *   **Analyse de Cohérence du Projet :** (Fonctionnalité en cours d'amélioration) Vérifiez la cohérence globale de votre œuvre grâce à des outils basés sur le NLP.
 *   **Export et Partage Faciles (Fonctionnels !) :**
     *   **Formats Multiples :** Exportez votre travail aux formats DOCX, PDF, TXT, EPUB, ODT, et Markdown.
     *   **Niveaux d'Export :** Exportez un chapitre spécifique ou l'intégralité d'un projet.
+*   **Stabilité et Fiabilité Accrues :** Profitez d'une expérience plus fluide grâce à de nombreuses corrections de bugs et améliorations de la stabilité générale de l'application.
 
 ---
 
