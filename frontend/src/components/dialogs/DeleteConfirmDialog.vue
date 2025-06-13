@@ -6,20 +6,24 @@
         Confirmer la suppression
       </v-card-title>
       <v-card-text>
-        <span v-if="deleteTarget.type === 'project'">
-          Êtes-vous sûr de vouloir supprimer le projet "<strong>{{ deleteTarget.item?.title }}</strong>" et tous ses chapitres ?
+        <!-- Cas de la suppression simple -->
+        <span v-if="deleteTarget && deleteType === 'project'">
+          Êtes-vous sûr de vouloir supprimer le projet "<strong>{{ deleteTarget.title }}</strong>" et tous ses chapitres ?
         </span>
-        <span v-else-if="deleteTarget.type === 'chapter'">
-          Êtes-vous sûr de vouloir supprimer le chapitre "<strong>{{ deleteTarget.item?.title }}</strong>" ?
+        <span v-else-if="deleteTarget && deleteType === 'chapter'">
+          Êtes-vous sûr de vouloir supprimer le chapitre "<strong>{{ deleteTarget.title }}</strong>" ?
         </span>
-        <span v-else-if="deleteTarget.type === 'multiple-projects' || deleteTarget.type === 'multiple-chapters'"> <!-- Renommage 'batch' -->
+
+        <!-- Cas de la suppression par sélection -->
+        <span v-else-if="deleteType === 'project-selection' || deleteType === 'chapter-selection'">
           Êtes-vous sûr de vouloir supprimer :
           <ul>
-            <li v-if="targetCounts.projects > 0">{{ targetCounts.projects }} projet(s) (et leurs chapitres)</li>
-            <li v-if="targetCounts.chapters > 0">{{ targetCounts.chapters }} chapitre(s)</li>
+            <li v-if="targetCounts.projects > 0">{{ targetCounts.projects }} projet(s) sélectionné(s) (et leurs chapitres)</li>
+            <li v-if="targetCounts.chapters > 0">{{ targetCounts.chapters }} chapitre(s) sélectionné(s)</li>
           </ul>
         </span>
-        <br>
+        
+        <br><br>
         <strong>Cette action est irréversible.</strong>
       </v-card-text>
       <v-card-actions class="pa-4">
@@ -56,6 +60,10 @@ const props = defineProps({
   loading: {
     type: Boolean,
     default: false,
+  },
+deleteType: {
+    type: String,
+    default: ''
   },
   deleteTarget: {
     type: [Object, null], // Autoriser null

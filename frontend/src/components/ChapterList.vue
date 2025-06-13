@@ -11,7 +11,7 @@
         item-key="id"
         tag="div"
         handle=".drag-handle"
-        @end="$emit('reordered', localChapters)"
+        @end="$emit('reordered', localChapters.map(c => c.id))"
         ghost-class="ghost-item"
         drag-class="drag-item"
       >
@@ -53,7 +53,7 @@
                       density="default"
                       variant="text"
                       size="default"
-                      @click.stop="() => props.onGenerateSummary(props.projectId, chapter.id)"
+                      @click.stop="$emit('generate-summary', { projectId: props.projectId, chapterId: chapter.id })"
                       :loading="props.generatingSummaryChapterId === chapter.id"
                       :disabled="props.generatingSummaryChapterId === chapter.id"
                       class="action-btn"
@@ -120,13 +120,13 @@
                       </v-list-item>
                     <v-divider class="my-1"></v-divider>
                     <v-list-subheader>Actions Chapitre</v-list-subheader>
-                    <v-list-item @click="openEditChapterDialog(chapter)" title="Modifier le chapitre">
+                    <v-list-item @click="$emit('open-edit-dialog', chapter)" title="Modifier le chapitre">
                       <template v-slot:prepend>
                         <IconPencil size="20" class="mr-3"/>
                       </template>
                       <v-list-item-title>Modifier</v-list-item-title>
                     </v-list-item>
-                    <v-list-item @click.stop="openChapterAnalysisDialog(chapter.id)" title="Analyser le contenu du chapitre">
+                    <v-list-item @click="$emit('open-analysis-dialog', chapter.id)" title="Analyser le contenu du chapitre">
                        <template v-slot:prepend>
                          <IconFileSearch size="20" class="mr-3"/>
                        </template>
@@ -157,57 +157,25 @@
         <v-list-item-title class="text-caption font-italic text-disabled">Aucun chapitre</v-list-item-title>
       </v-list-item>
 
-    <v-list-item link @click="openAddChapterDialogInternal" class="mt-2">
+    <v-list-item link @click="$emit('open-add-dialog')" class="mt-2">
       <template v-slot:prepend>
         <IconPlus size="20" class="mr-2"/>
       </template>
       <v-list-item-title class="text-body-2">Ajouter un chapitre</v-list-item-title>
     </v-list-item>
 
-      <AddChapterDialog
-        :show="showAddChapterDialog"
-        :loading="props.submittingChapter"
-        :error="addChapterError"
-        :project-name="getProjectNameById(props.projectId)"
-        @close="handleAddChapterDialogClose"
-        @save="handleAddChapterDialogSave"
-      />
-      <EditChapterDialog
-        :show="showEditChapterDialog"
-        :loading="props.submittingChapter"
-        :error="editChapterError"
-        :initialTitle="editingChapter?.title || ''"
-        :initialSummary="editingChapter?.summary || ''"
-        @close="closeEditChapterDialog"
-        @save="submitEditChapter"
-      />
-      <ChapterAnalysisDialog
-        :show="showChapterAnalysisDialog"
-        :loading="loadingChapterAnalysis"
-        :error="errorChapterAnalysis"
-        :analysis-result="chapterAnalysisResult"
-        :chapter-title="analyzingChapterTitle"
-        @close="closeChapterAnalysisDialog"
-        @apply-suggestion="handleApplySuggestionFromDialog"
-      />
+    <!-- Dialogues retirés d'ici et déplacés vers ProjectManager.vue -->
   </div>
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch } from 'vue';
 import draggable from 'vuedraggable';
 import {
   VListItem, VListItemTitle, VListItemSubtitle, VProgressLinear, VAlert, VBtn, VIcon, VCheckboxBtn,
   VMenu, VList, VListSubheader, VDivider, VProgressCircular
 } from 'vuetify/components';
 import { IconBook, IconPlus, IconTrash, IconPencil, IconGripVertical, IconDotsVertical, IconFileText, IconFileTypePdf, IconBookDownload, IconFileSearch } from '@tabler/icons-vue';
-
-import AddChapterDialog from './dialogs/AddChapterDialog.vue';
-import EditChapterDialog from './dialogs/EditChapterDialog.vue';
-import ChapterAnalysisDialog from './dialogs/ChapterAnalysisDialog.vue';
-import { useAnalysis } from '@/composables/useAnalysis.js';
-import { useSnackbar } from '@/composables/useSnackbar.js';
-
 
 const props = defineProps({
   projectId: { type: [Number, String], required: true },
@@ -218,10 +186,9 @@ const props = defineProps({
   selectedChapterIds: { type: Array, default: () => [] },
   exportingChapterId: { type: [Number, null], default: null },
   exportingFormat: { type: String, default: null },
-  submittingChapter: { type: Boolean, default: false },
   generatingSummaryChapterId: { type: [Number, null], default: null },
-  addingChapterError: { type: String, default: null },
-  onGenerateSummary: { type: Function, required: true }
+  loadingChapterAnalysis: { type: Boolean, default: false },
+  analyzingChapterId: { type: [Number, String, null], default: null },
 });
 
 const emit = defineEmits([
@@ -230,93 +197,16 @@ const emit = defineEmits([
   'toggle-selection',
   'handle-export',
   'open-delete',
-  'request-add-chapter',
-  'request-update-chapter',
-  'apply-suggestion'
+  'open-add-dialog', // NOUVEAU
+  'open-edit-dialog', // NOUVEAU
+  'open-analysis-dialog', // NOUVEAU
+  'generate-summary', // NOUVEAU
 ]);
-
-const { showSnackbar } = useSnackbar();
 
 const localChapters = ref([]);
 watch(() => props.chapters, (newVal) => {
   localChapters.value = [...(newVal || [])];
 }, { immediate: true, deep: true });
-
-
-const showAddChapterDialog = ref(false);
-const addChapterError = ref(null);
-watch(() => props.addingChapterError, (newVal) => {
-  addChapterError.value = newVal;
-});
-
-const openAddChapterDialogInternal = () => {
-  addChapterError.value = null;
-  showAddChapterDialog.value = true;
-};
-const handleAddChapterDialogClose = () => {
-  showAddChapterDialog.value = false;
-};
-const handleAddChapterDialogSave = (newTitle) => {
-  emit('request-add-chapter', { projectId: props.projectId, title: newTitle });
-};
-
-
-const showEditChapterDialog = ref(false);
-const editingChapter = ref(null);
-const editChapterError = ref(null);
-
-const openEditChapterDialog = (chapter) => {
-  editingChapter.value = { ...chapter };
-  editChapterError.value = null;
-  showEditChapterDialog.value = true;
-};
-const closeEditChapterDialog = () => {
-  showEditChapterDialog.value = false;
-  editingChapter.value = null;
-};
-const submitEditChapter = (updatedData) => {
-  emit('request-update-chapter', { chapterId: editingChapter.value.id, ...updatedData });
-};
-
-
-const {
-  analysisResult: chapterAnalysisResult,
-  loadingAnalysis: loadingChapterAnalysis,
-  errorAnalysis: errorChapterAnalysis,
-  getChapterAnalysis,
-  applySuggestionToChapter
-} = useAnalysis(showSnackbar);
-
-const showChapterAnalysisDialog = ref(false);
-const analyzingChapterId = ref(null);
-const analyzingChapterTitle = ref('');
-
-const openChapterAnalysisDialog = async (chapterId) => {
-  const chapter = localChapters.value.find(c => c.id === chapterId);
-  if (chapter) {
-    analyzingChapterId.value = chapterId;
-    analyzingChapterTitle.value = chapter.title;
-    showChapterAnalysisDialog.value = true;
-    await getChapterAnalysis(chapterId);
-  }
-};
-
-const closeChapterAnalysisDialog = () => {
-  showChapterAnalysisDialog.value = false;
-  analyzingChapterId.value = null;
-  analyzingChapterTitle.value = '';
-};
-
-const handleApplySuggestionFromDialog = (suggestion) => {
-    if (analyzingChapterId.value) {
-        emit('apply-suggestion', { chapterId: analyzingChapterId.value, suggestion });
-    }
-};
-
-
-function getProjectNameById(projectId) {
-  return `Projet ${projectId}`;
-}
 
 </script>
 

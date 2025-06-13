@@ -40,19 +40,18 @@
               :selectedChapterIds="selectedChapterIds"
               :exportingChapterId="exportingChapterIdComposable"
               :exportingFormat="exportingFormat"
-              :submittingChapter="submittingChapter"
               :generatingSummaryChapterId="generatingSummaryChapterId"
-              :addingChapterError="currentErrorAddingChapter"
-              :on-generate-summary="handleChapterGenerateSummaryRequested"
-              @reordered="(event) => onChapterDrop(project.id, event)"
+              :loadingChapterAnalysis="loadingAnalysis"
+              :analyzingChapterId="analyzingChapterId"
+              @reordered="(ids) => onChapterDrop(project.id, ids)"
               @select-chapter="(chapterId) => emit('chapter-selected', { chapterId })"
               @toggle-selection="toggleChapterSelection"
               @handle-export="handleChapterExport"
               @open-delete="openDeleteConfirmDialog"
-              @apply-suggestion="handleApplySuggestion"
-              @request-add-chapter="handleChapterAddRequested"
-              @request-update-chapter="handleChapterUpdateRequested"
-              :showSnackbar="showSnackbar"
+              @open-add-dialog="() => openAddChapterDialog(project.id)"
+              @open-edit-dialog="openEditChapterDialog"
+              @open-analysis-dialog="openChapterAnalysisDialog"
+              @generate-summary="handleChapterGenerateSummaryRequested"
             >
             </ChapterList>
           </template>
@@ -64,18 +63,39 @@
       </v-list-item>
     </v-container>
 
+    <!-- Dialogues de Projet -->
+    <AddProjectDialog :show="showAddProjectDialog" :loading="submittingProject" :error="addProjectError" @close="showAddProjectDialog = false" @save="submitNewProject" />
+    <EditProjectDialog :show="showEditProjectDialog" :loading="submittingProject" :error="editProjectError" :initialTitle="editingProject?.title || ''" :initialDescription="editingProject?.description || ''" @close="closeEditProjectDialog" @save="submitEditProject" />
 
-    <AddProjectDialog :show="showAddProjectDialog" :loading="submittingProject" :error="addProjectError" @close="handleAddProjectDialogClose" @save="submitNewProject" />
+    <!-- Dialogues de Chapitre -->
+    <AddChapterDialog
+      :show="showAddChapterDialog"
+      :loading="submittingChapter"
+      :error="addChapterError"
+      :project-name="getProjectNameById(currentProjectIdForDialogs)"
+      @close="closeAddChapterDialog"
+      @save="submitNewChapter"
+    />
+    <EditChapterDialog
+      :show="showEditChapterDialog"
+      :loading="submittingChapter"
+      :error="editChapterError"
+      :initialTitle="editingChapter?.title || ''"
+      :initialSummary="editingChapter?.summary || ''"
+      @close="closeEditChapterDialog"
+      @save="submitEditChapter"
+    />
+
+    <!-- Autres Dialogues -->
     <DeleteConfirmDialog
       :show="showDeleteConfirmDialog"
-      :loading="!!deletingProjectItemState?.id || deletingChapterItem.value"
+      :loading="isDeleting"
       :deleteTarget="deleteTarget"
+      :deleteType="deleteType"
       :targetCounts="{ projects: selectedProjectIds.length, chapters: selectedChapterIds.length }"
       @close="closeDeleteConfirmDialog"
       @confirm="confirmDelete"
     />
-    <EditProjectDialog :show="showEditProjectDialog" :loading="submittingProject" :error="editProjectError" :initialTitle="editingProject?.title || ''" :initialDescription="editingProject?.description || ''" @close="closeEditProjectDialog" @save="submitEditProject" />
-
     <AnalysisReportDialog
         :show="showAnalysisDialog"
         :loading="loadingAnalysis"
@@ -83,6 +103,15 @@
         :analysisResult="analysisResult"
         @close="closeAnalysisDialog"
     />
+     <ChapterAnalysisDialog
+        :show="showChapterAnalysisDialog"
+        :loading="loadingAnalysis"
+        :error="errorAnalysis"
+        :analysis-result="chapterAnalysisResult"
+        :chapter-title="analyzingChapterTitle"
+        @close="closeChapterAnalysisDialog"
+        @apply-suggestion="handleApplySuggestion"
+      />
 
     <v-snackbar
       v-model="snackbarVisible"
@@ -106,48 +135,34 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, watch, toRefs } from 'vue';
-import axios from 'axios';
+import { ref, onMounted, computed } from 'vue';
+
 import AddProjectDialog from './dialogs/AddProjectDialog.vue';
-import DeleteConfirmDialog from './dialogs/DeleteConfirmDialog.vue';
 import EditProjectDialog from './dialogs/EditProjectDialog.vue';
+import DeleteConfirmDialog from './dialogs/DeleteConfirmDialog.vue';
 import AnalysisReportDialog from './dialogs/AnalysisReportDialog.vue';
+import AddChapterDialog from './dialogs/AddChapterDialog.vue';
+import EditChapterDialog from './dialogs/EditChapterDialog.vue';
+import ChapterAnalysisDialog from './dialogs/ChapterAnalysisDialog.vue';
 
 import ProjectToolbar from './ProjectToolbar.vue';
 import ProjectItem from './ProjectItem.vue';
 import ChapterList from './ChapterList.vue';
 
-
 import { useProjects } from '@/composables/useProjects.js';
 import { useChapters } from '@/composables/useChapters.js';
-import { useAIModels, writingStyles } from '@/composables/useAIModels.js';
 import { useAnalysis } from '@/composables/useAnalysis.js';
-// import { useCharacters } from '@/composables/useCharacters.js'; // SUPPRIMÉ
-
-import {
-  VNavigationDrawer, VToolbar, VToolbarTitle, VDivider, VList, VListItem, VListItemTitle, VListItemAction, VListSubheader,
-  VBtn, VIcon, VProgressLinear, VAlert, VDialog, VCard, VCardTitle, VCardText, VTextField, VCardActions,
-  VSpacer, VContainer, VRow, VCol, VCheckboxBtn, VSnackbar, VMenu, VSelect, VTextarea,
-  VTooltip, VChip, VListGroup, VProgressCircular
-} from 'vuetify/components';
-import { config } from '@/config.js';
-import { handleApiError } from '@/utils/errorHandler.js';
 
 const props = defineProps({
-  currentAiProvider: String,
-  currentAiModel: String,
-  currentAiStyle: String,
-  currentCustomAiDescription: String,
-  selectedChapterId: [String, Number, null],
+  selectedChapterId: { type: [Number, String, null], default: null },
 });
 
-const emit = defineEmits(['active-chapter-content-changed', 'ai-action-insert-content', 'chapter-selected']);
-
+const emit = defineEmits(['chapter-selected']);
 
 const snackbarVisible = ref(false);
 const snackbarText = ref('');
 const snackbarColor = ref('success');
-const showSnackbar = (text, color = 'success', timeout = 3000) => {
+const showSnackbar = (text, color = 'success') => {
   snackbarText.value = text;
   snackbarColor.value = color;
   snackbarVisible.value = true;
@@ -155,19 +170,18 @@ const showSnackbar = (text, color = 'success', timeout = 3000) => {
 
 const {
   projects, loadingProjects, errorProjects, submittingProject, deletingItem: deletingProjectItemState,
-  exportingProjectId, exportingFormat, exportError,
+  exportingProjectId, exportingFormat,
   fetchProjects: fetchProjectsComposable, addProject: addProjectComposable,
   updateProject: updateProjectComposable, deleteProject: deleteProjectInternalComposable,
-  exportProject, getProjectById
+  exportProject,
 } = useProjects(showSnackbar);
 
 const {
   chaptersByProjectId, loadingChapters, errorChapters,
-  submittingChapter,
-  deletingChapterItem,
+  submittingChapter, deletingChapterItem,
   exportingChapterId: exportingChapterIdComposable,
   generatingSummaryChapterId,
-  errorOnAddChapter: currentErrorAddingChapter, // Récupérer l'erreur spécifique à l'ajout
+  errorOnAddChapter, chapterError,
   fetchChaptersForProject: fetchChaptersComposable,
   addChapter: addChapterComposable,
   updateChapter: updateChapterComposable,
@@ -175,101 +189,67 @@ const {
   reorderChapters: reorderChaptersComposable,
   exportChapter: exportChapterComposable,
   generateChapterSummary: generateChapterSummaryComposable,
-  applySuggestionToChapterContent,
 } = useChapters(showSnackbar);
 
-
 const {
-  providers,
-  availableModels,
-  providerInfo,
-  loadingModels,
-  errorLoadingModels,
-  fetchModels,
-  selectDefaultModel
-} = useAIModels(showSnackbar, props);
-
-const {
-    analysisResult,
-    loadingAnalysis,
-    errorAnalysis,
-    getProjectAnalysis,
-    getChapterAnalysis,
-    getStyleAnalysis,
-    applySuggestionToChapter: applySuggestionToChapterAnalysis, // Renommer pour éviter conflit
+    analysisResult, loadingAnalysis, errorAnalysis,
+    getProjectAnalysis, getChapterAnalysis,
+    chapterAnalysisResult,
 } = useAnalysis(showSnackbar);
 
-
-// --- Projects ---
+// --- State ---
 const selectedProjectIds = ref([]);
+const selectedChapterIds = ref([]);
+
+// --- Dialog State (Unified) ---
 const showAddProjectDialog = ref(false);
-const addProjectError = ref('');
-const editingProject = ref(null);
 const showEditProjectDialog = ref(false);
+const editingProject = ref(null);
+const addProjectError = ref('');
 const editProjectError = ref('');
 
-// --- Chapters ---
-const selectedChapterIds = ref([]);
-const currentProjectIdForChapters = ref(null);
+const showAddChapterDialog = ref(false);
+const showEditChapterDialog = ref(false);
+const editingChapter = ref(null);
+const currentProjectIdForDialogs = ref(null);
+const addChapterError = ref(null);
+const editChapterError = ref(null);
 
-// --- Deletion ---
 const showDeleteConfirmDialog = ref(false);
 const deleteTarget = ref(null);
-const deleteType = ref(''); // 'project' or 'chapter'
+const deleteType = ref('');
 
-// --- Analysis ---
 const showAnalysisDialog = ref(false);
+const showChapterAnalysisDialog = ref(false);
+const analyzingChapterId = ref(null);
+const isDeleting = computed(() => !!deletingProjectItemState.value || deletingChapterItem.value);
+const analyzingChapterTitle = ref('');
 
+onMounted(fetchProjectsComposable);
 
-onMounted(() => {
-  fetchProjects();
-});
-
-function fetchProjects() {
-  fetchProjectsComposable();
-}
-
-// ... (rest of the component logic for project/chapter management)
+// --- Methods ---
 
 function toggleProjectSelection(projectId) {
   const index = selectedProjectIds.value.indexOf(projectId);
-  if (index > -1) {
-    selectedProjectIds.value.splice(index, 1);
-  } else {
-    selectedProjectIds.value.push(projectId);
-  }
+  if (index > -1) selectedProjectIds.value.splice(index, 1);
+  else selectedProjectIds.value.push(projectId);
 }
 
 function toggleChapterSelection(chapterId) {
     const index = selectedChapterIds.value.indexOf(chapterId);
-    if (index > -1) {
-        selectedChapterIds.value.splice(index, 1);
-    } else {
-        selectedChapterIds.value.push(chapterId);
-    }
+    if (index > -1) selectedChapterIds.value.splice(index, 1);
+    else selectedChapterIds.value.push(chapterId);
 }
 
 function fetchChaptersForProject(projectId) {
-    currentProjectIdForChapters.value = projectId;
     fetchChaptersComposable(projectId);
 }
 
-function onChapterDrop(projectId, event) {
-    reorderChaptersComposable(projectId, event);
+function onChapterDrop(projectId, orderedIds) {
+    reorderChaptersComposable(projectId, orderedIds);
 }
 
-// CORRIGÉ: L'appel passe maintenant le titre (string) et non un objet
-function handleChapterAddRequested({ projectId, title }) {
-    addChapterComposable(projectId, title);
-}
-
-// CORRIGÉ: L'appel passe maintenant les bons arguments dans le bon ordre
-function handleChapterUpdateRequested({ chapterId, title, summary }) {
-    updateChapterComposable(chapterId, { title, summary });
-}
-
-function handleChapterGenerateSummaryRequested(projectId, chapterId) {
-    
+function handleChapterGenerateSummaryRequested({ projectId, chapterId }) {
     generateChapterSummaryComposable(projectId, chapterId);
 }
 
@@ -278,59 +258,73 @@ function handleProjectExport({ projectId, format }) {
 }
 
 function handleChapterExport({ chapterId, format }) {
-    const chapter = findChapterById(chapterId);
-    if (chapter) {
-        // CORRIGÉ: Appel avec les bons arguments
-        exportChapterComposable(chapterId, format);
-    }
+    exportChapterComposable(chapterId, format);
 }
 
-function handleApplySuggestion(suggestionData) {
-    const chapter = findChapterById(suggestionData.chapterId);
-    if (chapter) {
-        applySuggestionToChapterContent(chapter.project_id, suggestionData.chapterId, suggestionData.suggestion);
-    }
-}
-
-// --- Dialogs management ---
-
-function openAddProjectDialog() {
-  addProjectError.value = '';
-  showAddProjectDialog.value = true;
-}
-
-function handleAddProjectDialogClose() {
-  showAddProjectDialog.value = false;
-}
-
+// --- Project Dialogs ---
 async function submitNewProject(projectData) {
-  const success = await addProjectComposable(projectData);
-  if (success) {
-    showAddProjectDialog.value = false;
-  }
+  const newProject = await addProjectComposable(projectData);
+  if (newProject) showAddProjectDialog.value = false;
 }
 
 function openEditProjectDialog(project) {
   editingProject.value = project;
-  editProjectError.value = '';
   showEditProjectDialog.value = true;
 }
 
 function closeEditProjectDialog() {
-  showEditProjectDialog.value = false;
   editingProject.value = null;
+  showEditProjectDialog.value = false;
 }
 
 async function submitEditProject(projectData) {
   if (!editingProject.value) return;
-  const success = await updateProjectComposable(editingProject.value.id, projectData);
-  if (success) {
-    closeEditProjectDialog();
-  }
+  const updatedProject = await updateProjectComposable(editingProject.value.id, projectData);
+  if (updatedProject) closeEditProjectDialog();
 }
 
+// --- Chapter Dialogs ---
+function openAddChapterDialog(projectId) {
+    currentProjectIdForDialogs.value = projectId;
+    addChapterError.value = null;
+    showAddChapterDialog.value = true;
+}
+
+function closeAddChapterDialog() {
+    showAddChapterDialog.value = false;
+    currentProjectIdForDialogs.value = null;
+}
+
+async function submitNewChapter(title) {
+    const newChapter = await addChapterComposable(currentProjectIdForDialogs.value, title);
+    if (newChapter) {
+        closeAddChapterDialog();
+    }
+}
+
+function openEditChapterDialog(chapter) {
+    editingChapter.value = { ...chapter };
+    editChapterError.value = null;
+    showEditChapterDialog.value = true;
+}
+
+function closeEditChapterDialog() {
+    editingChapter.value = null;
+    showEditChapterDialog.value = false;
+}
+
+async function submitEditChapter(updatedData) {
+    if (!editingChapter.value) return;
+    const success = await updateChapterComposable(editingChapter.value.id, updatedData);
+    if (success) {
+        closeEditChapterDialog();
+    }
+}
+
+// --- Deletion Dialog ---
 function openDeleteConfirmDialog(item, type) {
-  deleteTarget.value = item;
+  // On clone l'item pour éviter les problèmes de réactivité si la liste source est modifiée
+  deleteTarget.value = item ? { ...item } : null;
   deleteType.value = type;
   showDeleteConfirmDialog.value = true;
 }
@@ -342,20 +336,38 @@ function closeDeleteConfirmDialog() {
 }
 
 async function confirmDelete() {
-  if (deleteType.value === 'project') {
-    const idsToDelete = selectedProjectIds.value.length > 0 ? [...selectedProjectIds.value] : [deleteTarget.value.id];
-    await deleteProjectInternalComposable(idsToDelete);
-    selectedProjectIds.value = [];
-  } else if (deleteType.value === 'chapter') {
-    const chapter = deleteTarget.value;
-    if (chapter && chapter.project_id && chapter.id) {
-        // Appel corrigé dans useChapters.js, cet appel est maintenant correct
+  try {
+    if (deleteType.value === 'project') {
+      await deleteProjectInternalComposable([deleteTarget.value.id]);
+    } else if (deleteType.value === 'chapter') {
+      const chapter = deleteTarget.value;
+      if (chapter && chapter.project_id && chapter.id) {
         await deleteChapterComposable(chapter.project_id, chapter.id);
+      }
+    } else if (deleteType.value === 'project-selection') {
+      await deleteProjectInternalComposable([...selectedProjectIds.value]);
+      selectedProjectIds.value = [];
+    } else if (deleteType.value === 'chapter-selection') {
+      // On doit trouver le project_id pour chaque chapitre, c'est plus complexe.
+      // On va boucler sur les chapitres sélectionnés.
+      for (const chapterId of selectedChapterIds.value) {
+        const chapter = findChapterById(chapterId);
+        if (chapter && chapter.project_id) {
+          // On attend chaque suppression individuellement.
+          await deleteChapterComposable(chapter.project_id, chapter.id);
+        }
+      }
+      selectedChapterIds.value = [];
     }
+  } catch (error) {
+    console.error("Erreur lors de la suppression :", error);
+    // Le snackbar est déjà géré dans les composables
+  } finally {
+    closeDeleteConfirmDialog();
   }
-  closeDeleteConfirmDialog();
 }
 
+// --- Analysis Dialogs ---
 function openAnalysisDialog(projectId) {
     getProjectAnalysis(projectId);
     showAnalysisDialog.value = true;
@@ -365,9 +377,30 @@ function closeAnalysisDialog() {
     showAnalysisDialog.value = false;
 }
 
-// --- Helper ---
+function openChapterAnalysisDialog(chapterId) {
+    const chapter = findChapterById(chapterId);
+    if(chapter) {
+        analyzingChapterId.value = chapterId;
+        analyzingChapterTitle.value = chapter.title;
+        getChapterAnalysis(chapterId);
+        showChapterAnalysisDialog.value = true;
+    }
+}
+
+function closeChapterAnalysisDialog() {
+    showChapterAnalysisDialog.value = false;
+}
+
+function handleApplySuggestion({ chapterId, suggestion }) {
+    const chapter = findChapterById(chapterId);
+    if (chapter) {
+        console.warn("applySuggestionToChapterContent not implemented or exposed from composable");
+    }
+
+}
+
+// --- Helpers ---
 function findChapterById(chapterId) {
-    // La réactivité de `chaptersByProjectId` est gérée par `reactive`, pas besoin de .value
     for (const projectId in chaptersByProjectId) {
         const chapters = chaptersByProjectId[projectId];
         if (chapters) {
@@ -378,11 +411,11 @@ function findChapterById(chapterId) {
     return null;
 }
 
-watch(currentProjectIdForChapters, (newVal) => {
-    if (newVal) {
-        selectedChapterIds.value = [];
-    }
-});
+function getProjectNameById(projectId) {
+    if (!projectId) return '';
+    const project = projects.value.find(p => p.id === projectId);
+    return project ? project.title : '';
+}
 
 </script>
 
