@@ -1,18 +1,87 @@
+# Fichiers générés par les IDE et éditeurs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers d'environnement
+# Ne jamais commiter les fichiers .env contenant des secrets
+.env
+.env.*
+# Sauf les fichiers d'exemple
+!.env.example
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Dépendances et caches
+node_modules/
+bower_components/
+jspm_packages/
+/frontend/dist/
+/frontend/.vite/
+
+# Fichiers de build et de distribution
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
 # Environnements virtuels Python
 venv/
 .venv/
 env/
 ENV/
+pyenv/
 
-# Fichiers d'environnement
-.env
-.env.*
-!.env.example
+# Bases de données
+*.db
+*.sqlite
+*.sqlite3
+# Garder le dossier 'instance' mais ignorer son contenu, sauf si un fichier .gitkeep est présent
+/instance/*
+!/instance/.gitkeep
 
-# Fichiers spécifiques aux IDE (optionnel, mais souvent utile)
-.vscode/
-.idea/
+# Fichiers de test et de couverture
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
 
-# Fichiers de logs temporaires ou de tests à la racine
-*.log
-test_temp.db
+# Fichiers temporaires
+*~
+*.swp
+*.swo
