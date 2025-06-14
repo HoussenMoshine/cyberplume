@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
+from typing import Optional
 
 from .. import models
 from ..ai_services.factory import create_adapter
@@ -7,7 +8,7 @@ from ..utils.text_extractor import extract_text_from_html
 from ..config import settings # Pour accéder aux clés API via fallback
 from ..crud_api_keys import get_decrypted_api_key # NOUVEL IMPORT
 
-async def generate_and_save_summary(db_chapter: models.Chapter, db: Session) -> str:
+async def generate_and_save_summary(db_chapter: models.Chapter, db: Session, provider: str, model: Optional[str] = None) -> str:
     """
     Génère un résumé pour le contenu d'un chapitre et le sauvegarde dans la base de données.
     Retourne le résumé généré.
@@ -30,23 +31,12 @@ async def generate_and_save_summary(db_chapter: models.Chapter, db: Session) -> 
 
     # TODO: Déterminer dynamiquement le fournisseur et le modèle IA à utiliser.
     # Pour l'instant, utilisons des valeurs par défaut ou celles configurées globalement.
-    provider_name = "gemini" # À rendre configurable plus tard
+    provider_name = provider # Utilise le fournisseur passé en paramètre
+    model_name = model # Utilise le modèle passé en paramètre
     ai_service = None
-    model_name = None # Initialiser model_name
-    
     try:
         # MODIFIÉ: Utiliser get_decrypted_api_key pour récupérer la clé API
         api_key = get_decrypted_api_key(db, provider_name, settings_fallback=settings)
-
-        # La logique pour model_name peut rester pour déterminer un modèle spécifique au résumé
-        # ou un modèle par défaut pour le fournisseur, lu depuis settings.
-        if provider_name == "gemini":
-            model_name = getattr(settings, 'gemini_summary_model_name', getattr(settings, 'gemini_model_name', None))
-        elif provider_name == "mistral":
-            model_name = getattr(settings, 'mistral_summary_model_name', getattr(settings, 'mistral_model_name', None))
-        elif provider_name == "openrouter":
-            model_name = getattr(settings, 'openrouter_summary_model_name', getattr(settings, 'openrouter_default_model', None))
-        # Ajouter d'autres providers si nécessaire pour model_name
 
         if not api_key:
             raise HTTPException(

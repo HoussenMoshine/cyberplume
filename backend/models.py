@@ -198,6 +198,11 @@ class SceneGenerateRequest(BaseModel):
     style: Optional[str] = None
     prompt_details: Optional[str] = None
     chapter_context: Optional[str] = None
+# --- Schémas pour la génération de résumé ---
+
+class SummaryGenerateRequest(BaseModel):
+    provider: str
+    model: Optional[str] = None
 
 # --- Schémas pour la génération d'idées de scènes ---
 

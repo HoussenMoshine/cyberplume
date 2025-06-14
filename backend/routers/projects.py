@@ -298,7 +298,7 @@ async def reorder_project_chapters(project_id: int, reorder_data: ReorderItemsSc
 # --- Endpoint pour la Génération de Résumé de Chapitre ---
 
 @router.post("/chapters/{chapter_id}/generate-summary", response_model=models.ChapterRead, status_code=status.HTTP_200_OK)
-async def generate_chapter_summary_route(chapter_id: int, db: Session = Depends(get_db)):
+async def generate_chapter_summary_route(chapter_id: int, request: models.SummaryGenerateRequest, db: Session = Depends(get_db)):
     """
     Déclenche la génération et la sauvegarde du résumé pour un chapitre spécifique.
     Retourne le chapitre avec son résumé (potentiellement mis à jour).
@@ -308,7 +308,7 @@ async def generate_chapter_summary_route(chapter_id: int, db: Session = Depends(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chapter not found")
 
     try:
-        await summary_service.generate_and_save_summary(db_chapter, db)
+        await summary_service.generate_and_save_summary(db_chapter, db, provider=request.provider, model=request.model)
         # Le service s'occupe du db.commit() et db.refresh(db_chapter)
     except HTTPException as e:
         # Propage l'exception HTTP levée par le service (ex: erreur IA, configuration)

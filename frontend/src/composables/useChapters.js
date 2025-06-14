@@ -205,15 +205,21 @@ export function useChapters(showSnackbar) {
   };
 
   // NOUVEAU: Génération de résumé de chapitre
-  const generateChapterSummary = async (projectId, chapterId) => {
+  const generateChapterSummary = async (projectId, chapterId, aiSettings) => {
     if (!chapterId) return;
     generatingSummaryChapterId.value = chapterId;
     chapterError.value = null;
     try {
-      // Note: Le corps de la requête est vide car le backend a déjà tout ce dont il a besoin.
       const response = await fetch(`/api/chapters/${chapterId}/generate-summary`, {
         method: 'POST',
-        headers: { 'x-api-key': config.apiKey },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-api-key': config.apiKey 
+        },
+        body: JSON.stringify({
+          provider: aiSettings.provider,
+          model: aiSettings.model,
+        }),
       });
       if (!response.ok) {
         const error = new Error(`HTTP error! status: ${response.status}`);

@@ -59,7 +59,31 @@ export function useTiptapEditor(
       ],
       editorProps: {
         attributes: {
-          class: 'tiptap-editor', 
+          class: 'tiptap-editor',
+        },
+        handlePaste: (view, event, slice) => {
+          const text = event.clipboardData.getData('text/plain');
+          const html = event.clipboardData.getData('text/html');
+
+          // Si du HTML est collé, laisser TipTap le gérer, sauf si c'est du texte brut qui a été converti.
+          // On privilégie le texte brut si le HTML est simple (ex: juste un <p>) pour mieux gérer les sauts de ligne.
+          if (html && !text.includes(html.replace(/<[^>]+>/g, ''))) {
+             return false; // Laisser TipTap gérer le HTML riche
+          }
+
+          if (text) {
+            event.preventDefault();
+            const paragraphs = text.split(/\n{2,}/g) // Sépare par un ou plusieurs sauts de ligne
+                                 .map(p => p.trim())
+                                 .filter(p => p.length > 0)
+                                 .map(p => `<p>${p}</p>`)
+                                 .join('');
+            
+            editor.value.commands.insertContent(paragraphs);
+            return true;
+          }
+
+          return false;
         },
       },
       // La sauvegarde automatique onBlur est supprimée pour simplifier la logique

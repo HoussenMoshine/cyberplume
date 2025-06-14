@@ -155,6 +155,10 @@ import { useAnalysis } from '@/composables/useAnalysis.js';
 
 const props = defineProps({
   selectedChapterId: { type: [Number, String, null], default: null },
+  currentAiProvider: { type: String, default: 'gemini' },
+  currentAiModel: { type: String, default: null },
+  currentAiStyle: { type: String, default: 'normal' },
+  currentCustomAiDescription: { type: String, default: null },
 });
 
 const emit = defineEmits(['chapter-selected']);
@@ -250,7 +254,11 @@ function onChapterDrop(projectId, orderedIds) {
 }
 
 function handleChapterGenerateSummaryRequested({ projectId, chapterId }) {
-    generateChapterSummaryComposable(projectId, chapterId);
+    const aiSettings = {
+      provider: props.currentAiProvider,
+      model: props.currentAiModel,
+    };
+    generateChapterSummaryComposable(projectId, chapterId, aiSettings);
 }
 
 function handleProjectExport({ projectId, format }) {

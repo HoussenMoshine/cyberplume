@@ -1,28 +1,34 @@
-# Contexte Actif - CyberPlume (Mise à jour : 13/06/2025 - 08:11)
+# Contexte Actif - CyberPlume (Mise à jour : 14/06/2025 - 07:54)
 
 ## Objectif de la Session
 
-*   **Objectif :** Diagnostiquer et corriger les bugs persistants sur la fonctionnalité de suppression (simple et multiple) des chapitres et projets.
+*   **Objectif Principal :** Corriger le bug qui forçait l'utilisation de Gemini pour la génération de résumés, ignorant la sélection de l'utilisateur (ex: OpenRouter).
+*   **Objectif Secondaire :** Corriger un bug dans l'éditeur TipTap qui supprimait les sauts de ligne lors du collage de texte.
 
 ## Actions Réalisées durant la Session
 
-1.  **Multiples Tentatives de Correction :** Plusieurs approches ont été tentées pour résoudre un bug de "chargement infini", incluant la gestion des conditions de course, le clonage d'objets réactifs et la correction du flux de `props`.
-2.  **Diagnostic Final (Post-instrumentation) :** Après plusieurs échecs, l'analyse des logs de la console a révélé que le problème venait de la manière dont l'état de chargement était calculé dans le template.
-3.  **Correction Finale :**
-    *   Création d'une `computed property` (`isDeleting`) dans `ProjectManager.vue` pour encapsuler la logique de l'état de chargement (`!!deletingProjectItemState.value || deletingChapterItem.value`).
-    *   Liaison de la prop `:loading` du `DeleteConfirmDialog` à cette nouvelle `computed property`. Cette approche a permis de garantir une gestion de la réactivité plus propre et plus fiable par Vue.js.
+1.  **Correction du Service de Résumé (Succès) :**
+    *   **Investigation Backend :** Identification d'une valeur codée en dur (`provider_name = "gemini"`) dans `summary_service.py` comme étant la cause du problème.
+    *   **Refactoring Backend :** Modification de la route `/chapters/{chapter_id}/generate-summary` et du service associé pour accepter dynamiquement un `provider` et un `model`.
+    *   **Investigation Frontend :** Analyse du flux de données depuis la sélection dans `ai-toolbar.vue` jusqu'à l'appel API pour s'assurer que les bons paramètres sont disponibles.
+    *   **Correction Frontend :** Modification de `useChapters.js` et `ProjectManager.vue` pour passer les paramètres IA sélectionnés lors de l'appel à la génération de résumé.
+    *   **Correction d'un Bug d'Import :** Ajout de `from typing import Optional` dans `summary_service.py` pour corriger une `NameError` introduite lors du refactoring.
+
+2.  **Tentative de Correction du Bug de Collage (Échec Partiel) :**
+    *   **Analyse :** Le problème a été attribué à la gestion par défaut du collage de TipTap qui nettoie le HTML.
+    *   **Implémentation :** Ajout d'une logique `handlePaste` personnalisée dans `useTiptapEditor.js` pour intercepter le texte brut, le convertir en paragraphes HTML (`<p>`) et l'insérer.
+    *   **Résultat :** La correction implémentée ne s'est pas avérée efficace, le bug persiste.
 
 ## État Actuel à la Fin de la Session
 
 *   **Ce qui fonctionne :**
-    *   Le CRUD complet sur les projets et chapitres est maintenant stable et fonctionnel, y compris la suppression simple et multiple.
-    *   Les dialogues se comportent comme attendu.
-    *   L'application est dans un état stable.
+    *   La génération de résumé de chapitre utilise désormais correctement le fournisseur et le modèle d'IA sélectionnés dans l'interface, résolvant le problème de censure et de contrôle utilisateur.
+    *   Le backend est stable.
 
 *   **Problème Critique Persistant :**
-    *   Aucun problème critique identifié.
+    *   Le bug des sauts de ligne lors du collage dans l'éditeur TipTap est toujours présent. La solution actuelle n'est pas fonctionnelle et nécessite une investigation plus approfondie.
 
 ## Prochaines Étapes
 
+*   **Priorité Haute :** Ré-investiguer et trouver une solution robuste pour le bug de collage dans l'éditeur TipTap.
 *   **Session terminée.**
-*   Reprendre le développement des fonctionnalités en attente lors de la prochaine session, comme défini dans le `projectbrief.md`.

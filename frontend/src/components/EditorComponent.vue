@@ -378,9 +378,12 @@ async function triggerManualSave() {
   await saveChapter(true);
 }
 
-function handleModelSelection(model) {
-  selectedAiParams.value = { ...selectedAiParams.value, ...model };
-  displaySnackbar(`Modèle IA sélectionné: ${model.provider} - ${model.model}`, 'info');
+const emit = defineEmits(['toggle-distraction-free', 'ai-settings-changed']);
+
+function handleModelSelection(settings) {
+  selectedAiParams.value = { ...selectedAiParams.value, ...settings };
+  emit('ai-settings-changed', selectedAiParams.value);
+  displaySnackbar(`Modèle IA sélectionné: ${settings.provider} - ${settings.model}`, 'info');
 }
 
 async function handleRefreshSummary() {

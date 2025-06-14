@@ -1,4 +1,4 @@
-# Progression - CyberPlume (Mise à jour : 13/06/2025 - 08:11)
+# Progression - CyberPlume (Mise à jour : 14/06/2025 - 07:54)
 
 ## Ce qui Fonctionne (État Actuel)
 
@@ -8,14 +8,22 @@
 *   **Affichage de la liste des chapitres :** Fonctionnel.
 *   **Éditeur de texte :** Fonctionnalité de base restaurée.
 *   **Sauvegarde et chargement des chapitres :** Le flux "Data Airlock" est en place.
-*   **Génération de résumé de chapitre :** Fonctionnel.
+*   **Génération de résumé de chapitre :** **CORRIGÉ**. Utilise maintenant le fournisseur et le modèle IA sélectionnés dans l'interface.
 *   **Stabilité Générale :** L'application est dans un état stable.
 
 ## Ce qui Reste à Construire / Améliorer
 
+*   **BUG :** Le collage de texte dans l'éditeur supprime les sauts de ligne. La tentative de correction via `handlePaste` a échoué et doit être ré-investiguée.
 *   **Fonctionnalités futures :** Reprendre le développement des fonctionnalités prévues au `projectbrief.md`.
 
 ## Évolution des Décisions
+
+### Session 14 Juin (Matin - Branche `resume-chapitre`)
+*   **Objectif :** Corriger le bug de sélection du modèle IA pour les résumés et le bug de collage dans l'éditeur.
+*   **Actions Clés :**
+    1.  **Résumé IA (Succès) :** Le problème a été tracé à une valeur codée en dur dans le backend (`summary_service.py`). Le flux de données a été corrigé de bout en bout (frontend et backend) pour passer dynamiquement le fournisseur et le modèle sélectionnés. Un bug `NameError` a été corrigé au passage.
+    2.  **Bug de Collage (Échec) :** Une tentative de correction a été faite en implémentant une logique `handlePaste` personnalisée dans le composable de TipTap. Cette solution s'est avérée inefficace.
+*   **Résultat :** Succès partiel. La fonctionnalité de résumé est maintenant entièrement fonctionnelle et configurable. Le bug de l'éditeur reste un problème ouvert.
 
 ### Session 13 Juin (Matin - Correction Finale Suppression)
 *   **Objectif :** Corriger les bugs persistants de suppression simple et multiple.
