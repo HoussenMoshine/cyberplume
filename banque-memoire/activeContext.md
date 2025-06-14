@@ -1,34 +1,33 @@
-# Contexte Actif - CyberPlume (Mise à jour : 14/06/2025 - 07:54)
+# Contexte Actif - CyberPlume (Mise à jour : 14/06/2025 - 09:27)
 
 ## Objectif de la Session
 
-*   **Objectif Principal :** Corriger le bug qui forçait l'utilisation de Gemini pour la génération de résumés, ignorant la sélection de l'utilisateur (ex: OpenRouter).
-*   **Objectif Secondaire :** Corriger un bug dans l'éditeur TipTap qui supprimait les sauts de ligne lors du collage de texte.
+*   **Objectif Principal :** Corriger le bug des sauts de ligne supprimés lors du collage de texte dans l'éditeur TipTap.
 
 ## Actions Réalisées durant la Session
 
-1.  **Correction du Service de Résumé (Succès) :**
-    *   **Investigation Backend :** Identification d'une valeur codée en dur (`provider_name = "gemini"`) dans `summary_service.py` comme étant la cause du problème.
-    *   **Refactoring Backend :** Modification de la route `/chapters/{chapter_id}/generate-summary` et du service associé pour accepter dynamiquement un `provider` et un `model`.
-    *   **Investigation Frontend :** Analyse du flux de données depuis la sélection dans `ai-toolbar.vue` jusqu'à l'appel API pour s'assurer que les bons paramètres sont disponibles.
-    *   **Correction Frontend :** Modification de `useChapters.js` et `ProjectManager.vue` pour passer les paramètres IA sélectionnés lors de l'appel à la génération de résumé.
-    *   **Correction d'un Bug d'Import :** Ajout de `from typing import Optional` dans `summary_service.py` pour corriger une `NameError` introduite lors du refactoring.
+1.  **Analyse et Planification :**
+    *   Le bug a été identifié comme la priorité suite à la session précédente.
+    *   Un plan a été établi en mode Architecte, privilégiant l'utilisation de la propriété `transformPastedText` de TipTap après une recherche documentaire via Context7.
 
-2.  **Tentative de Correction du Bug de Collage (Échec Partiel) :**
-    *   **Analyse :** Le problème a été attribué à la gestion par défaut du collage de TipTap qui nettoie le HTML.
-    *   **Implémentation :** Ajout d'une logique `handlePaste` personnalisée dans `useTiptapEditor.js` pour intercepter le texte brut, le convertir en paragraphes HTML (`<p>`) et l'insérer.
-    *   **Résultat :** La correction implémentée ne s'est pas avérée efficace, le bug persiste.
+2.  **Première Tentative de Correction (Échec) :**
+    *   **Implémentation :** La fonction `transformPastedText` a été ajoutée à la configuration de l'éditeur pour remplacer les sauts de ligne (`\n`) par du HTML (`</p><p>`).
+    *   **Résultat :** Échec. Le HTML était inséré comme du texte littéral au lieu d'être interprété, aggravant le comportement.
+    *   **Analyse de l'échec :** `transformPastedText` est conçu pour manipuler du texte brut, pas pour retourner du HTML.
+
+3.  **Seconde Tentative de Correction (Succès) :**
+    *   **Stratégie Révisée :** Retour à l'utilisation de la propriété `handlePaste`, mais avec une logique plus robuste basée sur la manipulation directe de la transaction Prosemirror.
+    *   **Implémentation :** Le code de `handlePaste` a été réécrit pour intercepter le texte brut, le diviser en lignes, et utiliser `tr.split()` et `tr.insertText()` pour construire les paragraphes de manière programmatique.
+    *   **Résultat :** Succès. Le collage de texte préserve désormais correctement les sauts de ligne en créant de nouveaux paragraphes.
 
 ## État Actuel à la Fin de la Session
 
 *   **Ce qui fonctionne :**
-    *   La génération de résumé de chapitre utilise désormais correctement le fournisseur et le modèle d'IA sélectionnés dans l'interface, résolvant le problème de censure et de contrôle utilisateur.
-    *   Le backend est stable.
-
-*   **Problème Critique Persistant :**
-    *   Le bug des sauts de ligne lors du collage dans l'éditeur TipTap est toujours présent. La solution actuelle n'est pas fonctionnelle et nécessite une investigation plus approfondie.
+    *   Toutes les fonctionnalités précédentes, y compris la génération de résumé.
+    *   **CORRIGÉ :** Le collage de texte dans l'éditeur TipTap fonctionne désormais comme attendu.
+*   **Problèmes Connus :**
+    *   Aucun bug critique identifié. Le développement peut se poursuivre sur de nouvelles fonctionnalités.
 
 ## Prochaines Étapes
 
-*   **Priorité Haute :** Ré-investiguer et trouver une solution robuste pour le bug de collage dans l'éditeur TipTap.
-*   **Session terminée.**
+*   La session est terminée. La prochaine session pourra se concentrer sur les nouvelles fonctionnalités listées dans le `projectbrief.md`.

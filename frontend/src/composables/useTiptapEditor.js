@@ -62,28 +62,34 @@ export function useTiptapEditor(
           class: 'tiptap-editor',
         },
         handlePaste: (view, event, slice) => {
+          // Empêche le comportement de collage par défaut de Tiptap.
+          event.preventDefault();
+          
           const text = event.clipboardData.getData('text/plain');
-          const html = event.clipboardData.getData('text/html');
+          const { state, dispatch } = view;
+          let tr = state.tr;
 
-          // Si du HTML est collé, laisser TipTap le gérer, sauf si c'est du texte brut qui a été converti.
-          // On privilégie le texte brut si le HTML est simple (ex: juste un <p>) pour mieux gérer les sauts de ligne.
-          if (html && !text.includes(html.replace(/<[^>]+>/g, ''))) {
-             return false; // Laisser TipTap gérer le HTML riche
-          }
+          // Supprime la sélection actuelle avant de coller.
+          tr = tr.deleteSelection();
 
-          if (text) {
-            event.preventDefault();
-            const paragraphs = text.split(/\n{2,}/g) // Sépare par un ou plusieurs sauts de ligne
-                                 .map(p => p.trim())
-                                 .filter(p => p.length > 0)
-                                 .map(p => `<p>${p}</p>`)
-                                 .join('');
-            
-            editor.value.commands.insertContent(paragraphs);
-            return true;
-          }
+          // Divise le texte collé en lignes.
+          const lines = text.split('\n');
 
-          return false;
+          // Insère chaque ligne. Pour chaque ligne après la première,
+          // on insère un nouveau paragraphe.
+          lines.forEach((line, index) => {
+            if (index > 0) {
+              // Crée un nouveau paragraphe pour les lignes suivantes.
+              tr = tr.split(tr.selection.from, 1);
+            }
+            // Insère le texte de la ligne.
+            tr = tr.insertText(line, tr.selection.from);
+          });
+          
+          // Applique la transaction à l'éditeur.
+          dispatch(tr);
+
+          return true; // Indique que le collage a été géré.
         },
       },
       // La sauvegarde automatique onBlur est supprimée pour simplifier la logique
