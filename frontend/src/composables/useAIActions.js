@@ -20,6 +20,23 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
 
   // --- Helper Functions ---
 
+  /**
+   * Formate une chaîne de texte brut en HTML avec des paragraphes.
+   * Si la chaîne contient déjà du HTML, elle est retournée telle quelle.
+   * @param {string} text - Le texte à formater.
+   * @returns {string} Le texte formaté en HTML.
+   */
+  function formatTextToHtml(text) {
+    if (!text) return '';
+    // Détection simple de HTML. Si on trouve des balises, on suppose que c'est déjà formaté.
+    const isHtml = /<[a-z][\s\S]*>/i.test(text);
+    if (isHtml) {
+      return text;
+    }
+    // Sinon, on transforme les sauts de ligne en paragraphes.
+    return text.split('\n').filter(p => p.trim() !== '').map(p => `<p>${p.trim()}</p>`).join('');
+  }
+
   function getContextText(actionType) {
     if (!editorRef.value) return { text: '', isEmpty: true };
     const { from, to, empty } = editorRef.value.state.selection;
@@ -192,25 +209,24 @@ export function useAIActions(editorRef, selectedAiParamsRef, relevantCharactersR
     console.log(`useAIActions: AI action '${action}' successful.`);
     generationError.value = null;
 
+    const formattedText = formatTextToHtml(generatedText);
+
     switch (action) {
       case 'suggest':
+        // Pour les suggestions, on garde le texte brut, car il est affiché dans une liste et non dans l'éditeur.
         suggestions.value = [generatedText];
         break;
       case 'continue':
       case 'dialogue':
-        editorRef.value.chain().focus().insertContent(" " + generatedText).run();
+        editorRef.value.chain().focus().insertContent(" " + formattedText).run();
         break;
       case 'reformulate':
       case 'shorten':
       case 'expand':
         if (!editorRef.value.state.selection.empty) {
-          editorRef.value.chain().focus().deleteSelection().insertContent(generatedText).run();
+          editorRef.value.chain().focus().deleteSelection().insertContent(formattedText).run();
         } else {
-          // Si pas de sélection, insérer à la position du curseur ou remplacer le contenu existant ?
-          // Pour l'instant, on insère à la fin si pas de sélection.
-          // Ou on pourrait afficher une erreur/warning.
-          // Alternative: remplacer tout le contenu: editorRef.value.chain().focus().selectAll().insertContent(generatedText).run();
-          editorRef.value.chain().focus().insertContent(generatedText).run();
+          editorRef.value.chain().focus().insertContent(formattedText).run();
           console.warn(`useAIActions: Action '${action}' a été exécutée sans sélection. Le texte a été inséré.`);
         }
         break;

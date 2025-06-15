@@ -1,33 +1,38 @@
-# Contexte Actif - CyberPlume (Mise à jour : 14/06/2025 - 09:27)
+# Contexte Actif - CyberPlume (Mise à jour : 15/06/2025 - 07:35)
 
 ## Objectif de la Session
 
-*   **Objectif Principal :** Corriger le bug des sauts de ligne supprimés lors du collage de texte dans l'éditeur TipTap.
+*   **Objectif Principal :** Implémenter une fonctionnalité permettant à l'utilisateur de régler la taille de la police de l'application, en particulier dans l'éditeur.
+*   **Objectifs Secondaires :** Corriger les bugs de régression découlant de cette nouvelle fonctionnalité.
 
 ## Actions Réalisées durant la Session
 
-1.  **Analyse et Planification :**
-    *   Le bug a été identifié comme la priorité suite à la session précédente.
-    *   Un plan a été établi en mode Architecte, privilégiant l'utilisation de la propriété `transformPastedText` de TipTap après une recherche documentaire via Context7.
+1.  **Planification :**
+    *   Analyse de la demande et des fichiers existants.
+    *   Élaboration d'un plan d'implémentation basé sur un composable Vue.js (`useTypography`), une modification du composant racine (`App.vue`) et l'ajout d'une interface de contrôle (`ApiKeysManager.vue`).
 
-2.  **Première Tentative de Correction (Échec) :**
-    *   **Implémentation :** La fonction `transformPastedText` a été ajoutée à la configuration de l'éditeur pour remplacer les sauts de ligne (`\n`) par du HTML (`</p><p>`).
-    *   **Résultat :** Échec. Le HTML était inséré comme du texte littéral au lieu d'être interprété, aggravant le comportement.
-    *   **Analyse de l'échec :** `transformPastedText` est conçu pour manipuler du texte brut, pas pour retourner du HTML.
+2.  **Implémentation de la fonctionnalité de taille de police :**
+    *   Création du composable `useTypography.js` pour gérer l'état de la taille de police et sa persistance dans le `localStorage`.
+    *   Modification de `App.vue` pour appliquer dynamiquement la taille de police à toute l'application.
+    *   Ajout d'une section "Préférences d'Affichage" dans `ApiKeysManager.vue` avec un `v-slider` pour contrôler la taille.
 
-3.  **Seconde Tentative de Correction (Succès) :**
-    *   **Stratégie Révisée :** Retour à l'utilisation de la propriété `handlePaste`, mais avec une logique plus robuste basée sur la manipulation directe de la transaction Prosemirror.
-    *   **Implémentation :** Le code de `handlePaste` a été réécrit pour intercepter le texte brut, le diviser en lignes, et utiliser `tr.split()` et `tr.insertText()` pour construire les paragraphes de manière programmatique.
-    *   **Résultat :** Succès. Le collage de texte préserve désormais correctement les sauts de ligne en créant de nouveaux paragraphes.
+3.  **Correction du bug de défilement (scroll) :**
+    *   **Problème :** L'ajout de styles de hauteur (`height: 100vh`) sur le conteneur `.v-main` dans `App.vue` a cassé le défilement natif de Vuetify.
+    *   **Solution :** Suppression des règles CSS conflictuelles, restaurant le comportement de défilement normal.
+
+4.  **Correction du bug de formatage du contenu IA :**
+    *   **Problème :** Le contenu généré par certaines IA (texte brut avec `\n`) perdait ses sauts de ligne lors de l'insertion dans l'éditeur.
+    *   **Solution :** Modification du composable `useAIActions.js`. Une nouvelle fonction `formatTextToHtml` a été ajoutée pour convertir le texte brut en paragraphes HTML (`<p>`) avant de l'insérer, garantissant un formatage correct.
 
 ## État Actuel à la Fin de la Session
 
 *   **Ce qui fonctionne :**
-    *   Toutes les fonctionnalités précédentes, y compris la génération de résumé.
-    *   **CORRIGÉ :** Le collage de texte dans l'éditeur TipTap fonctionne désormais comme attendu.
+    *   La fonctionnalité de réglage de la taille de la police est opérationnelle.
+    *   Le bug de défilement est corrigé.
+    *   Le bug d'insertion de contenu IA est partiellement corrigé : les paragraphes sont maintenant créés.
 *   **Problèmes Connus :**
-    *   Aucun bug critique identifié. Le développement peut se poursuivre sur de nouvelles fonctionnalités.
+    *   La correction du formatage IA ne gère que la création de paragraphes (`<p>`), mais pas les sauts de ligne simples (`<br>`) à l'intérieur d'un même paragraphe. C'est une limitation connue mais jugée acceptable pour la fin de session.
 
 ## Prochaines Étapes
 
-*   La session est terminée. La prochaine session pourra se concentrer sur les nouvelles fonctionnalités listées dans le `projectbrief.md`.
+*   La session est terminée. La prochaine session pourra se concentrer sur l'amélioration du formatage IA ou sur d'autres fonctionnalités du `projectbrief.md`.
