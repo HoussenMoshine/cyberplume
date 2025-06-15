@@ -1,6 +1,6 @@
 <template>
 
-  <v-app :class="{ 'distraction-free': isDistractionFree }">
+  <v-app :class="{ 'distraction-free': isDistractionFree }" :style="appStyle">
 
     <!-- Masquer la barre d'app en mode sans distraction -->
     <!-- Ajout de elevation="0" pour un style plat -->
@@ -90,7 +90,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { useTypography } from '@/composables/useTypography.js';
 import EditorComponent from './components/EditorComponent.vue';
 import ProjectManager from './components/ProjectManager.vue';
 import CharacterManager from './components/CharacterManager.vue';
@@ -105,6 +106,12 @@ import {
 // Import des icônes Tabler
 import { IconFileText, IconUsers, IconSettings, IconBulb } from '@tabler/icons-vue'; // Ajout de IconBulb
 import { config } from '@/config.js';
+
+// Gestion de la typographie
+const { fontSize } = useTypography();
+const appStyle = computed(() => ({
+  fontSize: `${fontSize.value}px`,
+}));
 
 // Import et utilisation du composable Snackbar
 import { useSnackbar } from '@/composables/useSnackbar.js';
@@ -198,57 +205,34 @@ const handleInsertGeneratedContent = (content) => {
   if (editorComponentRef.value && typeof editorComponentRef.value.insertGeneratedContent === 'function') {
     editorComponentRef.value.insertGeneratedContent(content);
   } else {
-     console.warn("EditorComponent reference or insertGeneratedContent method not found for direct insertion!");
-     // Fallback: Peut-être copier dans le presse-papiers ou afficher dans un dialogue
+    console.warn("EditorComponent reference or insertGeneratedContent method not found!");
   }
 };
 
-const handleApplySuggestionToEditor = (suggestionData) => {
-  if (editorComponentRef.value && typeof editorComponentRef.value.handleApplySuggestionToEditor === 'function') {
-    editorComponentRef.value.handleApplySuggestionToEditor(suggestionData);
+const handleApplySuggestionToEditor = (content) => {
+  if (editorComponentRef.value && typeof editorComponentRef.value.setContent === 'function') {
+    editorComponentRef.value.setContent(content);
   } else {
-    console.warn("EditorComponent reference or handleApplySuggestionToEditor method not found!");
+    console.warn("EditorComponent reference or setContent method not found!");
   }
 };
 
 const updateGlobalAISettings = (settings) => {
-  if (settings.provider) globalAIProvider.value = settings.provider;
-  if (settings.model) globalAIModel.value = settings.model;
-  if (settings.style) globalAIStyle.value = settings.style;
-  if (settings.customDescription) globalCustomAIDescription.value = settings.customDescription;
+  globalAIProvider.value = settings.provider;
+  globalAIModel.value = settings.model;
+  globalAIStyle.value = settings.style;
+  globalCustomAIDescription.value = settings.customDescription;
 };
 
 </script>
 
 <style>
-html, body, #app {
-  height: 100%;
-  margin: 0;
-  overflow: hidden; /* Empêche le défilement au niveau de la page entière */
+.distraction-free .v-main {
+  padding: 0 !important;
 }
 
-.v-application {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-.v-main {
-  flex: 1;
-  overflow-y: auto; /* Permet le défilement uniquement dans la zone principale */
-  height: calc(100vh - 48px); /* 48px est la hauteur de la barre d'app */
-}
-
-.editor-window-item {
-  height: 100%;
-}
-
-.v-navigation-drawer {
-  border-right: 1px solid #e0e0e0;
-}
-
-.distraction-free .v-navigation-drawer,
-.distraction-free .v-app-bar {
-  display: none;
+/* Assure que l'éditeur TipTap hérite de la taille de police globale */
+.ProseMirror {
+  font-size: inherit !important;
 }
 </style>

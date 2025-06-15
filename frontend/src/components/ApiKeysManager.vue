@@ -1,6 +1,7 @@
 <template>
   <v-container>
-    <v-card class="pa-4">
+    <!-- Section pour les Clés API -->
+    <v-card class="pa-4 mb-6">
       <v-card-title class="text-h5 mb-4">
         Gestion des Clés API des Fournisseurs IA
       </v-card-title>
@@ -77,6 +78,36 @@
       </v-form>
     </v-card>
 
+    <!-- Section pour les Préférences d'Affichage -->
+    <v-card class="pa-4">
+      <v-card-title class="text-h5 mb-4">
+        Préférences d'Affichage
+      </v-card-title>
+      <v-card-subtitle class="mb-4">
+        Ajustez la taille du texte de l'application et de l'éditeur.
+      </v-card-subtitle>
+      
+      <v-row align="center" class="mt-2">
+        <v-col cols="3" class="text-subtitle-1 font-weight-medium">
+          Taille de la police
+        </v-col>
+        <v-col cols="7">
+          <v-slider
+            v-model="fontSize"
+            :min="12"
+            :max="24"
+            :step="1"
+            thumb-label
+            hide-details
+          >
+            <template v-slot:append>
+              <span class="text-h6 font-weight-light ml-2">{{ fontSize }}px</span>
+            </template>
+          </v-slider>
+        </v-col>
+      </v-row>
+    </v-card>
+
     <!-- Dialogue de confirmation de suppression -->
     <v-dialog v-model="showDeleteDialog" persistent max-width="500px">
       <v-card>
@@ -107,8 +138,10 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import axios from 'axios';
-import { useSnackbar } from '@/composables/useSnackbar'; // Assurez-vous que le chemin est correct
+import { useSnackbar } from '@/composables/useSnackbar';
+import { useTypography } from '@/composables/useTypography';
 
+const { fontSize } = useTypography();
 const apiUrl = import.meta.env.VITE_API_URL || '/api'; // Utiliser /api comme fallback
 const apiKey = import.meta.env.VITE_API_KEY;
 
@@ -122,8 +155,8 @@ const providers = ref([
 
 const isLoadingStatus = ref(true);
 const errorLoadingStatus = ref(null);
-const successMessage = ref(''); // Peut être conservé pour des messages globaux si besoin, sinon displaySnackbar suffit
-const errorMessage = ref(''); // Peut être conservé pour des messages globaux si besoin, sinon displaySnackbar suffit
+const successMessage = ref('');
+const errorMessage = ref('');
 
 // Pour le dialogue de confirmation
 const showDeleteDialog = ref(false);
@@ -137,8 +170,6 @@ const getHeaders = () => ({
 const fetchApiKeysStatus = async () => {
   isLoadingStatus.value = true;
   errorLoadingStatus.value = null;
-  // successMessage.value = ''; // Géré par snackbar
-  // errorMessage.value = ''; // Géré par snackbar
   try {
     const response = await axios.get(`${apiUrl}/api-keys-config/status`, { headers: getHeaders() });
     const statusData = response.data;
@@ -151,7 +182,7 @@ const fetchApiKeysStatus = async () => {
   } catch (error) {
     console.error("Erreur lors de la récupération du statut des clés API:", error);
     const detailError = error.response?.data?.detail || error.message || 'Une erreur inconnue est survenue lors du chargement du statut.';
-    errorLoadingStatus.value = detailError; // Pour l'alerte v-if
+    errorLoadingStatus.value = detailError;
     displaySnackbar(detailError, 'error');
   } finally {
     isLoadingStatus.value = false;
@@ -168,21 +199,17 @@ const saveApiKey = async (provider) => {
     return;
   }
   provider.isSaving = true;
-  // successMessage.value = '';
-  // errorMessage.value = '';
   try {
     await axios.post(`${apiUrl}/api-keys-config/${provider.name}`, 
       { api_key: provider.apiKeyInput }, 
       { headers: getHeaders() }
     );
     provider.isSet = true;
-    // provider.apiKeyInput = ''; // Optionnel: vider le champ après sauvegarde
     displaySnackbar(`Clé API pour ${provider.displayName} sauvegardée avec succès.`, 'success');
     await fetchApiKeysStatus(); // Recharger le statut
   } catch (error) {
     console.error(`Erreur lors de la sauvegarde de la clé API pour ${provider.displayName}:`, error);
     const detailError = error.response?.data?.detail || error.message || 'Une erreur inconnue est survenue lors de la sauvegarde.';
-    // errorMessage.value = detailError;
     displaySnackbar(detailError, 'error');
   } finally {
     provider.isSaving = false;
@@ -197,7 +224,7 @@ const initiateDeleteApiKey = (provider) => {
 const cancelDeleteApiKey = () => {
   showDeleteDialog.value = false;
   if (providerToDelete.value) {
-    providerToDelete.value.isDeleting = false; // Réinitialiser au cas où
+    providerToDelete.value.isDeleting = false;
   }
   providerToDelete.value = null;
 };
@@ -207,40 +234,29 @@ const confirmDeleteApiKey = async () => {
 
   const provider = providerToDelete.value;
   provider.isDeleting = true;
-  // successMessage.value = '';
-  // errorMessage.value = '';
-
+  
   try {
     await axios.delete(`${apiUrl}/api-keys-config/${provider.name}`, { headers: getHeaders() });
+    displaySnackbar(`Clé API pour ${provider.displayName} supprimée avec succès.`, 'success');
     provider.isSet = false;
     provider.apiKeyInput = '';
-    displaySnackbar(`Clé API pour ${provider.displayName} supprimée avec succès.`, 'success');
-    // Ne pas appeler fetchApiKeysStatus() ici, car cela pourrait causer des problèmes si le dialogue est encore en transition.
-    // Le statut est mis à jour localement (provider.isSet = false).
-    // Si un re-fetch est absolument nécessaire, il faudrait le gérer avec plus de précautions.
+    showDeleteDialog.value = false;
+    providerToDelete.value = null;
+    await fetchApiKeysStatus(); // Recharger le statut
   } catch (error) {
     console.error(`Erreur lors de la suppression de la clé API pour ${provider.displayName}:`, error);
     const detailError = error.response?.data?.detail || error.message || 'Une erreur inconnue est survenue lors de la suppression.';
-    // errorMessage.value = detailError;
     displaySnackbar(detailError, 'error');
   } finally {
     provider.isDeleting = false;
-    showDeleteDialog.value = false;
-    providerToDelete.value = null; 
-    // On peut appeler fetchApiKeysStatus ici si on veut s'assurer que l'état global est synchro,
-    // mais cela peut être un peu lourd. La mise à jour locale devrait suffire pour l'UI.
-    await fetchApiKeysStatus(); // Re-fetch pour s'assurer de la cohérence après la fermeture du dialogue
   }
 };
 
 onMounted(() => {
   fetchApiKeysStatus();
 });
-
 </script>
 
 <style scoped>
-.v-card-subtitle {
-  white-space: normal; /* Permet le retour à la ligne pour les sous-titres longs */
-}
+/* Styles spécifiques si nécessaire */
 </style>
