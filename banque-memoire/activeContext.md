@@ -1,38 +1,31 @@
-# Contexte Actif - CyberPlume (Mise à jour : 15/06/2025 - 07:35)
+# Contexte Actif - CyberPlume (Mise à jour : 16/06/2025 - 14:55)
 
 ## Objectif de la Session
 
-*   **Objectif Principal :** Implémenter une fonctionnalité permettant à l'utilisateur de régler la taille de la police de l'application, en particulier dans l'éditeur.
-*   **Objectifs Secondaires :** Corriger les bugs de régression découlant de cette nouvelle fonctionnalité.
+*   **Objectif Principal :** Finaliser la correction de la fonctionnalité d'analyse de contenu par chapitre, qui était non-opérationnelle à la suite d'une série de bugs en cascade (backend et frontend).
 
 ## Actions Réalisées durant la Session
 
-1.  **Planification :**
-    *   Analyse de la demande et des fichiers existants.
-    *   Élaboration d'un plan d'implémentation basé sur un composable Vue.js (`useTypography`), une modification du composant racine (`App.vue`) et l'ajout d'une interface de contrôle (`ApiKeysManager.vue`).
+La session s'est concentrée sur la résolution d'une chaîne de bugs qui empêchaient la fonctionnalité de fonctionner de bout en bout.
 
-2.  **Implémentation de la fonctionnalité de taille de police :**
-    *   Création du composable `useTypography.js` pour gérer l'état de la taille de police et sa persistance dans le `localStorage`.
-    *   Modification de `App.vue` pour appliquer dynamiquement la taille de police à toute l'application.
-    *   Ajout d'une section "Préférences d'Affichage" dans `ApiKeysManager.vue` avec un `v-slider` pour contrôler la taille.
-
-3.  **Correction du bug de défilement (scroll) :**
-    *   **Problème :** L'ajout de styles de hauteur (`height: 100vh`) sur le conteneur `.v-main` dans `App.vue` a cassé le défilement natif de Vuetify.
-    *   **Solution :** Suppression des règles CSS conflictuelles, restaurant le comportement de défilement normal.
-
-4.  **Correction du bug de formatage du contenu IA :**
-    *   **Problème :** Le contenu généré par certaines IA (texte brut avec `\n`) perdait ses sauts de ligne lors de l'insertion dans l'éditeur.
-    *   **Solution :** Modification du composable `useAIActions.js`. Une nouvelle fonction `formatTextToHtml` a été ajoutée pour convertir le texte brut en paragraphes HTML (`<p>`) avant de l'insérer, garantissant un formatage correct.
+1.  **Correction #1 (Backend - Parsing JSON) :** La logique d'extraction du JSON dans `backend/routers/analysis.py` a été renforcée pour gérer les réponses de l'IA enveloppées dans des blocs de code Markdown (ex: ` ```json ... ``` `).
+2.  **Correction #2 (Backend - Robustesse Parsing) :** Une logique de réparation a été ajoutée pour gérer les cas où la réponse JSON de l'IA est tronquée (coupée avant la fin), en trouvant le dernier objet JSON complet.
+3.  **Correction #3 (Frontend - Déclaration manquante) :** La variable `sortOptions` a été déclarée dans `frontend/src/components/dialogs/ChapterAnalysisDialog.vue` pour corriger un avertissement Vue qui bloquait l'interactivité.
+4.  **Correction #4 (Frontend - Plomberie de l'événement) :** Le flux d'application des suggestions a été entièrement connecté :
+    *   **`useTiptapEditor.js` :** Ajout d'une fonction `applySuggestion` pour remplacer le texte dans l'éditeur.
+    *   **`EditorComponent.vue` :** Exposition de la fonction `applySuggestion` à son parent.
+    *   **`App.vue` :** Correction de la fonction `handleApplySuggestionToEditor` pour qu'elle appelle correctement la méthode de l'éditeur.
+    *   **`ProjectManager.vue` :** Implémentation de la logique pour émettre l'événement vers `App.vue` lors du clic sur "Appliquer".
+5.  **Correction #5 (Frontend - Logique d'application) :** La méthode `applySuggestion` dans `useTiptapEditor.js` a été modifiée pour ne plus se baser sur les index (non fiables) mais sur la recherche et le remplacement du texte original de la suggestion.
 
 ## État Actuel à la Fin de la Session
 
 *   **Ce qui fonctionne :**
-    *   La fonctionnalité de réglage de la taille de la police est opérationnelle.
-    *   Le bug de défilement est corrigé.
-    *   Le bug d'insertion de contenu IA est partiellement corrigé : les paragraphes sont maintenant créés.
-*   **Problèmes Connus :**
-    *   La correction du formatage IA ne gère que la création de paragraphes (`<p>`), mais pas les sauts de ligne simples (`<br>`) à l'intérieur d'un même paragraphe. C'est une limitation connue mais jugée acceptable pour la fin de session.
+    *   La fonctionnalité "Analyse de Contenu" pour un chapitre est maintenant **entièrement opérationnelle**.
+    *   L'utilisateur peut lancer une analyse, voir les suggestions, les filtrer, les trier et les appliquer correctement dans l'éditeur.
+*   **Problèmes Connus :** Aucun problème connu sur cette fonctionnalité.
 
 ## Prochaines Étapes
 
-*   La session est terminée. La prochaine session pourra se concentrer sur l'amélioration du formatage IA ou sur d'autres fonctionnalités du `projectbrief.md`.
+*   Consulter le `projectbrief.md` pour identifier la prochaine fonctionnalité à développer ou le prochain point à améliorer.
+*   S'attaquer au formatage du contenu IA (gestion des `<br>`), comme mentionné dans `progress.md`.

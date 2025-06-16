@@ -242,7 +242,7 @@ const {
   snackbarTimeout 
 } = useSnackbar();
 
-const { editor, initializeEditor, destroyEditor } = useTiptapEditor();
+const { editor, initializeEditor, destroyEditor, applySuggestion } = useTiptapEditor();
 
 const { 
   isLoading, isSaving, loadingError, savingError, 
@@ -406,7 +406,8 @@ onBeforeUnmount(() => {
 
 defineExpose({
   loadChapter,
-  saveChapter
+  saveChapter,
+  applySuggestion
 });
 
 </script>

@@ -117,9 +117,44 @@ export function useTiptapEditor(
     destroyEditor();
   });
 
+  const applySuggestion = (suggestion) => {
+    if (!editor.value || !suggestion) return;
+
+    const { original_text, suggested_text } = suggestion;
+
+    const content = editor.value.getHTML();
+    
+    // On ne peut pas se fier aux index car ils sont basés sur le texte brut
+    // et non sur le HTML de l'éditeur. On va donc remplacer la première
+    // occurrence du texte original. C'est une solution imparfaite mais
+    // plus robuste que le calcul d'index.
+    
+    // Pour éviter de remplacer du HTML, on travaille sur le texte brut de l'éditeur
+    const textContent = editor.value.getText();
+    const startIndex = textContent.indexOf(original_text);
+
+    if (startIndex === -1) {
+        console.error("Le texte original de la suggestion n'a pas été trouvé dans l'éditeur.", suggestion);
+        // On pourrait afficher un snackbar ici pour informer l'utilisateur.
+        return;
+    }
+
+    // Les index de Tiptap sont 1-based.
+    const from = startIndex + 1;
+    const to = from + original_text.length;
+
+    editor.value
+      .chain()
+      .focus()
+      .setTextSelection({ from, to })
+      .insertContent(suggested_text)
+      .run();
+  };
+
   return {
     editor,
     initializeEditor, 
     destroyEditor,
+    applySuggestion, // Exposer la nouvelle fonction
   };
 }

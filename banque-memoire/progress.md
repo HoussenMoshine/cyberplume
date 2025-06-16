@@ -1,4 +1,4 @@
-# Progression - CyberPlume (Mise à jour : 15/06/2025 - 07:35)
+# Progression - CyberPlume (Mise à jour : 16/06/2025 - 14:55)
 
 ## Ce qui Fonctionne (État Actuel)
 
@@ -10,28 +10,35 @@
 *   **Sauvegarde et chargement des chapitres :** Le flux "Data Airlock" est en place.
 *   **Génération de résumé de chapitre :** Fonctionnel.
 *   **Collage de texte dans l'éditeur :** Fonctionnel.
-*   **Réglage de la taille de la police :** **NOUVEAU**. L'utilisateur peut ajuster la taille de la police globale via le panneau de configuration.
-*   **Défilement (Scroll) :** **CORRIGÉ**. Le défilement de la page et de l'éditeur est de nouveau fonctionnel.
+*   **Réglage de la taille de la police :** Fonctionnel.
+*   **Défilement (Scroll) :** Fonctionnel.
+*   **Analyse de Cohérence (Projet) :** Fonctionnel.
+*   **Analyse de Contenu (Chapitre) :** **Fonctionnel.** La fonctionnalité est maintenant opérationnelle de bout en bout.
 *   **Stabilité Générale :** L'application est dans un état stable.
 
 ## Ce qui Reste à Construire / Améliorer
 
-*   **Formatage du contenu IA :** La gestion des sauts de ligne simples (`<br>`) lors de l'insertion de texte généré par l'IA n'est pas encore implémentée. Seuls les paragraphes (`<p>`) sont créés.
+*   **Formatage du contenu IA :** La gestion des sauts de ligne simples (`<br>`) lors de l'insertion de texte généré par l'IA n'est pas encore implémentée.
 *   **Fonctionnalités futures :** Reprendre le développement des fonctionnalités prévues au `projectbrief.md`.
 
 ## Évolution des Décisions
 
+### Session 16 Juin (Après-midi)
+*   **Objectif :** Résoudre la chaîne de bugs bloquant l'analyse de contenu.
+*   **Actions Clés :**
+    1.  **Backend :** Correction du parsing JSON pour gérer les blocs de code et les réponses tronquées.
+    2.  **Frontend :** Correction d'un avertissement Vue bloquant dans le dialogue d'analyse (`sortOptions`).
+    3.  **Frontend :** Connexion complète du flux d'événements pour l'application des suggestions, de `ChapterAnalysisDialog` à `EditorComponent` en passant par `ProjectManager` et `App.vue`.
+    4.  **Frontend :** Modification de la logique d'application des suggestions pour se baser sur la recherche de texte plutôt que sur des index invalides.
+*   **Résultat :** **SUCCÈS.** La fonctionnalité d'analyse de contenu est entièrement réparée et fonctionnelle.
+
+### Session 16 Juin (Matin)
+*   **Objectif :** Corriger une série de bugs sur la fonctionnalité d'analyse de chapitre.
+*   **Résultat :** La fonctionnalité restait boguée à la fin de la session. Le bug final identifié était une logique de parsing JSON inadéquate.
+
 ### Session 15 Juin (Matin)
 *   **Objectif :** Ajouter un réglage de taille de police et corriger les bugs induits.
-*   **Actions Clés :**
-    1.  **Implémentation :** Création d'un composable `useTypography` pour une gestion d'état globale et persistante de la taille de la police. Ajout d'un slider de contrôle dans l'interface de configuration.
-    2.  **Correction Bug de Défilement :** Identification et suppression de styles CSS conflictuels sur `.v-main` qui bloquaient le défilement.
-    3.  **Correction Bug de Formatage IA :** Modification de `useAIActions` pour convertir le texte brut (`\n`) en paragraphes HTML (`<p>`) avant insertion, résolvant le problème des paragraphes qui se "collent".
-*   **Résultat :** Fonctionnalité de police livrée. Bugs de régression majeurs corrigés. Un problème mineur de formatage (sauts de ligne simples) persiste mais est accepté comme dette technique pour la session.
-
-### Session 14 Juin (Après-midi - Branche `fix-paste-bug`)
-*   **Objectif :** Corriger le bug de collage dans l'éditeur TipTap.
-*   **Résultat :** Succès. Le bug de collage est résolu de manière robuste via `handlePaste`.
+*   **Résultat :** Fonctionnalité livrée et bugs de régression majeurs corrigés.
 
 ### Sessions Antérieures
 *   Focalisées sur la réparation de régressions et la stabilisation des fonctionnalités de base.

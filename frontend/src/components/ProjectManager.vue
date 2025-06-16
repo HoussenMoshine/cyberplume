@@ -161,7 +161,7 @@ const props = defineProps({
   currentCustomAiDescription: { type: String, default: null },
 });
 
-const emit = defineEmits(['chapter-selected']);
+const emit = defineEmits(['chapter-selected', 'apply-suggestion-to-editor']);
 
 const snackbarVisible = ref(false);
 const snackbarText = ref('');
@@ -197,7 +197,7 @@ const {
 
 const {
     analysisResult, loadingAnalysis, errorAnalysis,
-    getProjectAnalysis, getChapterAnalysis,
+    triggerConsistencyAnalysis, triggerChapterAnalysis,
     chapterAnalysisResult,
 } = useAnalysis(showSnackbar);
 
@@ -377,7 +377,7 @@ async function confirmDelete() {
 
 // --- Analysis Dialogs ---
 function openAnalysisDialog(projectId) {
-    getProjectAnalysis(projectId);
+    triggerConsistencyAnalysis(projectId);
     showAnalysisDialog.value = true;
 }
 
@@ -390,7 +390,7 @@ function openChapterAnalysisDialog(chapterId) {
     if(chapter) {
         analyzingChapterId.value = chapterId;
         analyzingChapterTitle.value = chapter.title;
-        getChapterAnalysis(chapterId);
+        triggerChapterAnalysis(chapterId, props.currentAiProvider, props.currentAiModel);
         showChapterAnalysisDialog.value = true;
     }
 }
@@ -399,12 +399,14 @@ function closeChapterAnalysisDialog() {
     showChapterAnalysisDialog.value = false;
 }
 
-function handleApplySuggestion({ chapterId, suggestion }) {
-    const chapter = findChapterById(chapterId);
-    if (chapter) {
-        console.warn("applySuggestionToChapterContent not implemented or exposed from composable");
-    }
-
+function handleApplySuggestion(suggestion) {
+    // Le dialogue n'a pas l'ID du chapitre, mais ce n'est pas grave car l'éditeur
+    // travaille sur le chapitre actuellement chargé.
+    // On remonte l'événement au parent (App.vue) qui a la référence de l'éditeur.
+    emit('apply-suggestion-to-editor', suggestion);
+    
+    // On pourrait aussi fermer le dialogue ici si on le souhaite.
+    // closeChapterAnalysisDialog();
 }
 
 // --- Helpers ---

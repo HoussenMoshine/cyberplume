@@ -209,11 +209,11 @@ const handleInsertGeneratedContent = (content) => {
   }
 };
 
-const handleApplySuggestionToEditor = (content) => {
-  if (editorComponentRef.value && typeof editorComponentRef.value.setContent === 'function') {
-    editorComponentRef.value.setContent(content);
+const handleApplySuggestionToEditor = (suggestion) => {
+  if (editorComponentRef.value && typeof editorComponentRef.value.applySuggestion === 'function') {
+    editorComponentRef.value.applySuggestion(suggestion);
   } else {
-    console.warn("EditorComponent reference or setContent method not found!");
+    console.warn("EditorComponent reference or applySuggestion method not found!");
   }
 };
 

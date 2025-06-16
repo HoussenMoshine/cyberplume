@@ -16,7 +16,7 @@
           <!-- Section Statistiques -->
           <h3 class="text-h6 mb-2">Statistiques</h3>
           <v-row dense>
-            <v-col cols="12" sm="6">
+            <v-col cols="12" sm="6" v-if="analysisResult.stats && analysisResult.stats.word_count !== null && analysisResult.stats.word_count !== undefined">
               <v-list-item density="compact">
                 <template v-slot:prepend>
                   <IconListNumbers class="mr-2" size="20" />
@@ -25,7 +25,7 @@
                 <v-list-item-subtitle>{{ analysisResult.stats.word_count }}</v-list-item-subtitle>
               </v-list-item>
             </v-col>
-            <v-col cols="12" sm="6" v-if="analysisResult.stats.character_count !== null">
+            <v-col cols="12" sm="6" v-if="analysisResult.stats && analysisResult.stats.character_count !== null && analysisResult.stats.character_count !== undefined">
               <v-list-item density="compact">
                  <template v-slot:prepend>
                    <IconAbc class="mr-2" size="20" />
@@ -34,7 +34,7 @@
                 <v-list-item-subtitle>{{ analysisResult.stats.character_count }}</v-list-item-subtitle>
               </v-list-item>
             </v-col>
-             <v-col cols="12" sm="6" v-if="analysisResult.stats.sentence_count !== null">
+             <v-col cols="12" sm="6" v-if="analysisResult.stats && analysisResult.stats.sentence_count !== null && analysisResult.stats.sentence_count !== undefined">
                <v-list-item density="compact">
                  <template v-slot:prepend>
                    <IconPilcrow class="mr-2" size="20" />
@@ -43,7 +43,7 @@
                  <v-list-item-subtitle>{{ analysisResult.stats.sentence_count }}</v-list-item-subtitle>
                </v-list-item>
              </v-col>
-             <v-col cols="12" sm="6" v-if="analysisResult.stats.readability_score !== null">
+             <v-col cols="12" sm="6" v-if="analysisResult.stats && analysisResult.stats.readability_score !== null && analysisResult.stats.readability_score !== undefined">
                <v-list-item density="compact">
                  <template v-slot:prepend>
                    <IconBook class="mr-2" size="20" />
@@ -52,7 +52,7 @@
                  <v-list-item-subtitle>{{ analysisResult.stats.readability_score.toFixed(2) }}</v-list-item-subtitle>
                </v-list-item>
              </v-col>
-             <v-col cols="12" sm="6" v-if="analysisResult.stats.estimated_reading_time_minutes !== null">
+             <v-col cols="12" sm="6" v-if="analysisResult.stats && analysisResult.stats.estimated_reading_time_minutes !== null && analysisResult.stats.estimated_reading_time_minutes !== undefined">
                <v-list-item density="compact">
                  <template v-slot:prepend>
                    <IconClockHour8 class="mr-2" size="20" />
@@ -198,23 +198,22 @@ const emit = defineEmits(['close', 'apply-suggestion']);
 const selectedSuggestionTypes = ref([]); // Types sélectionnés pour le filtre
 const selectedSortOption = ref('position'); // Option de tri ('position' ou 'type')
 
-const sortOptions = [
+// Déclaration manquante pour les options de tri
+const sortOptions = ref([
   { title: 'Position dans le texte', value: 'position' },
   { title: 'Type de suggestion', value: 'type' },
-];
+]);
 
-// Calcule les types de suggestions uniques disponibles
 const availableSuggestionTypes = computed(() => {
-  if (!props.analysisResult?.suggestions) return [];
+  if (!props.analysisResult || !props.analysisResult.suggestions) return [];
   const types = new Set(props.analysisResult.suggestions.map(s => s.suggestion_type));
-  return Array.from(types).sort(); // Tri alphabétique pour l'affichage des chips
+  return Array.from(types);
 });
 
-// Calcule les suggestions filtrées et triées
 const filteredAndSortedSuggestions = computed(() => {
-  if (!props.analysisResult?.suggestions) return [];
+  if (!props.analysisResult || !props.analysisResult.suggestions) return [];
 
-  let suggestions = props.analysisResult.suggestions;
+  let suggestions = [...props.analysisResult.suggestions];
 
   // Filtrage
   if (selectedSuggestionTypes.value.length > 0) {
@@ -222,49 +221,38 @@ const filteredAndSortedSuggestions = computed(() => {
   }
 
   // Tri
-  if (selectedSortOption.value === 'position') {
-    suggestions = suggestions.sort((a, b) => a.start_index - b.start_index);
-  } else if (selectedSortOption.value === 'type') {
-    suggestions = suggestions.sort((a, b) => a.suggestion_type.localeCompare(b.suggestion_type) || a.start_index - b.start_index); // Tri secondaire par position
+  if (selectedSortOption.value === 'type') {
+    suggestions.sort((a, b) => a.suggestion_type.localeCompare(b.suggestion_type));
+  } else { // 'position'
+    suggestions.sort((a, b) => a.start_index - b.start_index);
   }
 
   return suggestions;
 });
-// --- Fin Filtres et Tri ---
 
-// Fonction pour déterminer la couleur du chip en fonction du type de suggestion
 const getSuggestionColor = (type) => {
-  switch (type.toLowerCase()) {
-    case 'orthographe': return 'red-lighten-1';
-    case 'grammaire': return 'orange-lighten-1';
-    case 'ponctuation': return 'yellow-darken-2'; // Ajout ponctuation
-    case 'style': return 'blue-lighten-1';
-    case 'répétition': return 'purple-lighten-1';
-    case 'clarté': return 'teal-lighten-1';
-    case 'fluidité': return 'green-lighten-1'; // Ajout fluidité
-    case 'cohérence': return 'indigo-lighten-1';
-    case 'engagement': return 'pink-lighten-1';
+  switch (type) {
+    case 'Grammaire': return 'blue';
+    case 'Style': return 'purple';
+    case 'Orthographe': return 'red';
+    case 'Clarté': return 'green';
+    case 'Incohérence': return 'orange';
     default: return 'grey';
   }
 };
 
 // AJOUT: Fonction pour émettre l'événement d'application
 const applySuggestion = (suggestion) => {
-  console.log('Applying suggestion:', suggestion);
-  // Émettre l'événement avec les données nécessaires pour l'éditeur
-  emit('apply-suggestion', {
-    startIndex: suggestion.start_index,
-    endIndex: suggestion.end_index,
-    suggestedText: suggestion.suggested_text,
-  });
-  // Optionnel: Fermer le dialogue après application ? Ou laisser ouvert pour appliquer d'autres suggestions ?
-  // Pour l'instant, on laisse ouvert.
+  emit('apply-suggestion', suggestion);
 };
 
 </script>
 
 <style scoped>
 .headline {
-  font-weight: 500; /* Maintenu pour l'instant, mais la classe text-h5 de Vuetify devrait gérer cela */
+  background-color: #f5f5f5;
+  color: #333;
+  padding: 16px 24px;
+  border-bottom: 1px solid #ddd;
 }
 </style>

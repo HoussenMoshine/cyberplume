@@ -19,6 +19,7 @@ from ..ai_services.ai_adapter import AIAdapter
 # Importer les settings pour les clés API
 from .. import crud_api_keys
 from ..config import settings
+from ..crud_api_keys import get_decrypted_api_key # IMPORT CORRECT
 
 # Charger le modèle spaCy français (s'assurer qu'il est téléchargé)
 try:
@@ -186,108 +187,145 @@ Vous analysez maintenant le CHAPITRE ACTUEL ({chapter.title}).
     suggestions: List[Suggestion] = []
     try:
         provider_lower = request.provider.lower()
+        model_name_to_use = request.model
 
-        # Correction: Utiliser la logique de récupération de clé API et d'instanciation de service
-        # similaire à celle de summary_service.py
-        api_key_to_use = None
-        model_name_to_use = request.model # Le modèle peut être spécifié dans la requête
-
-        if provider_lower == "gemini":
-            api_key_to_use = settings.gemini_api_key
-            if not model_name_to_use: # Si non spécifié dans la requête, prendre celui par défaut
-                 model_name_to_use = getattr(settings, 'gemini_analysis_model_name', getattr(settings, 'gemini_model_name', None))
-        elif provider_lower == "mistral":
-            api_key_to_use = settings.mistral_api_key
-            if not model_name_to_use:
-                 model_name_to_use = getattr(settings, 'mistral_analysis_model_name', getattr(settings, 'mistral_model_name', None))
-        elif provider_lower == "openrouter":
-            api_key_to_use = settings.openrouter_api_key
-            if not model_name_to_use:
-                 model_name_to_use = getattr(settings, 'openrouter_analysis_model_name', getattr(settings, 'openrouter_default_model', None))
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Fournisseur non supporté : {request.provider}"
-            )
+        # CORRECTION: Utiliser la logique de récupération de clé unifiée
+        api_key_to_use = get_decrypted_api_key(db, provider_lower, settings_fallback=settings)
 
         if not api_key_to_use:
-            logging.warning(f"Aucune clé API trouvée (DB ou .env) pour le provider: {provider_lower} lors de l'analyse de chapitre.")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Clé API non configurée pour le fournisseur : {request.provider}. Veuillez la configurer via l'interface ou le fichier .env."
+                detail=f"Clé API pour le fournisseur '{provider_lower}' non configurée dans la base de données ou le fichier .env."
             )
-        
-        ai_service: AIAdapter = create_adapter(provider_name=provider_lower, api_key=api_key_to_use, model=model_name_to_use)
-        
-        # Construire le prompt pour l'analyse de contenu
-        # TODO: Améliorer ce prompt, le rendre configurable, ou utiliser des templates.
-        # S'assurer que le prompt demande des suggestions avec des indices de position.
-        prompt_template = f"""{previous_chapter_summary_context}
-Analysez le texte suivant du chapitre "{chapter.title}" et fournissez des suggestions d'amélioration. 
-Pour chaque suggestion, indiquez le texte original concerné, la suggestion de remplacement, et si possible, les indices de début et de fin du texte original dans le contenu brut.
-Format attendu pour chaque suggestion (JSON parsable dans une liste):
-{{
-  "original_text": "le texte original à remplacer",
-  "suggested_text": "le texte suggéré",
-  "start_index": index_debut_original_text,
-  "end_index": index_fin_original_text,
-  "comment": "brève explication de la suggestion"
-}}
 
-Voici le texte à analyser :
----
-{content_plain_text}
----
+        # Définir le modèle par défaut si non fourni
+        if not model_name_to_use:
+            default_model_key = f'{provider_lower}_analysis_model_name'
+            fallback_model_key = f'{provider_lower}_model_name'
+            model_name_to_use = getattr(settings, default_model_key, getattr(settings, fallback_model_key, None))
 
-Suggestions (liste de JSON) :
-"""
-        # Placeholder pour la réponse de l'IA - à remplacer par un appel réel
-        # La réponse de l'IA devrait être une chaîne JSON représentant une liste d'objets Suggestion.
-        # Exemple de réponse attendue de l'IA (chaîne JSON):
-        # '[{"original_text": "un exemple de texte", "suggested_text": "un meilleur exemple", "start_index": 10, "end_index": 30, "comment": "Reformulation pour clarté."}]'
+        ai_service = create_adapter(provider_lower, api_key=api_key_to_use, model=model_name_to_use)
         
-        # generated_response_str = await ai_service.generate(prompt_template, max_tokens=1000) # Ajuster max_tokens
-        # Pour l'instant, simulation
-        generated_response_str = f"""
+        if not ai_service:
+            raise HTTPException(status_code=500, detail=f"Impossible d'initialiser le service IA pour {provider_lower}")
+
+        prompt = f"""
+        {previous_chapter_summary_context}
+        <instruction>
+        Tu es un assistant d'écriture expert. Analyse le texte du CHAPITRE ACTUEL ci-dessous.
+        Identifie les fautes de grammaire, d'orthographe, les problèmes de style (répétitions, phrases maladroites), et les incohérences.
+        Pour chaque problème identifié, fournis une suggestion d'amélioration.
+        Ta réponse DOIT être un objet JSON valide, qui est une liste de suggestions.
+        Chaque suggestion dans la liste doit être un objet JSON avec les clés suivantes :
+        - "original_text": Le segment de texte exact à corriger.
+        - "start_index": L'index de début du segment dans le texte original.
+        - "end_index": L'index de fin du segment dans le texte original.
+        - "suggested_text": La version corrigée ou améliorée du segment.
+        - "explanation": Une brève explication de la raison de la suggestion.
+        - "suggestion_type": Une catégorie pour la suggestion (par exemple, "Grammaire", "Style", "Orthographe", "Clarté", "Incohérence").
+
+        Exemple de format de sortie JSON attendu :
         [
             {{
-                "original_text": "{content_plain_text[20:40]}",
-                "suggested_text": "un segment de texte amélioré (simulé)",
-                "start_index": 20,
-                "end_index": 40,
-                "comment": "Ceci est une suggestion simulée pour des raisons de test."
+                "original_text": "Il sont aller au marché.",
+                "start_index": 10,
+                "end_index": 32,
+                "suggested_text": "Ils sont allés au marché.",
+                "explanation": "Accord du participe passé avec l'auxiliaire 'être' et correction du pronom sujet.",
+                "suggestion_type": "Grammaire"
+            }},
+            {{
+                "original_text": "Le grand homme grand.",
+                "start_index": 45,
+                "end_index": 64,
+                "suggested_text": "L'homme de grande taille.",
+                "explanation": "Répétition du mot 'grand'.",
+                "suggestion_type": "Style"
             }}
         ]
+        Ne fournis AUCUN texte en dehors de cet objet JSON. La réponse doit commencer par `[` et se terminer par `]`.
+        </instruction>
+        <texte_original_a_analyser>
+        {content_plain_text}
+        </texte_original_a_analyser>
         """
-        logging.info(f"Réponse simulée de l'IA pour l'analyse du chapitre {chapter_id}: {generated_response_str}")
 
+        logging.info(f"Sending prompt to {provider_lower} (model: {model_name_to_use})...")
+        
+        ai_response_text = ""
+        if hasattr(ai_service, 'generate_text'):
+            ai_response_text = await ai_service.generate_text(prompt)
+        elif hasattr(ai_service, 'generate'):
+            response_obj = await ai_service.generate(prompt)
+            ai_response_text = response_obj.text if hasattr(response_obj, 'text') else str(response_obj)
+        else:
+            raise NotImplementedError(f"Le service IA {provider_lower} ne supporte pas de méthode de génération reconnue.")
+
+        logging.info(f"Raw AI response: {ai_response_text[:500]}...")
+
+        # Nettoyer et parser la réponse JSON de manière plus robuste
+        json_str = None
+        # Regex pour trouver un bloc de code JSON, puis fallback sur un JSON brut.
+        # Gère ```json ... ```, ``` ... ```, et le JSON brut.
+        match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```|([\s\S]*)", ai_response_text.strip(), re.DOTALL)
+        
+        if match:
+            # Le premier groupe capture le contenu dans ```...```, le second capture tout le reste.
+            content = match.group(1) if match.group(1) is not None else match.group(2)
+            
+            # Essayer de trouver le début d'un objet ou d'une liste JSON dans le contenu extrait
+            json_start_match = re.search(r'\[|\{', content)
+            if json_start_match:
+                # Extraire à partir du premier crochet/accolade trouvé
+                json_str = content[json_start_match.start():]
+            else:
+                json_str = content # Fallback si aucun délimiteur n'est trouvé
+        
+        if not json_str or not json_str.strip():
+            logging.error(f"Aucun contenu JSON valide n'a été trouvé dans la réponse de l'IA.")
+            logging.error(f"Réponse brute de l'IA: {ai_response_text}")
+            raise HTTPException(status_code=500, detail="La réponse de l'IA ne contenait pas de JSON valide.")
+        
         try:
-            parsed_suggestions = json.loads(generated_response_str)
-            for sugg_data in parsed_suggestions:
-                # Valider avec le modèle Pydantic Suggestion
-                try:
-                    suggestion_obj = Suggestion(**sugg_data)
-                    suggestions.append(suggestion_obj)
-                except ValidationError as ve:
-                    logging.error(f"Erreur de validation pour la suggestion: {sugg_data}, Erreurs: {ve.errors()}")
-                    # Optionnel: ajouter un avertissement ou une suggestion partielle
+            # Première tentative de parsing direct
+            parsed_suggestions = json.loads(json_str)
         except json.JSONDecodeError as e:
-            logging.error(f"Erreur de décodage JSON de la réponse IA pour le chapitre {chapter_id}: {e}")
-            logging.error(f"Réponse IA brute: {generated_response_str}")
-            # Optionnel: ajouter un avertissement à la réponse finale
-            # suggestions.append(Suggestion(original_text="Erreur IA", suggested_text="Impossible d'interpréter la réponse de l'IA.", start_index=0, end_index=0, comment="Vérifiez les logs du serveur."))
+            logging.warning(f"Le parsing JSON direct a échoué: {e}. Tentative de réparation du JSON tronqué.")
+            # Tentative de réparation si le JSON est tronqué (fréquent avec les LLMs)
+            # On cherche la dernière accolade fermante '}' pour délimiter le dernier objet JSON complet
+            last_brace_index = json_str.rfind('}')
+            if last_brace_index != -1:
+                # On prend la sous-chaîne jusqu'au dernier objet complet et on ferme la liste
+                repaired_json_str = json_str[:last_brace_index + 1] + ']'
+                logging.info(f"Tentative de parsing avec la chaîne JSON réparée: {repaired_json_str[:500]}...")
+                try:
+                    # Nouvelle tentative avec la chaîne réparée
+                    parsed_suggestions = json.loads(repaired_json_str)
+                except json.JSONDecodeError as e2:
+                    logging.error(f"Impossible de décoder la réponse JSON même après réparation: {e2}")
+                    logging.error(f"Chaîne JSON extraite problématique: {json_str}")
+                    raise HTTPException(status_code=500, detail="La réponse de l'IA n'était pas un JSON valide, même après tentative de réparation.")
+            else:
+                # Si aucune accolade n'est trouvée, impossible de réparer
+                logging.error(f"Impossible de trouver un objet JSON partiel à réparer.")
+                logging.error(f"Chaîne JSON extraite problématique: {json_str}")
+                raise HTTPException(status_code=500, detail="La réponse de l'IA ne contenait pas de JSON valide.")
 
+        # La validation Pydantic se fait après avoir obtenu une liste `parsed_suggestions` valide
+        try:
+            for sugg_data in parsed_suggestions:
+                try:
+                    suggestions.append(Suggestion(**sugg_data))
+                except ValidationError as e:
+                    logging.warning(f"Suggestion invalide de l'IA ignorée : {sugg_data}. Erreur: {e}")
+        except Exception as e:
+            logging.error(f"Erreur lors de la validation Pydantic des suggestions: {e}")
+            raise HTTPException(status_code=500, detail="Erreur lors de la validation des données reçues de l'IA.")
 
-    except HTTPException: # Laisser remonter les HTTPException (clés API, etc.)
-        raise
+    except HTTPException as e:
+        raise e # Propage les erreurs HTTP (ex: clé API manquante)
     except Exception as e:
         logging.error(f"Erreur inattendue lors de l'analyse du chapitre {chapter_id}: {e}", exc_info=True)
-        # Ne pas bloquer toute la réponse pour une erreur d'IA, retourner les stats au moins
-        # suggestions.append(Suggestion(original_text="Erreur Serveur", suggested_text="Une erreur interne est survenue lors de l'analyse IA.", start_index=0, end_index=0, comment=str(e)))
+        raise HTTPException(status_code=500, detail=f"Erreur inattendue du serveur lors de l'analyse: {e}")
 
     return ChapterAnalysisResponse(chapter_id=chapter_id, stats=stats, suggestions=suggestions)
-
-# TODO: Ajouter un endpoint pour l'analyse de style (similaire à l'analyse de contenu mais avec un prompt différent)
-# from ..models import StyleAnalysisRequest, StyleAnalysisResponse
-# @router.post("/chapters/{chapter_id}/analyze-style", response_model=StyleAnalysisResponse)
-# async def analyze_chapter_style ...
