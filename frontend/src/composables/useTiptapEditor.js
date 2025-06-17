@@ -13,6 +13,45 @@ import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
 
 /**
+ * Insère du texte brut dans l'éditeur en créant des paragraphes pour chaque ligne.
+ * @param {import('@tiptap/vue-3').Editor} editorInstance - L'instance de l'éditeur.
+ * @param {string} text - Le texte à insérer.
+ * @param {boolean} deleteSelection - Faut-il supprimer la sélection actuelle ?
+ */
+function insertTextAsParagraphs(editorInstance, text, deleteSelection = false) {
+  if (!editorInstance || !text) return;
+
+  const { state, dispatch } = editorInstance.view;
+  let tr = state.tr;
+
+  if (deleteSelection) {
+    tr = tr.deleteSelection();
+  }
+
+  const lines = text.split('\n');
+
+  lines.forEach((line, index) => {
+    const trimmedLine = line.trim();
+    // Ne pas créer de paragraphe pour la première ligne si le curseur est déjà
+    // au début d'un bloc vide, pour éviter un paragraphe vide en haut.
+    const { from } = tr.selection;
+    const isFirstLine = index === 0;
+    const isCursorAtStartOfEmptyBlock = from === tr.doc.resolve(from).start() && tr.doc.nodeAt(from - 1)?.content.size === 0;
+
+    if (!isFirstLine || !isCursorAtStartOfEmptyBlock) {
+       tr = tr.split(tr.selection.from, 1);
+    }
+    
+    if (trimmedLine) {
+      tr = tr.insertText(trimmedLine, tr.selection.from);
+    }
+  });
+
+  dispatch(tr);
+}
+
+
+/**
  * Composable pour gérer l'instance de l'éditeur TipTap.
  * @param {string|object} initialContent - Le contenu initial de l'éditeur.
  * @param {string} placeholderText - Texte pour l'extension Placeholder.
@@ -62,34 +101,10 @@ export function useTiptapEditor(
           class: 'tiptap-editor',
         },
         handlePaste: (view, event, slice) => {
-          // Empêche le comportement de collage par défaut de Tiptap.
           event.preventDefault();
-          
           const text = event.clipboardData.getData('text/plain');
-          const { state, dispatch } = view;
-          let tr = state.tr;
-
-          // Supprime la sélection actuelle avant de coller.
-          tr = tr.deleteSelection();
-
-          // Divise le texte collé en lignes.
-          const lines = text.split('\n');
-
-          // Insère chaque ligne. Pour chaque ligne après la première,
-          // on insère un nouveau paragraphe.
-          lines.forEach((line, index) => {
-            if (index > 0) {
-              // Crée un nouveau paragraphe pour les lignes suivantes.
-              tr = tr.split(tr.selection.from, 1);
-            }
-            // Insère le texte de la ligne.
-            tr = tr.insertText(line, tr.selection.from);
-          });
-          
-          // Applique la transaction à l'éditeur.
-          dispatch(tr);
-
-          return true; // Indique que le collage a été géré.
+          insertTextAsParagraphs(editor.value, text, true);
+          return true;
         },
       },
       // La sauvegarde automatique onBlur est supprimée pour simplifier la logique
@@ -151,10 +166,18 @@ export function useTiptapEditor(
       .run();
   };
 
+  // Exposer la fonction d'insertion pour les actions IA
+  const insertAIText = (text) => {
+    if (!editor.value) return;
+    const deleteSel = !editor.value.state.selection.empty;
+    insertTextAsParagraphs(editor.value, text, deleteSel);
+  };
+
   return {
     editor,
     initializeEditor, 
     destroyEditor,
-    applySuggestion, // Exposer la nouvelle fonction
+    applySuggestion,
+    insertAIText, // Exposer la nouvelle fonction d'insertion
   };
 }

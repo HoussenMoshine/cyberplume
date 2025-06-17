@@ -1,4 +1,4 @@
-# Progression - CyberPlume (Mise à jour : 16/06/2025 - 14:55)
+# Progression - CyberPlume (Mise à jour : 17/06/2025 - 10:27)
 
 ## Ce qui Fonctionne (État Actuel)
 
@@ -13,32 +13,24 @@
 *   **Réglage de la taille de la police :** Fonctionnel.
 *   **Défilement (Scroll) :** Fonctionnel.
 *   **Analyse de Cohérence (Projet) :** Fonctionnel.
-*   **Analyse de Contenu (Chapitre) :** **Fonctionnel.** La fonctionnalité est maintenant opérationnelle de bout en bout.
+*   **Analyse de Contenu (Chapitre) :** Fonctionnel.
+*   **Formatage du contenu IA :** **Résolu.** La logique d'insertion a été refactorisée pour imiter le comportement du collage, assurant une création de paragraphes plus fiable.
 *   **Stabilité Générale :** L'application est dans un état stable.
 
 ## Ce qui Reste à Construire / Améliorer
 
-*   **Formatage du contenu IA :** La gestion des sauts de ligne simples (`<br>`) lors de l'insertion de texte généré par l'IA n'est pas encore implémentée.
 *   **Fonctionnalités futures :** Reprendre le développement des fonctionnalités prévues au `projectbrief.md`.
 
 ## Évolution des Décisions
 
-### Session 16 Juin (Après-midi)
-*   **Objectif :** Résoudre la chaîne de bugs bloquant l'analyse de contenu.
+### Session 17 Juin (Matin)
+*   **Objectif :** Résoudre le problème de formatage du texte généré par l'IA qui ne créait pas de paragraphes.
 *   **Actions Clés :**
-    1.  **Backend :** Correction du parsing JSON pour gérer les blocs de code et les réponses tronquées.
-    2.  **Frontend :** Correction d'un avertissement Vue bloquant dans le dialogue d'analyse (`sortOptions`).
-    3.  **Frontend :** Connexion complète du flux d'événements pour l'application des suggestions, de `ChapterAnalysisDialog` à `EditorComponent` en passant par `ProjectManager` et `App.vue`.
-    4.  **Frontend :** Modification de la logique d'application des suggestions pour se baser sur la recherche de texte plutôt que sur des index invalides.
-*   **Résultat :** **SUCCÈS.** La fonctionnalité d'analyse de contenu est entièrement réparée et fonctionnelle.
-
-### Session 16 Juin (Matin)
-*   **Objectif :** Corriger une série de bugs sur la fonctionnalité d'analyse de chapitre.
-*   **Résultat :** La fonctionnalité restait boguée à la fin de la session. Le bug final identifié était une logique de parsing JSON inadéquate.
-
-### Session 15 Juin (Matin)
-*   **Objectif :** Ajouter un réglage de taille de police et corriger les bugs induits.
-*   **Résultat :** Fonctionnalité livrée et bugs de régression majeurs corrigés.
+    1.  **Investigation :** Découverte que la logique de formatage HTML existante était insuffisante. L'indice clé était que le copier-coller manuel fonctionnait correctement.
+    2.  **Refactorisation (Étape 1) :** Création d'une fonction centralisée `insertTextAsParagraphs` dans `useTiptapEditor.js`, qui imite la logique robuste du `handlePaste` (création de paragraphes ligne par ligne).
+    3.  **Refactorisation (Étape 2) :** Modification de `useAIActions.js` pour qu'il utilise la nouvelle fonction d'insertion via une injection de dépendance, le rendant plus modulaire.
+    4.  **Intégration :** Mise à jour de `EditorComponent.vue` pour connecter les deux composables.
+*   **Résultat :** **SUCCÈS.** Le formatage est nettement amélioré et la solution est jugée satisfaisante pour l'instant.
 
 ### Sessions Antérieures
-*   Focalisées sur la réparation de régressions et la stabilisation des fonctionnalités de base.
+*   Voir archives.

@@ -1,31 +1,27 @@
-# Contexte Actif - CyberPlume (Mise à jour : 16/06/2025 - 14:55)
+# Contexte Actif - CyberPlume (Mise à jour : 17/06/2025 - 10:27)
 
 ## Objectif de la Session
-
-*   **Objectif Principal :** Finaliser la correction de la fonctionnalité d'analyse de contenu par chapitre, qui était non-opérationnelle à la suite d'une série de bugs en cascade (backend et frontend).
+*   **Objectif Principal :** Résoudre le problème de formatage du texte généré par l'IA.
 
 ## Actions Réalisées durant la Session
+La session s'est concentrée sur la résolution du problème des sauts de ligne non respectés lors de l'insertion de texte par l'IA.
 
-La session s'est concentrée sur la résolution d'une chaîne de bugs qui empêchaient la fonctionnalité de fonctionner de bout en bout.
-
-1.  **Correction #1 (Backend - Parsing JSON) :** La logique d'extraction du JSON dans `backend/routers/analysis.py` a été renforcée pour gérer les réponses de l'IA enveloppées dans des blocs de code Markdown (ex: ` ```json ... ``` `).
-2.  **Correction #2 (Backend - Robustesse Parsing) :** Une logique de réparation a été ajoutée pour gérer les cas où la réponse JSON de l'IA est tronquée (coupée avant la fin), en trouvant le dernier objet JSON complet.
-3.  **Correction #3 (Frontend - Déclaration manquante) :** La variable `sortOptions` a été déclarée dans `frontend/src/components/dialogs/ChapterAnalysisDialog.vue` pour corriger un avertissement Vue qui bloquait l'interactivité.
-4.  **Correction #4 (Frontend - Plomberie de l'événement) :** Le flux d'application des suggestions a été entièrement connecté :
-    *   **`useTiptapEditor.js` :** Ajout d'une fonction `applySuggestion` pour remplacer le texte dans l'éditeur.
-    *   **`EditorComponent.vue` :** Exposition de la fonction `applySuggestion` à son parent.
-    *   **`App.vue` :** Correction de la fonction `handleApplySuggestionToEditor` pour qu'elle appelle correctement la méthode de l'éditeur.
-    *   **`ProjectManager.vue` :** Implémentation de la logique pour émettre l'événement vers `App.vue` lors du clic sur "Appliquer".
-5.  **Correction #5 (Frontend - Logique d'application) :** La méthode `applySuggestion` dans `useTiptapEditor.js` a été modifiée pour ne plus se baser sur les index (non fiables) mais sur la recherche et le remplacement du texte original de la suggestion.
+1.  **Investigation Initiale :** Une première analyse a révélé que le code tentait déjà de formater le texte en HTML, mais de manière trop simpliste.
+2.  **Feedback Utilisateur :** L'utilisateur a confirmé que le problème persistait et a fourni un indice crucial : le copier-coller manuel fonctionnait.
+3.  **Analyse Approfondie :** La logique de `handlePaste` dans `useTiptapEditor.js` a été identifiée comme étant plus robuste.
+4.  **Refactorisation :**
+    *   Une nouvelle fonction `insertTextAsParagraphs` a été créée dans `useTiptapEditor.js` pour centraliser la logique d'insertion ligne par ligne.
+    *   Le composable `useAIActions.js` a été modifié pour ne plus formater le texte lui-même, mais pour appeler la nouvelle fonction d'insertion via une dépendance passée par `EditorComponent.vue`.
+    *   `EditorComponent.vue` a été mis à jour pour orchestrer la communication entre les deux composables.
 
 ## État Actuel à la Fin de la Session
-
 *   **Ce qui fonctionne :**
-    *   La fonctionnalité "Analyse de Contenu" pour un chapitre est maintenant **entièrement opérationnelle**.
-    *   L'utilisateur peut lancer une analyse, voir les suggestions, les filtrer, les trier et les appliquer correctement dans l'éditeur.
-*   **Problèmes Connus :** Aucun problème connu sur cette fonctionnalité.
+    *   Le formatage du texte IA est grandement amélioré et la solution est considérée comme satisfaisante.
+*   **Problèmes Connus :**
+    *   L'espacement des paragraphes générés peut sembler large, mais ce n'est pas considéré comme un bug bloquant.
+*   **Apprentissages & Patrons :**
+    *   Pour les manipulations complexes de l'éditeur TipTap, il est plus fiable d'utiliser des transactions (`tr`) et d'opérer sur le texte brut ligne par ligne, plutôt que de construire et d'insérer de grandes chaînes HTML.
 
 ## Prochaines Étapes
-
-*   Consulter le `projectbrief.md` pour identifier la prochaine fonctionnalité à développer ou le prochain point à améliorer.
-*   S'attaquer au formatage du contenu IA (gestion des `<br>`), comme mentionné dans `progress.md`.
+*   La session est terminée.
+*   Consulter le `projectbrief.md` pour la prochaine session de travail.

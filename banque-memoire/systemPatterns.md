@@ -1,4 +1,4 @@
-# Patrons Système - CyberPlume (Mise à jour : 05/06/2025 - 09:50)
+# Patrons Système - CyberPlume (Mise à jour : 17/06/2025 - 10:27)
 
 ## Architecture Générale
 
@@ -117,5 +117,10 @@ cyberplume/
 *   **Analyse de Cohérence (Projet) :** Frontend demande `/projects/{id}/analyze-coherence` -> Backend (routeur d'analyse -> utilise `spaCy` et logique interne).
 *   **Export Projet/Chapitre :** Frontend (ex: `ProjectToolbar`) demande `/export/project/{project_id}?format=docx` -> Backend (routeur d'export -> service d'export spécifique au format) -> Fichier téléchargé.
 *   **Gestion des Clés API (Interface) :** Frontend ([`frontend/src/components/ApiKeysManager.vue`](frontend/src/components/ApiKeysManager.vue:0)) interagit avec les endpoints `/api-keys-config/*` -> Backend (`routers/api_keys_config.py`) -> DB (pour sauvegarde/lecture des clés chiffrées).
+
+## Patrons de Méta-Fonctionnement (Règles pour Roo)
+
+### Mise à Jour de la Banque de Mémoire
+*   **Règle (définie le 17/06/2025) :** La mise à jour de la banque de mémoire ne doit être effectuée **que sur demande explicite de l'utilisateur** (par exemple, via la commande "mettre à jour la banque de mémoire"). Les mises à jour automatiques après des changements significatifs ou la découverte de nouveaux patrons sont désactivées.
 
 *Ce document est basé sur l'architecture et la structure décrites dans `docs/plan-cyber-plume.md` et inférées de la structure de code existante et des sessions de développement récentes.*

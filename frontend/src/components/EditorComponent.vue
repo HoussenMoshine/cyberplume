@@ -202,12 +202,11 @@
         :color="snackbarColor"
         :timeout="snackbarTimeout"
         location="bottom right"
-        variant="tonal"
       >
         {{ snackbarMessage }}
         <template v-slot:actions>
-          <v-btn icon @click="isSnackbarVisible = false">
-            <IconX />
+          <v-btn color="white" variant="text" @click="isSnackbarVisible = false">
+            Fermer
           </v-btn>
         </template>
       </v-snackbar>
@@ -242,7 +241,7 @@ const {
   snackbarTimeout 
 } = useSnackbar();
 
-const { editor, initializeEditor, destroyEditor, applySuggestion } = useTiptapEditor();
+const { editor, initializeEditor, destroyEditor, applySuggestion, insertAIText } = useTiptapEditor();
 
 const { 
   isLoading, isSaving, loadingError, savingError, 
@@ -269,12 +268,12 @@ const selectedAiParams = ref({
 
 const {
   isAIGenerating,
-  aiGenerationError,
-  currentAIAction,
+  generationError: aiGenerationError, // Renommé pour éviter conflit
+  currentAction: currentAIAction, // Renommé pour éviter conflit
   suggestions,
-  triggerAIAction, // Renamed for clarity
+  triggerAIAction,
   cancelCurrentAction,
-} = useAIActions(editor, selectedAiParams, ref(null)); // Pass correct refs
+} = useAIActions(editor, selectedAiParams, ref(null), insertAIText); // Passer la fonction ici
 
 // --- Computed Properties ---
 const hasUnsavedChanges = computed(() => {
@@ -286,7 +285,6 @@ const hasUnsavedChanges = computed(() => {
 });
 
 // --- AI Action Triggers ---
-// Wrapper functions to call triggerAIAction with the correct action name
 const triggerContinue = () => triggerAIAction('continue');
 const triggerSuggest = () => triggerAIAction('suggest');
 const triggerDialogue = () => triggerAIAction('dialogue');
@@ -342,7 +340,6 @@ async function saveChapter(isManualSave = false) {
 
   const currentContent = editor.value.getHTML();
   
-  // Sauvegarde seulement si c'est manuel ou s'il y a des changements
   if (!isManualSave && !hasUnsavedChanges.value) {
       return true;
   }
@@ -388,8 +385,6 @@ function handleModelSelection(settings) {
 
 async function handleRefreshSummary() {
     if (!localChapterId.value) return;
-    // Pour l'instant, on recharge simplement les données du chapitre.
-    // Une future version pourrait appeler un endpoint de régénération.
     await loadChapter(localChapterId.value);
     displaySnackbar('Résumé rafraîchi.', 'info');
 }
@@ -414,65 +409,50 @@ defineExpose({
 
 <style lang="scss">
 .editor-component-wrapper {
-  position: relative;
   height: 100%;
   display: flex;
   flex-direction: column;
-
-  .v-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .v-row {
-    flex: 1;
-  }
 }
 
 .editor-wrapper {
-  border: 1px solid #dcdcdc;
+  border: 1px solid #ccc;
   border-radius: 4px;
-  padding: 1rem;
   background-color: #fff;
-  min-height: 400px;
+  color: #000;
+  height: 60vh; 
+  overflow-y: auto;
+  padding: 1rem;
   position: relative;
 
-  .ProseMirror {
-    min-height: 350px;
+  &.distraction-free-editor {
+    height: 100vh;
+    border: none;
+    border-radius: 0;
+    font-size: 1.2rem;
+    line-height: 1.8;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+}
+
+.tiptap-editor {
+  &:focus {
     outline: none;
   }
 }
 
-.distraction-free-editor {
-  border: none;
-  padding: 2rem;
-  margin: 0 auto;
-  max-width: 800px;
-  background-color: #fdfdfd;
-  min-height: 100vh;
-}
-
-.editor-toolbar {
-  border: 1px solid #dcdcdc;
-  border-radius: 4px;
-  .v-btn {
-    &.is-active {
-      background-color: rgba(var(--v-theme-primary), 0.1);
-      color: rgb(var(--v-theme-primary));
-    }
+.editor-toolbar .v-btn {
+  &.is-active {
+    background-color: rgba(var(--v-theme-primary), 0.2);
+    color: rgb(var(--v-theme-primary));
   }
 }
 
 .bubble-menu-style {
-  display: flex;
-  background-color: #2c3e50;
-  padding: 0.2rem;
-  border-radius: 0.5rem;
+  background-color: #333;
   color: white;
-
-  .v-btn {
-    color: white;
-  }
+  padding: 0.2rem;
+  border-radius: 5px;
+  display: flex;
 }
 </style>
