@@ -1,26 +1,29 @@
-# Contexte Actif - CyberPlume (Mise à jour : 17/06/2025 - 10:27)
+# Contexte Actif - CyberPlume (Mise à jour : 17/06/2025 - 14:58)
 
 ## Objectif de la Session
-*   **Objectif Principal :** Résoudre le problème de formatage du texte généré par l'IA.
+*   **Objectif Principal :** Améliorer la fonctionnalité de génération d'idées de scènes.
 
 ## Actions Réalisées durant la Session
-La session s'est concentrée sur la résolution du problème des sauts de ligne non respectés lors de l'insertion de texte par l'IA.
+La session s'est concentrée sur plusieurs améliorations de l'interface et de la logique de génération d'idées de scènes.
 
-1.  **Investigation Initiale :** Une première analyse a révélé que le code tentait déjà de formater le texte en HTML, mais de manière trop simpliste.
-2.  **Feedback Utilisateur :** L'utilisateur a confirmé que le problème persistait et a fourni un indice crucial : le copier-coller manuel fonctionnait.
-3.  **Analyse Approfondie :** La logique de `handlePaste` dans `useTiptapEditor.js` a été identifiée comme étant plus robuste.
-4.  **Refactorisation :**
-    *   Une nouvelle fonction `insertTextAsParagraphs` a été créée dans `useTiptapEditor.js` pour centraliser la logique d'insertion ligne par ligne.
-    *   Le composable `useAIActions.js` a été modifié pour ne plus formater le texte lui-même, mais pour appeler la nouvelle fonction d'insertion via une dépendance passée par `EditorComponent.vue`.
-    *   `EditorComponent.vue` a été mis à jour pour orchestrer la communication entre les deux composables.
+1.  **Analyse & Planification :** Investigation des fichiers frontend (`GenerateSceneIdeasDialog.vue`) et backend (`ideas.py`) pour localiser les points de modification. Un plan d'action a été créé et validé.
+2.  **Modification des Styles d'Écriture :** La liste des styles disponibles a été mise à jour dans `GenerateSceneIdeasDialog.vue` pour inclure "Adulte" et "Langage cru".
+3.  **Ajustement des Paramètres par Défaut :** Le nombre d'idées à générer par défaut a été changé de 3 à 1.
+4.  **Amélioration du Prompt Backend :** Le prompt envoyé à l'IA a été enrichi dans `backend/routers/ideas.py` pour demander des scènes plus longues et détaillées.
+5.  **Correction Itérative de l'Affichage :**
+    *   Une première tentative d'amélioration de l'affichage via CSS a été faite.
+    *   **Feedback Utilisateur :** L'utilisateur a signalé que le texte était toujours coupé.
+    *   Plusieurs tentatives de correction des styles CSS se sont avérées infructueuses, aggravant même le problème à un moment.
+    *   **Solution Finale :** Remplacement du composant `v-list-item-subtitle` par une `div` standard pour contourner les styles restrictifs de Vuetify et garantir un affichage correct du contenu complet.
 
 ## État Actuel à la Fin de la Session
 *   **Ce qui fonctionne :**
-    *   Le formatage du texte IA est grandement amélioré et la solution est considérée comme satisfaisante.
+    *   La fonctionnalité "Générer des Idées de Scènes" est maintenant améliorée et fonctionne comme souhaité.
+    *   Les styles d'écriture sont corrects, le nombre par défaut est de 1, les scènes sont plus longues et l'affichage ne coupe plus le texte.
 *   **Problèmes Connus :**
-    *   L'espacement des paragraphes générés peut sembler large, mais ce n'est pas considéré comme un bug bloquant.
+    *   Aucun nouveau problème identifié.
 *   **Apprentissages & Patrons :**
-    *   Pour les manipulations complexes de l'éditeur TipTap, il est plus fiable d'utiliser des transactions (`tr`) et d'opérer sur le texte brut ligne par ligne, plutôt que de construire et d'insérer de grandes chaînes HTML.
+    *   Les composants Vuetify comme `v-list-item-subtitle` peuvent avoir des styles internes qui entrent en conflit avec des surcharges CSS. Pour un contrôle total de l'affichage de contenu dynamique, utiliser un élément HTML de base (comme une `div`) peut être une solution plus robuste.
 
 ## Prochaines Étapes
 *   La session est terminée.

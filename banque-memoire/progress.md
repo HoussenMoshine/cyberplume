@@ -1,4 +1,4 @@
-# Progression - CyberPlume (Mise à jour : 17/06/2025 - 10:27)
+# Progression - CyberPlume (Mise à jour : 17/06/2025 - 14:59)
 
 ## Ce qui Fonctionne (État Actuel)
 
@@ -15,6 +15,7 @@
 *   **Analyse de Cohérence (Projet) :** Fonctionnel.
 *   **Analyse de Contenu (Chapitre) :** Fonctionnel.
 *   **Formatage du contenu IA :** **Résolu.** La logique d'insertion a été refactorisée pour imiter le comportement du collage, assurant une création de paragraphes plus fiable.
+*   **Génération d'Idées de Scènes :** **Amélioré.** L'interface a été mise à jour (styles d'écriture, nombre par défaut) et l'affichage du texte généré est maintenant correct et complet. Le prompt a été amélioré pour des scènes plus longues.
 *   **Stabilité Générale :** L'application est dans un état stable.
 
 ## Ce qui Reste à Construire / Améliorer
@@ -22,6 +23,17 @@
 *   **Fonctionnalités futures :** Reprendre le développement des fonctionnalités prévues au `projectbrief.md`.
 
 ## Évolution des Décisions
+
+### Session 17 Juin (Après-midi)
+*   **Objectif :** Améliorer la fonctionnalité de génération d'idées de scènes.
+*   **Actions Clés :**
+    1.  **Planification :** Analyse des fichiers frontend et backend pour définir un plan d'action.
+    2.  **Améliorations Fonctionnelles :**
+        *   Mise à jour des styles d'écriture disponibles.
+        *   Changement du nombre d'idées générées par défaut à 1.
+        *   Modification du prompt backend pour demander des scènes plus longues.
+    3.  **Correction d'Affichage (Itérative) :** Après plusieurs tentatives infructueuses pour corriger un problème de texte coupé avec CSS, la solution finale a été de remplacer le composant `v-list-item-subtitle` par une `div` standard pour garantir un affichage correct.
+*   **Résultat :** **SUCCÈS.** La fonctionnalité est maintenant conforme aux attentes.
 
 ### Session 17 Juin (Matin)
 *   **Objectif :** Résoudre le problème de formatage du texte généré par l'IA qui ne créait pas de paragraphes.

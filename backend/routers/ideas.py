@@ -51,7 +51,7 @@ async def generate_scene_ideas(
 
         # Construire un prompt détaillé pour le service IA
         prompt_parts = [
-            f"Génère des idées de scènes pour une histoire.",
+            f"Génère des idées de scènes pour une histoire. Chaque idée doit être une description riche et détaillée d'au moins 50 mots, fournissant une base solide pour l'écriture.",
             f"Genre: {request_data.genre}",
             f"Thème principal: {request_data.main_theme}",
             f"Éléments clés à inclure: {', '.join(request_data.key_elements) if request_data.key_elements else 'Non spécifié'}",

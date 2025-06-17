@@ -179,7 +179,7 @@
               </v-alert>
               <div v-if="generatedIdeas.length > 0 && !isGenerating">
                 <h3 class="text-subtitle-1 mb-3">Idées Générées :</h3>
-                <v-list lines="three" density="compact">
+                <v-list density="compact">
                   <v-list-item
                     v-for="(idea, index) in generatedIdeas"
                     :key="index"
@@ -188,10 +188,10 @@
                     border
                   >
                     <v-list-item-title class="font-weight-bold mb-1">Idée #{{ index + 1 }}</v-list-item-title>
-                    <v-list-item-subtitle style="white-space: pre-wrap;">{{ idea }}</v-list-item-subtitle> <!-- Modifié: idea est maintenant une string -->
+                    <div class="idea-content">{{ idea }}</div>
                      <!-- Actions par idée, ex: copier -->
                     <template v-slot:append>
-                      <v-btn icon variant="text" density="compact" title="Copier l'idée" @click="copyIdeaText(idea)"> <!-- Modifié: utilise copyIdeaText et passe la string idea -->
+                      <v-btn icon variant="text" density="compact" title="Copier l'idée" @click="copyIdeaText(idea)">
                         <IconCopy size="18" />
                       </v-btn>
                     </template>
@@ -246,10 +246,16 @@ const providerInfo = {
   openrouter: { title: 'OpenRouter', description: 'Accès unifié à plusieurs modèles' },
 };
 const writingStyles = [
-  { text: 'Normal', value: 'normal' }, { text: 'Formel', value: 'formel' },
-  { text: 'Créatif', value: 'creatif' }, { text: 'Technique', value: 'technique' },
-  { text: 'Humoristique', value: 'humoristique' }, { text: 'Poétique', value: 'poetique' },
-  { text: 'Sombre', value: 'sombre' }, { text: 'Épique', value: 'epique' },
+  { text: 'Normal', value: 'normal' },
+  { text: 'Adulte', value: 'adulte' },
+  { text: 'Langage cru', value: 'langage_cru' },
+  { text: 'Formel', value: 'formel' },
+  { text: 'Créatif', value: 'creatif' },
+  { text: 'Technique', value: 'technique' },
+  { text: 'Humoristique', value: 'humoristique' },
+  { text: 'Poétique', value: 'poetique' },
+  { text: 'Sombre', value: 'sombre' },
+  { text: 'Épique', value: 'epique' },
 ];
 
 const providers = ref(Object.entries(providerInfo).map(([value, info]) => ({ ...info, value })));
@@ -277,7 +283,7 @@ const generationParams = reactive({
   involvedCharacters: '',
   mood: '',
   keyElements: '',
-  numberOfIdeas: 3,
+  numberOfIdeas: 1,
   // Nouveaux champs pour correspondre à SceneIdeaRequest
   genre: '',
   mainTheme: '',
@@ -387,7 +393,7 @@ const submitGeneration = async () => {
     key_elements: generationParams.keyElements ? generationParams.keyElements.split(',').map(s => s.trim()).filter(s => s) : [],
     writing_style: selectedStyle.value,
     tone: generationParams.mood || null, // 'mood' du form correspond à 'tone' pour l'API
-    number_of_ideas: parseInt(generationParams.numberOfIdeas, 10) || 3,
+    number_of_ideas: parseInt(generationParams.numberOfIdeas, 10) || 1,
     story_context: generationParams.projectContext,
     temperature: parseFloat(generationParams.temperature) || 0.7,
     // Inclure d'autres champs si nécessaire, ex: sceneType, involvedCharacters
@@ -435,5 +441,11 @@ watch(() => props.modelValue, (newValue) => {
   padding: 20px;
   border-radius: inherit; /* Hérite du radius de la v-card */
 }
-/* Autres styles si nécessaire */
+.idea-content {
+  white-space: pre-wrap;
+  font-weight: 600;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: rgba(var(--v-theme-on-surface), 0.87);
+}
 </style>
