@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # Définir les répertoires source et destination
-SOURCE_DIR="/mnt/serveur/serveur/cyberplume"
+# La source est le dossier du script : fonctionne même si le dépôt est déplacé.
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+SOURCE_DIR="$SCRIPT_DIR"
 SAUVEGARDE_DIR="/mnt/serveur/serveur/cyberplume-sauvegarde"
 LOG_FILE="$HOME/cyberplume.log"
 

@@ -1,7 +1,9 @@
 #!/bin/bash
 
 # === Configuration par défaut ===
-DEFAULT_SOURCE_DIR="/mnt/serveur/serveur/cyberplume"
+# La source est le dossier du script : fonctionne même si le dépôt est déplacé.
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+DEFAULT_SOURCE_DIR="$SCRIPT_DIR"
 DEFAULT_SAUVEGARDE_DIR="/mnt/serveur/serveur/cyberplume-sauvegarde"
 DEFAULT_EXCLUDE_FILE="" # Chemin vers un fichier d'exclusions rsync
 
